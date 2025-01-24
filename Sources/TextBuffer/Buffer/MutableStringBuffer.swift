@@ -173,3 +173,7 @@ extension MutableStringBuffer: CustomStringConvertible {
         return result as String
     }
 }
+
+// Declaring same sendability conformance as the base `NSMutableString`.
+@available(*, unavailable)
+extension MutableStringBuffer: @unchecked Sendable {}
