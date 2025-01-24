@@ -7,7 +7,7 @@ public struct InvalidBufferStringRepresentation: Error {
     public let parts: [String]
 }
 
-/// Test helper to create ``MutableStringBuffer`` from a string that matches the `debugDescription` format of either `"text «with selection»"` or `"text ˇinsertion point"`.
+/// Test helper to create ``/TextBuffer/MutableStringBuffer`` from a string that matches the `debugDescription` format of either `"text «with selection»"` or `"text ˇinsertion point"`.
 /// - Throws: `InvalidBufferStringRepresentation` if `stringRepresentation` is malformed.
 @available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
 public func makeBuffer(_ stringRepresentation: String) throws -> MutableStringBuffer {

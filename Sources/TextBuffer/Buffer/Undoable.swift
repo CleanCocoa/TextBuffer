@@ -8,9 +8,7 @@ import Foundation
 ///
 /// All direct mutations are wrapped in `beginUndoGrouping()`/`endUndoGrouping()` calls, so any deletion's and insertion's inverse action is added to the undo stack.
 ///
-/// To group multiple buffer mutations in a single undo group, e.g. to delete parts of text in multiple places as one action, you can either
-/// - use the ``Modifying-struct`` command from the DSL, which wraps its mutations in an undo group when applied to an ``Undoable`` buffer, or
-/// - use the ``undoGrouping(actionName:undoingSelectionChanges:_:)`` function directly.
+/// To group multiple buffer mutations in a single undo group, e.g. to delete parts of text in multiple places as one action, you can use the ``undoGrouping(actionName:undoingSelectionChanges:_:)`` function directly.
 ///
 /// ## Caveats and Pitfalls
 ///

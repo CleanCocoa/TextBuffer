@@ -18,9 +18,7 @@ extension NSTextView {
 ///
 /// Mutations are performed on the ``textView``'s `NSTextStorage` directly and wrapped in `beginEditing()`/`endEditing()` calls to correctly process changes in `NSTextStorage.processEditing()`. This includes the standard behavior of attribute range fixing and interfacing with the `NSLayoutManager`.
 ///
-/// To group multiple buffer mutations as a single edit, e.g. to delete parts of text in multiple places as one action that coalesces attribute updates, you can either
-/// - use the ``Modifying-struct`` command from the DSL, which wraps its mutations in an editing group when applied to an ``NSTextViewBuffer``, or
-/// - use the ``wrapAsEditing(_:)`` function directly.
+/// To group multiple buffer mutations as a single edit, e.g. to delete parts of text in multiple places as one action that coalesces attribute updates, you can  use the ``wrapAsEditing(_:)`` function directly.
 open class NSTextViewBuffer: Buffer {
     public let textView: NSTextView
 

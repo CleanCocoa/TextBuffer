@@ -74,7 +74,7 @@ public protocol Buffer: AnyObject {
 
     /// Deletes content from `deletedRange`.
     ///
-    /// Deletion does not move the typing location of ``selectedRange`` to `deletedRange` in the process, but deleting from before ``insertionLocation-4ey6j`` will move the insertion further towards the beginning of the text.
+    /// Deletion does not move the typing location of ``selectedRange`` to `deletedRange` in the process, but deleting from before ``insertionLocation`` will move the insertion further towards the beginning of the text.
     ///
     /// - Throws: ``BufferAccessFailure`` if `deletedRange` exceeds ``range``.
     func delete(in deletedRange: Range) throws
