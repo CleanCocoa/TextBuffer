@@ -85,6 +85,12 @@ open class NSTextViewBuffer: Buffer {
             )
         }
 
+        let selectedRange = self.selectedRange
+        defer {
+            textView.setSelectedRange(selectedRange
+                .shifted(by: location <= selectedRange.location ? length(of: content) : 0))
+        }
+
         wrapAsEditing {
             textView.nsMutableString.insert(content, at: location)
         }
@@ -97,6 +103,11 @@ open class NSTextViewBuffer: Buffer {
                 requested: deletedRange,
                 available: self.range
             )
+        }
+
+        let selectedRange = self.selectedRange
+        defer {
+            textView.setSelectedRange(selectedRange.subtracting(deletedRange))
         }
 
         wrapAsEditing {

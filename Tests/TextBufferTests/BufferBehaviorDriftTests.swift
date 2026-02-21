@@ -27,13 +27,12 @@ final class BufferBehaviorDriftTests: XCTestCase {
     // MARK: - Initial Insertion Point
 
     func testInitialInsertionPoint_Diverges() {
-        XCTExpectFailure("MutableStringBuffer starts at 0, NSTextViewBuffer starts at end")
         let inMemory = MutableStringBuffer("hello")
         let onScreen = textView("hello")
-        XCTAssertEqual(
-            inMemory.insertionLocation, onScreen.insertionLocation,
-            "MutableStringBuffer starts at \(inMemory.insertionLocation), NSTextViewBuffer starts at \(onScreen.insertionLocation)"
-        )
+        // Intentionally different defaults: MutableStringBuffer is for programmatic
+        // use (start at beginning), NSTextView is for user-facing editing (start at end).
+        XCTAssertEqual(inMemory.insertionLocation, 0, "MutableStringBuffer starts at beginning")
+        XCTAssertEqual(onScreen.insertionLocation, 5, "NSTextViewBuffer starts at end")
     }
 
     // MARK: - Insert at Location: Selection Adjustment
@@ -74,7 +73,6 @@ final class BufferBehaviorDriftTests: XCTestCase {
     }
 
     func testInsert_WithinSelection() throws {
-        XCTExpectFailure("NSTextView collapses selection when text is inserted within it")
         let pair = try bufferPair("012«3456»789")
         try pair.inMemory.insert("XX", at: 5)
         try pair.onScreen.insert("XX", at: 5)
@@ -119,7 +117,6 @@ final class BufferBehaviorDriftTests: XCTestCase {
     }
 
     func testDelete_WithinSelection() throws {
-        XCTExpectFailure("NSTextView collapses selection when text is deleted within it")
         let pair = try bufferPair("01«234567»89")
         try pair.inMemory.delete(in: .init(location: 4, length: 2))
         try pair.onScreen.delete(in: .init(location: 4, length: 2))
@@ -127,7 +124,6 @@ final class BufferBehaviorDriftTests: XCTestCase {
     }
 
     func testDelete_OverlappingSelectionStart() throws {
-        XCTExpectFailure("NSTextView collapses selection when delete overlaps selection start")
         let pair = try bufferPair("0123«456»789")
         try pair.inMemory.delete(in: .init(location: 2, length: 4))
         try pair.onScreen.delete(in: .init(location: 2, length: 4))
@@ -135,7 +131,6 @@ final class BufferBehaviorDriftTests: XCTestCase {
     }
 
     func testDelete_OverlappingSelectionEnd() throws {
-        XCTExpectFailure("NSTextView collapses selection when delete overlaps selection end")
         let pair = try bufferPair("0123«456»789")
         try pair.inMemory.delete(in: .init(location: 5, length: 4))
         try pair.onScreen.delete(in: .init(location: 5, length: 4))
@@ -173,7 +168,6 @@ final class BufferBehaviorDriftTests: XCTestCase {
     // MARK: - Sequential Operations (Drift Accumulation)
 
     func testSequentialInserts_DriftAccumulation() throws {
-        XCTExpectFailure("Drift accumulates across sequential inserts within/around selection")
         let pair = try bufferPair("abc«defg»hij")
 
         try pair.inMemory.insert("1", at: 1)
@@ -189,7 +183,6 @@ final class BufferBehaviorDriftTests: XCTestCase {
     }
 
     func testMixedInsertDelete_DriftAccumulation() throws {
-        XCTExpectFailure("Drift accumulates across mixed insert/delete operations")
         let pair = try bufferPair("hello «world» test")
 
         try pair.inMemory.insert("XX", at: 3)

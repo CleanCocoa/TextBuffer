@@ -37,7 +37,7 @@ public final class MutableStringBuffer: Buffer {
 
     /// Create a new `NSMutableString`-backed buffer based on `content`.
     ///
-    /// > Invariant: The insertion point starts at the beginning of the buffer.
+    /// > Invariant: The insertion point starts at the beginning of the buffer. This differs from `NSTextView`, which places the insertion point at the end when setting its string. The beginning-of-buffer default is intentional: ``MutableStringBuffer`` is designed for programmatic manipulation where processing typically starts from the beginning, not for user-facing editing where appending is the common case.
     public convenience init(_ content: Buffer.Content) {
         self.init(
             storage: NSMutableString(string: content),
