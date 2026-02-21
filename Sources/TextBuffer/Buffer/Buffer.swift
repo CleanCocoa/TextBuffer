@@ -1,7 +1,12 @@
 //  Copyright © 2024 Christian Tietze. All rights reserved. Distributed under the MIT License.
 
-/// A text buffer contains UTF16 characters.
-public protocol Buffer: AsyncBuffer {
+/// Synchronous refinement of ``AsyncBuffer``, the primary protocol for text buffer operations.
+///
+/// Concrete conformers include ``MutableStringBuffer`` (in-memory) and ``NSTextViewBuffer`` (AppKit-backed).
+/// The primary associated type `Location` determines the index representation.
+public protocol Buffer<Location>: AsyncBuffer {
+    /// The full text content of the buffer.
+
     var content: Content { get }
 
     /// Full range of ``content``.
@@ -23,7 +28,7 @@ public protocol Buffer: AsyncBuffer {
 
     /// Expanded `searchRange` to cover whole lines. Chained calls returns the same line range, i.e. does not expand line by line.
     ///
-    /// Quoting from `Foundation.NSString.lineRange(for:)` (as of 2024-06-04, Xcode 15.4):
+    /// Quoting from `Foundation.NSString.lineRange(for:)` (as of 2024-06-04, Xcode 15.4):
     ///
     /// > NSString: A line is delimited by any of these characters, the longest possible sequence being preferred to any shorter:
     /// >
@@ -33,19 +38,19 @@ public protocol Buffer: AsyncBuffer {
     /// > - `U+2028` Unicode Character 'LINE SEPARATOR'
     /// > - `U+2029` Unicode Character 'PARAGRAPH SEPARATOR'
     /// > - `\r\n`, in that order (also known as `CRLF`)
-    func lineRange(for searchRange: Range) throws -> Range
+    func lineRange(for searchRange: Range) throws(BufferAccessFailure) -> Range
 
     /// Expanded `baseRange` to cover whole words. Chained calls returns the same word range, i.e. does not expand word by word.
     /// - Throws: ``BufferAccessFailure`` if `subrange` exceeds ``range``.
-    func wordRange(for searchRange: Range) throws -> Range
+    func wordRange(for searchRange: Range) throws(BufferAccessFailure) -> Range
 
     /// - Returns: A character-wide slice of ``content`` at `location`.
     /// - Throws: ``BufferAccessFailure`` if `location` exceeds ``range``.
-    func character(at location: Location) throws -> Content
+    func character(at location: Location) throws(BufferAccessFailure) -> Content
 
     /// - Returns: A slice of ``content`` in `range`.
     /// - Throws: ``BufferAccessFailure`` if `subrange` exceeds ``range``.
-    func content(in subrange: Buffer.Range) throws -> Content
+    func content(in subrange: Range) throws(BufferAccessFailure) -> Content
 
     /// Returns a character-wide slice of ``content`` at `location`.
     ///
@@ -57,7 +62,7 @@ public protocol Buffer: AsyncBuffer {
     /// Inserts `content` at `location` into the buffer, not affecting the typing location of ``selectedRange`` in the process.
     ///
     /// - Throws: ``BufferAccessFailure`` if `location` exceeds ``range``.
-    func insert(_ content: Content, at location: Location) throws
+    func insert(_ content: Content, at location: Location) throws(BufferAccessFailure)
 
     /// Inserts `content` like typing at the current typing location of ``selectedRange``.
     ///
@@ -65,22 +70,22 @@ public protocol Buffer: AsyncBuffer {
     ///
     /// - inserting text at the insertion point moves the insertion point by `length(of: content)`,
     /// - replacing text moves the insertion point to the end of the inserted text (exiting the selection mode).
-    func insert(_ content: Content) throws
+    func insert(_ content: Content) throws(BufferAccessFailure)
 
     /// Deletes content from `deletedRange`.
     ///
     /// Deletion does not move the typing location of ``selectedRange`` to `deletedRange` in the process, but deleting from before ``insertionLocation`` will move the insertion further towards the beginning of the text.
     ///
     /// - Throws: ``BufferAccessFailure`` if `deletedRange` exceeds ``range``.
-    func delete(in deletedRange: Range) throws
+    func delete(in deletedRange: Range) throws(BufferAccessFailure)
 
     /// - Throws: ``BufferAccessFailure`` if `replacementRange` exceeds ``range``.
-    func replace(range replacementRange: Range, with content: Content) throws
+    func replace(range replacementRange: Range, with content: Content) throws(BufferAccessFailure)
 
     /// Wrapping changes inside `block` in a modification request to bundle updates.
     ///
     /// - Throws: ``BufferAccessFailure`` if changes to `affectedRange` are not permitted.
-    func modifying<T>(affectedRange: Range, _ block: () -> T) throws -> T
+    func modifying<T>(affectedRange: Range, _ block: () -> T) throws(BufferAccessFailure) -> T
 }
 
 import Foundation // For inlining isSelectingText as long as Buffer.Range is a typealias
@@ -92,7 +97,7 @@ extension Buffer {
     @inlinable @inline(__always)
     public var insertionLocation: Location {
         get { selectedRange.location }
-        set { selectedRange = Buffer.Range(location: newValue, length: 0) }
+        set { selectedRange = Range(location: newValue, length: 0) }
     }
 
     @inlinable @inline(__always)
@@ -101,12 +106,12 @@ extension Buffer {
     }
 
     @inlinable @inline(__always)
-    public func insert(_ content: Content) throws {
+    public func insert(_ content: Content) throws(BufferAccessFailure) {
         try replace(range: selectedRange, with: content)
     }
 
     @inlinable @inline(__always)
-    public func character(at location: Location) throws -> Content {
+    public func character(at location: Location) throws(BufferAccessFailure) -> Content {
         return try content(in: .init(location: location, length: 1))
     }
 

@@ -19,10 +19,10 @@ public func makeBuffer(_ stringRepresentation: String) throws -> MutableStringBu
 /// Test helper to replace `buffer`'s content and selection that matches the `debugDescription` format of either `"text «with selection»"` or `"text ˇinsertion point"`.
 /// - Throws: `InvalidBufferStringRepresentation` if `stringRepresentation` is malformed, `BufferAccessFailure` when changing `buffer` doesn't work.
 @available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
-public func change(
-    buffer: any Buffer,
+public func change<B: Buffer>(
+    buffer: B,
     to stringRepresentation: String
-) throws {
+) throws where B.Range == UTF16Range, B.Location == UTF16Offset {
     /// Indices:
     /// - `0`: text before
     /// - `1`: text inside
@@ -33,7 +33,7 @@ public func change(
 
     if selectionParts.count == 3 {
         try buffer.replace(range: buffer.range, with: selectionParts.joined(separator: ""))
-        buffer.selectedRange = .init(
+        buffer.selectedRange = UTF16Range(
             location: length(of: selectionParts[0]),
             length: length(of: selectionParts[1])
         )
@@ -51,7 +51,7 @@ public func change(
         .map { String($0) }
     try buffer.replace(range: buffer.range, with: insertionPointParts.joined(separator: ""))
     if stringRepresentation.contains("ˇ") {
-        buffer.selectedRange = .init(
+        buffer.selectedRange = UTF16Range(
             location: length(of: insertionPointParts[0]),
             length: 0
         )

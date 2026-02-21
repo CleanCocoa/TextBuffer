@@ -1,6 +1,7 @@
 //  Copyright © 2024 Christian Tietze. All rights reserved. Distributed under the MIT License.
 
-public struct BufferAccessFailure: Error {
+/// Error thrown by ``Buffer`` operations when access would be out of range or a modification is forbidden.
+public struct BufferAccessFailure: Error, Sendable {
     public let label: String
     public let context: String?
     public let underlyingError: Error?
@@ -15,9 +16,10 @@ public struct BufferAccessFailure: Error {
         self.underlyingError = underlyingError
     }
 
+    /// Thrown when `requested` range falls outside the `available` buffer range.
     public static func outOfRange(
-        requested: Buffer.Range,
-        available: Buffer.Range
+        requested: UTF16Range,
+        available: UTF16Range
     ) -> BufferAccessFailure {
         return BufferAccessFailure(
             label: "out of range",
@@ -25,10 +27,11 @@ public struct BufferAccessFailure: Error {
         )
     }
 
+    /// Thrown when a single `location` (with optional `length`) falls outside the `available` buffer range.
     public static func outOfRange(
-        location: Buffer.Location,
-        length: Buffer.Length = 0,
-        available: Buffer.Range
+        location: UTF16Offset,
+        length: UTF16Length = 0,
+        available: UTF16Range
     ) -> BufferAccessFailure {
         return outOfRange(
             requested: .init(location: location, length: length),
@@ -36,8 +39,9 @@ public struct BufferAccessFailure: Error {
         )
     }
 
+    /// Thrown when a modification to `requestedRange` is rejected by the buffer (e.g., via `shouldChangeText`).
     public static func modificationForbidden(
-        in requestedRange: Buffer.Range
+        in requestedRange: UTF16Range
     ) -> BufferAccessFailure {
         BufferAccessFailure(
             label: "modification not allowed",
@@ -45,6 +49,7 @@ public struct BufferAccessFailure: Error {
         )
     }
 
+    /// Wraps any `Error` as a `BufferAccessFailure`, passing through existing `BufferAccessFailure` values unchanged.
     public static func wrap(_ error: any Error) -> BufferAccessFailure {
         return error as? BufferAccessFailure
           ?? BufferAccessFailure(

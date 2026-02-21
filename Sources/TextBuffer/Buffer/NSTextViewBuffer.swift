@@ -21,19 +21,22 @@ extension NSTextView {
 /// To group multiple buffer mutations as a single edit, e.g. to delete parts of text in multiple places as one action that coalesces attribute updates, you can  use the ``wrapAsEditing(_:)`` function directly.
 @MainActor
 open class NSTextViewBuffer: @MainActor Buffer {
+    public typealias Location = UTF16Offset
+    public typealias Range = UTF16Range
+
     public let textView: NSTextView
 
     @inlinable
-    open var selectedRange: Buffer.Range {
+    open var selectedRange: UTF16Range {
         get { textView.selectedRange }
         set { textView.selectedRange = newValue }
     }
 
     @inlinable
-    open var range: Buffer.Range { Buffer.Range(location: 0, length: textView.nsMutableString.length) }
+    open var range: UTF16Range { UTF16Range(location: 0, length: textView.nsMutableString.length) }
 
     @inlinable
-    open var content: Content { textView.nsMutableString as Buffer.Content }
+    open var content: String { textView.nsMutableString as String }
 
     /// Wraps `textView` as the target of all ``Buffer`` related actions.
     public init(textView: NSTextView) {
@@ -49,7 +52,7 @@ open class NSTextViewBuffer: @MainActor Buffer {
     }
 
     @inlinable
-    open func lineRange(for searchRange: Buffer.Range) throws -> Buffer.Range {
+    open func lineRange(for searchRange: UTF16Range) throws(BufferAccessFailure) -> UTF16Range {
         guard contains(range: searchRange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: searchRange,
@@ -60,7 +63,7 @@ open class NSTextViewBuffer: @MainActor Buffer {
     }
 
     @inlinable
-    open func content(in subrange: UTF16Range) throws -> Buffer.Content {
+    open func content(in subrange: UTF16Range) throws(BufferAccessFailure) -> String {
         guard contains(range: subrange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: subrange,
@@ -72,14 +75,14 @@ open class NSTextViewBuffer: @MainActor Buffer {
     }
 
     @inlinable
-    open func unsafeCharacter(at location: Buffer.Location) -> Buffer.Content {
+    open func unsafeCharacter(at location: UTF16Offset) -> String {
         // Raises an `NSExceptionName` of name `.rangeException` if `location` is out of bounds.
         return textView.nsMutableString.unsafeCharacter(at: location)
     }
 
     @inlinable
-    open func insert(_ content: Buffer.Content, at location: Location) throws {
-        guard contains(range: .init(location: location, length: 0)) else {
+    open func insert(_ content: String, at location: UTF16Offset) throws(BufferAccessFailure) {
+        guard contains(range: UTF16Range(location: location, length: 0)) else {
             throw BufferAccessFailure.outOfRange(
                 location: location,
                 available: self.range
@@ -98,7 +101,7 @@ open class NSTextViewBuffer: @MainActor Buffer {
     }
 
     @inlinable
-    open func delete(in deletedRange: Buffer.Range) throws {
+    open func delete(in deletedRange: UTF16Range) throws(BufferAccessFailure) {
         guard contains(range: deletedRange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: deletedRange,
@@ -117,7 +120,7 @@ open class NSTextViewBuffer: @MainActor Buffer {
     }
 
     @inlinable
-    open func replace(range replacementRange: Buffer.Range, with content: Buffer.Content) throws {
+    open func replace(range replacementRange: UTF16Range, with content: String) throws(BufferAccessFailure) {
         guard contains(range: replacementRange) else {
             throw BufferAccessFailure.outOfRange(requested: replacementRange, available: self.range)
         }
@@ -136,7 +139,7 @@ open class NSTextViewBuffer: @MainActor Buffer {
     }
 
     @inlinable
-    open func modifying<T>(affectedRange: Buffer.Range, _ block: () -> T) throws -> T {
+    open func modifying<T>(affectedRange: UTF16Range, _ block: () -> T) throws(BufferAccessFailure) -> T {
         guard textView.shouldChangeText(in: affectedRange, replacementString: nil) else {
             throw BufferAccessFailure.modificationForbidden(in: affectedRange)
         }

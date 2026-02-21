@@ -117,11 +117,15 @@ func computeWordRange(
     return resultRange
 }
 
-extension Buffer {
+extension Buffer where Range == UTF16Range {
+    /// Default word range computation for UTF-16-indexed buffers.
+    ///
+    /// Uses Foundation's character classification for word boundary detection.
+    /// Only available when `Range == UTF16Range`.
     @inlinable
     public func wordRange(
-        for baseRange: Buffer.Range
-    ) throws -> Buffer.Range {
+        for baseRange: Range
+    ) throws(BufferAccessFailure) -> Range {
         guard self.contains(range: baseRange)
         else { throw BufferAccessFailure.outOfRange(requested: baseRange, available: self.range) }
 
@@ -133,11 +137,11 @@ extension Buffer {
     }
 }
 
-extension AsyncBuffer {
+extension AsyncBuffer where Range == UTF16Range {
     @inlinable
     public func wordRange(
-        for baseRange: AsyncBuffer.Range
-    ) async throws -> AsyncBuffer.Range {
+        for baseRange: Range
+    ) async throws(BufferAccessFailure) -> Range {
         guard await self.contains(range: baseRange)
         else { throw BufferAccessFailure.outOfRange(requested: baseRange, available: await self.getRange()) }
 

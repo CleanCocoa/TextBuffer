@@ -179,9 +179,9 @@ extension BufferWordRangeTests {
 
     func testWordRange_InvalidInputRange() throws {
         let buffer = MutableStringBuffer("Lorem ipsum")
-        let expectedAvailableRange = Buffer.Range(location: 0, length: 11)
+        let expectedAvailableRange = UTF16Range(location: 0, length: 11)
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [UTF16Range] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),

@@ -44,7 +44,10 @@ import Foundation
 /// print(buffer) // => "Hello, World"
 /// ```
 @MainActor
-public final class Undoable<Base>: @MainActor Buffer where Base: Buffer {
+public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Range == UTF16Range, Base.Location == UTF16Offset {
+    public typealias Location = UTF16Offset
+    public typealias Range = UTF16Range
+
     private let base: Base
 
     public var content: Base.Content { base.content }
@@ -124,11 +127,11 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer {
         undoManager?.removeAllActions(withTarget: self)
     }
 
-    public func lineRange(for searchRange: Base.Range) throws -> Base.Range {
+    public func lineRange(for searchRange: Base.Range) throws(BufferAccessFailure) -> Base.Range {
         return try base.lineRange(for: searchRange)
     }
 
-    public func content(in range: UTF16Range) throws -> Base.Content {
+    public func content(in range: UTF16Range) throws(BufferAccessFailure) -> Base.Content {
         return try base.content(in: range)
     }
 
@@ -136,7 +139,7 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer {
         return base.unsafeCharacter(at: location)
     }
 
-    public func delete(in deletedRange: Base.Range) throws {
+    public func delete(in deletedRange: Base.Range) throws(BufferAccessFailure) {
         guard let undoManager
         else { preconditionFailure("Undoable buffer used without UndoManager") }
 
@@ -157,7 +160,7 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer {
         undoManager.endUndoGrouping()
     }
 
-    public func replace(range replacementRange: Base.Range, with content: Base.Content) throws {
+    public func replace(range replacementRange: Base.Range, with content: Base.Content) throws(BufferAccessFailure) {
         guard let undoManager
         else { preconditionFailure("Undoable buffer used without UndoManager") }
 
@@ -166,7 +169,7 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer {
 
         try base.replace(range: replacementRange, with: content)
 
-        let newRange = Buffer.Range(location: replacementRange.location, length: length(of: content))
+        let newRange = UTF16Range(location: replacementRange.location, length: length(of: content))
         undoManager.beginUndoGrouping()
         undoManager.registerUndo(withTarget: self) { undoableBuffer in
             try? undoableBuffer.replace(range: newRange, with: oldContent)
@@ -179,7 +182,7 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer {
         undoManager.endUndoGrouping()
     }
 
-    public func insert(_ content: Base.Content, at location: Base.Location) throws {
+    public func insert(_ content: Base.Content, at location: Base.Location) throws(BufferAccessFailure) {
         guard let undoManager
         else { preconditionFailure("Undoable buffer used without UndoManager") }
 
@@ -187,7 +190,7 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer {
 
         try base.insert(content, at: location)
 
-        let newRange = Buffer.Range(location: location, length: length(of: content))
+        let newRange = UTF16Range(location: location, length: length(of: content))
         undoManager.beginUndoGrouping()
         undoManager.registerUndo(withTarget: self) { undoableBuffer in
             try? undoableBuffer.delete(in: newRange)
@@ -205,10 +208,14 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer {
     /// Treats `block` as a single undoable action group. See ``undoGrouping(actionName:undoingSelectionChanges:_:)``
     ///
     /// - Throws: ``BufferAccessFailure`` if changes to `affectedRange` are not permitted.
-    public func modifying<T>(affectedRange: Buffer.Range, _ block: () -> T) throws -> T {
-        return try undoGrouping {
+    public func modifying<T>(affectedRange: UTF16Range, _ block: () -> T) throws(BufferAccessFailure) -> T {
+        guard let undoManager else {
+            assertionFailure("Undoable buffer used without UndoManager")
             return try base.modifying(affectedRange: affectedRange, block)
         }
+        undoManager.beginUndoGrouping()
+        defer { undoManager.endUndoGrouping() }
+        return try base.modifying(affectedRange: affectedRange, block)
     }
 }
 

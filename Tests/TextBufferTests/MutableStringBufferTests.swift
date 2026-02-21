@@ -66,9 +66,9 @@ final class MutableStringBufferTests: XCTestCase {
 
     func testContentInRange_OutOfBounds() throws {
         let buffer = MutableStringBuffer("Lorem ipsum")
-        let expectedAvailableRange = Buffer.Range(location: 0, length: 11)
+        let expectedAvailableRange = UTF16Range(location: 0, length: 11)
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [UTF16Range] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -128,7 +128,7 @@ final class MutableStringBufferTests: XCTestCase {
     func testInsertOverSelection() throws {
         let buffer = MutableStringBuffer("fizz buzz fizz buzz")
 
-        let selectedRange = Buffer.Range(location: 5, length: 10)
+        let selectedRange = UTF16Range(location: 5, length: 10)
         buffer.select(selectedRange)
 
         XCTAssertTrue(buffer.isSelectingText)
@@ -170,7 +170,7 @@ final class MutableStringBufferTests: XCTestCase {
     func testLineRange_OutOfBounds() {
         let buffer = MutableStringBuffer("aa\nbb\ncc")
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [UTF16Range] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -181,7 +181,7 @@ final class MutableStringBufferTests: XCTestCase {
             .init(location: 10, length: 0),
             .init(location: 100, length: 999),
         ]
-        let expectedAvailableRange = Buffer.Range(location: 0, length: 8)
+        let expectedAvailableRange = UTF16Range(location: 0, length: 8)
         for invalidRange in invalidRanges {
             assertThrows(
                 try buffer.lineRange(for: invalidRange),
@@ -221,9 +221,9 @@ final class MutableStringBufferTests: XCTestCase {
 
     func testDeleteOutsideBounds() {
         let buffer = MutableStringBuffer("Lorem ipsum")
-        let expectedAvailableRange = Buffer.Range(location: 0, length: 11)
+        let expectedAvailableRange = UTF16Range(location: 0, length: 11)
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [UTF16Range] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -326,10 +326,10 @@ final class MutableStringBufferTests: XCTestCase {
     }
 
     func testReplaceOutOfBounds() {
-        let buffer: Buffer = MutableStringBuffer("Lorem ipsum")
-        let expectedAvailableRange = Buffer.Range(location: 0, length: 11)
+        let buffer = MutableStringBuffer("Lorem ipsum")
+        let expectedAvailableRange = UTF16Range(location: 0, length: 11)
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [UTF16Range] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -367,7 +367,7 @@ final class MutableStringBufferTests: XCTestCase {
     func testModifying_OutOfBounds_Throws() throws {
         let buffer = MutableStringBuffer("Text")
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [UTF16Range] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
