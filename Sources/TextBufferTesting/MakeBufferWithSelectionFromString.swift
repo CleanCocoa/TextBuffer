@@ -16,7 +16,7 @@ public func makeBuffer(_ stringRepresentation: String) throws -> MutableStringBu
     return buffer
 }
 
-/// Test helper to replace `buffer`'s content and selectin that matches the `debugDescription` format of either `"text «with selection»"` or `"text ˇinsertion point"`.
+/// Test helper to replace `buffer`'s content and selection that matches the `debugDescription` format of either `"text «with selection»"` or `"text ˇinsertion point"`.
 /// - Throws: `InvalidBufferStringRepresentation` if `stringRepresentation` is malformed, `BufferAccessFailure` when changing `buffer` doesn't work.
 @available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
 public func change(
