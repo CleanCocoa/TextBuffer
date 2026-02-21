@@ -16,23 +16,22 @@ public typealias InMemoryBuffer = MutableStringBuffer
 /// - Use ``MutableStringBuffer`` in unit tests.
 /// - Maintain multiple text buffers in memory while only ever rendering one buffer as a text view on screen, e.g. for opening multiple files in your app.
 public final class MutableStringBuffer: Buffer {
-    public typealias Location = UTF16Offset
-    public typealias Range = UTF16Range
+    public typealias Range = NSRange
 
     @usableFromInline
     let storage: NSMutableString
 
     @inlinable
-    public var range: UTF16Range { UTF16Range(location: 0, length: self.storage.length) }
+    public var range: NSRange { NSRange(location: 0, length: self.storage.length) }
 
     @inlinable
     public var content: String { self.storage as String }
 
-    public var selectedRange: UTF16Range
+    public var selectedRange: NSRange
 
     fileprivate init(
         storage: NSMutableString,
-        selectedRange: UTF16Range
+        selectedRange: NSRange
     ) {
         self.storage = storage
         self.selectedRange = selectedRange
@@ -44,12 +43,12 @@ public final class MutableStringBuffer: Buffer {
     public convenience init(_ content: String) {
         self.init(
             storage: NSMutableString(string: content),
-            selectedRange: UTF16Range(location: 0, length: 0)
+            selectedRange: NSRange(location: 0, length: 0)
         )
     }
 
     @inlinable
-    public func lineRange(for searchRange: UTF16Range) throws(BufferAccessFailure) -> UTF16Range {
+    public func lineRange(for searchRange: NSRange) throws(BufferAccessFailure) -> NSRange {
         guard contains(range: searchRange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: searchRange,
@@ -60,7 +59,7 @@ public final class MutableStringBuffer: Buffer {
     }
 
     @inlinable
-    public func content(in subrange: UTF16Range) throws(BufferAccessFailure) -> String {
+    public func content(in subrange: NSRange) throws(BufferAccessFailure) -> String {
         guard contains(range: subrange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: subrange,
@@ -72,13 +71,13 @@ public final class MutableStringBuffer: Buffer {
 
     /// Raises an `NSExceptionName` of name `.rangeException` if `location` is out of bounds.
     @inlinable
-    public func unsafeCharacter(at location: UTF16Offset) -> String {
+    public func unsafeCharacter(at location: Int) -> String {
         return self.storage.unsafeCharacter(at: location)
     }
 
     @inlinable
-    public func insert(_ content: String, at location: UTF16Offset) throws(BufferAccessFailure) {
-        guard contains(range: UTF16Range(location: location, length: 0)) else {
+    public func insert(_ content: String, at location: Int) throws(BufferAccessFailure) {
+        guard contains(range: NSRange(location: location, length: 0)) else {
             throw BufferAccessFailure.outOfRange(
                 location: location,
                 available: self.range
@@ -88,11 +87,11 @@ public final class MutableStringBuffer: Buffer {
         self.storage.insert(content, at: location)
 
         self.selectedRange = self.selectedRange
-            .shifted(by: location <= self.selectedRange.location ? length(of: content) : 0)  // Nudges selection to the right if needed.
+            .shifted(by: location <= self.selectedRange.location ? content.utf16.count : 0)  // Nudges selection to the right if needed.
     }
 
     @inlinable
-    public func delete(in deletedRange: UTF16Range) throws(BufferAccessFailure) {
+    public func delete(in deletedRange: NSRange) throws(BufferAccessFailure) {
         guard contains(range: deletedRange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: deletedRange,
@@ -105,7 +104,7 @@ public final class MutableStringBuffer: Buffer {
     }
 
     @inlinable
-    public func replace(range replacementRange: UTF16Range, with content: String) throws(BufferAccessFailure) {
+    public func replace(range replacementRange: NSRange, with content: String) throws(BufferAccessFailure) {
         guard contains(range: replacementRange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: replacementRange,
@@ -117,11 +116,11 @@ public final class MutableStringBuffer: Buffer {
 
         self.selectedRange = self.selectedRange
             .subtracting(replacementRange)  // Removes potential overlap with the replacement range.
-            .shifted(by: replacementRange.location <= self.selectedRange.location ? length(of: content) : 0)  // Nudges selection to the right if needed.
+            .shifted(by: replacementRange.location <= self.selectedRange.location ? content.utf16.count : 0)  // Nudges selection to the right if needed.
     }
 
     @inlinable
-    public func modifying<T>(affectedRange: UTF16Range, _ block: () -> T) throws(BufferAccessFailure) -> T {
+    public func modifying<T>(affectedRange: NSRange, _ block: () -> T) throws(BufferAccessFailure) -> T {
         guard contains(range: affectedRange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: affectedRange,
@@ -133,8 +132,8 @@ public final class MutableStringBuffer: Buffer {
     }
 
     @inlinable
-    public func setInsertionLocation(_ location: UTF16Offset) {
-        selectedRange = UTF16Range(location: location, length: 0)
+    public func setInsertionLocation(_ location: Int) {
+        selectedRange = NSRange(location: location, length: 0)
     }
 }
 
@@ -142,7 +141,7 @@ extension MutableStringBuffer {
     /// Create a copy of `buffer`.
     public convenience init<Wrapped>(
         wrapping buffer: Wrapped
-    ) where Wrapped: Buffer, Wrapped.Range == UTF16Range {
+    ) where Wrapped: Buffer, Wrapped.Range == NSRange {
         self.init(
             storage: NSMutableString(string: buffer.content),
             selectedRange: buffer.selectedRange
@@ -167,7 +166,7 @@ extension MutableStringBuffer: CustomStringConvertible {
     /// ```swift
     /// let buffer = MutableStringBuffer("Hello, world!")
     /// print(buffer) // => "ˇHello, world!"
-    /// buffer.select(UTF16Range(location: 7, length: 5))
+    /// buffer.select(NSRange(location: 7, length: 5))
     /// print(buffer) // => "Hello, «world»!"
     /// ```
     public var description: String {

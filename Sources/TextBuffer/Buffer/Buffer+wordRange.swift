@@ -15,14 +15,14 @@ extension CharacterSet {
 
 @usableFromInline
 func computeWordRange(
-    for baseRange: UTF16Range,
+    for baseRange: NSRange,
     in nsContent: NSString,
-    contentRange: UTF16Range
-) -> UTF16Range {
+    contentRange: NSRange
+) -> NSRange {
     func expanding(
         range searchRange: NSRange,
         upToCharactersFrom characterSet: CharacterSet
-    ) -> UTF16Range {
+    ) -> NSRange {
         var expandedRange = searchRange
         expandedRange = expanding(range: expandedRange, upToCharactersFrom: characterSet, direction: .upstream)
         expandedRange = expanding(range: expandedRange, upToCharactersFrom: characterSet, direction: .downstream)
@@ -33,7 +33,7 @@ func computeWordRange(
         range searchRange: NSRange,
         upToCharactersFrom characterSet: CharacterSet,
         direction: StringTraversalDirection
-    ) -> UTF16Range {
+    ) -> NSRange {
         switch direction {
         case .upstream:
             let matchedLocation = nsContent.locationUpToCharacter(
@@ -41,7 +41,7 @@ func computeWordRange(
                 direction: .upstream,
                 in: contentRange.prefix(upTo: searchRange)
             )
-            return UTF16Range(
+            return NSRange(
                 startLocation: matchedLocation ?? contentRange.location,
                 endLocation: searchRange.endLocation
             )
@@ -51,14 +51,14 @@ func computeWordRange(
                 direction: .downstream,
                 in: contentRange.suffix(after: searchRange)
             )
-            return UTF16Range(
+            return NSRange(
                 startLocation: searchRange.location,
                 endLocation: matchedLocation ?? contentRange.endLocation
             )
         }
     }
 
-    func trimmingWhitespace(range: UTF16Range) -> UTF16Range {
+    func trimmingWhitespace(range: NSRange) -> NSRange {
         var result = range
 
         if let newEndLocation = nsContent.locationUpToCharacter(
@@ -66,7 +66,7 @@ func computeWordRange(
             direction: .upstream,
             in: result.expanded(to: contentRange, direction: .upstream))
         {
-            result = UTF16Range(
+            result = NSRange(
                 startLocation: result.location,
                 endLocation: max(newEndLocation, result.location)
             )
@@ -77,7 +77,7 @@ func computeWordRange(
             direction: .downstream,
             in: result.expanded(to: contentRange, direction: .downstream))
         {
-            result = UTF16Range(
+            result = NSRange(
                 startLocation: min(newStartLocation, result.endLocation),
                 endLocation: result.endLocation
             )
@@ -86,7 +86,7 @@ func computeWordRange(
         return result
     }
 
-    func nonWhitespaceLocation(closestTo location: UTF16Offset) -> UTF16Offset? {
+    func nonWhitespaceLocation(closestTo location: Int) -> Int? {
         let downstreamNonWhitespaceLocation = nsContent.locationUpToCharacter(from: .nonWhitespaceOrNewlines, direction: .downstream, in: contentRange.suffix(after: location))
         let upstreamNonWhitespaceLocation = nsContent.locationUpToCharacter(from: .nonWhitespaceOrNewlines, direction: .upstream, in: contentRange.prefix(upTo: location))
 
@@ -117,11 +117,11 @@ func computeWordRange(
     return resultRange
 }
 
-extension Buffer where Range == UTF16Range {
+extension Buffer where Range == NSRange {
     /// Default word range computation for UTF-16-indexed buffers.
     ///
     /// Uses Foundation's character classification for word boundary detection.
-    /// Only available when `Range == UTF16Range`.
+    /// Only available when `Range == NSRange`.
     @inlinable
     public func wordRange(
         for baseRange: Range
@@ -137,7 +137,7 @@ extension Buffer where Range == UTF16Range {
     }
 }
 
-extension AsyncBuffer where Range == UTF16Range {
+extension AsyncBuffer where Range == NSRange {
     @inlinable
     public func wordRange(
         for baseRange: Range

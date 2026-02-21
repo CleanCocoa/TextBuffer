@@ -3,8 +3,8 @@
 /// Synchronous refinement of ``AsyncBuffer``, the primary protocol for text buffer operations.
 ///
 /// Concrete conformers include ``MutableStringBuffer`` (in-memory) and ``NSTextViewBuffer`` (AppKit-backed).
-/// The primary associated type `Location` determines the index representation.
-public protocol Buffer<Location>: AsyncBuffer {
+/// The primary associated type `Range` determines the range representation; `Location` is derived as `Range.Position`.
+public protocol Buffer<Range>: AsyncBuffer {
     /// The full text content of the buffer.
 
     var content: Content { get }
@@ -68,7 +68,7 @@ public protocol Buffer<Location>: AsyncBuffer {
     ///
     /// This replaces any existing selected text. The ``selectedRange`` is modified in the process:
     ///
-    /// - inserting text at the insertion point moves the insertion point by `length(of: content)`,
+    /// - inserting text at the insertion point moves the insertion point by `content.utf16.count`,
     /// - replacing text moves the insertion point to the end of the inserted text (exiting the selection mode).
     func insert(_ content: Content) throws(BufferAccessFailure)
 

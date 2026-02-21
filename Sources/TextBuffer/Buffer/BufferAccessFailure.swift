@@ -1,5 +1,7 @@
 //  Copyright © 2024 Christian Tietze. All rights reserved. Distributed under the MIT License.
 
+import Foundation
+
 /// Error thrown by ``Buffer`` operations when access would be out of range or a modification is forbidden.
 public struct BufferAccessFailure: Error, Sendable {
     public let label: String
@@ -18,8 +20,8 @@ public struct BufferAccessFailure: Error, Sendable {
 
     /// Thrown when `requested` range falls outside the `available` buffer range.
     public static func outOfRange(
-        requested: UTF16Range,
-        available: UTF16Range
+        requested: NSRange,
+        available: NSRange
     ) -> BufferAccessFailure {
         return BufferAccessFailure(
             label: "out of range",
@@ -29,9 +31,9 @@ public struct BufferAccessFailure: Error, Sendable {
 
     /// Thrown when a single `location` (with optional `length`) falls outside the `available` buffer range.
     public static func outOfRange(
-        location: UTF16Offset,
-        length: UTF16Length = 0,
-        available: UTF16Range
+        location: Int,
+        length: Int = 0,
+        available: NSRange
     ) -> BufferAccessFailure {
         return outOfRange(
             requested: .init(location: location, length: length),
@@ -41,7 +43,7 @@ public struct BufferAccessFailure: Error, Sendable {
 
     /// Thrown when a modification to `requestedRange` is rejected by the buffer (e.g., via `shouldChangeText`).
     public static func modificationForbidden(
-        in requestedRange: UTF16Range
+        in requestedRange: NSRange
     ) -> BufferAccessFailure {
         BufferAccessFailure(
             label: "modification not allowed",

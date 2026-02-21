@@ -44,9 +44,8 @@ import Foundation
 /// print(buffer) // => "Hello, World"
 /// ```
 @MainActor
-public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Range == UTF16Range, Base.Location == UTF16Offset {
-    public typealias Location = UTF16Offset
-    public typealias Range = UTF16Range
+public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Range == NSRange {
+    public typealias Range = NSRange
 
     private let base: Base
 
@@ -131,7 +130,7 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Ra
         return try base.lineRange(for: searchRange)
     }
 
-    public func content(in range: UTF16Range) throws(BufferAccessFailure) -> Base.Content {
+    public func content(in range: NSRange) throws(BufferAccessFailure) -> Base.Content {
         return try base.content(in: range)
     }
 
@@ -169,7 +168,7 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Ra
 
         try base.replace(range: replacementRange, with: content)
 
-        let newRange = UTF16Range(location: replacementRange.location, length: length(of: content))
+        let newRange = NSRange(location: replacementRange.location, length: content.utf16.count)
         undoManager.beginUndoGrouping()
         undoManager.registerUndo(withTarget: self) { undoableBuffer in
             try? undoableBuffer.replace(range: newRange, with: oldContent)
@@ -190,7 +189,7 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Ra
 
         try base.insert(content, at: location)
 
-        let newRange = UTF16Range(location: location, length: length(of: content))
+        let newRange = NSRange(location: location, length: content.utf16.count)
         undoManager.beginUndoGrouping()
         undoManager.registerUndo(withTarget: self) { undoableBuffer in
             try? undoableBuffer.delete(in: newRange)
@@ -208,7 +207,7 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Ra
     /// Treats `block` as a single undoable action group. See ``undoGrouping(actionName:undoingSelectionChanges:_:)``
     ///
     /// - Throws: ``BufferAccessFailure`` if changes to `affectedRange` are not permitted.
-    public func modifying<T>(affectedRange: UTF16Range, _ block: () -> T) throws(BufferAccessFailure) -> T {
+    public func modifying<T>(affectedRange: NSRange, _ block: () -> T) throws(BufferAccessFailure) -> T {
         guard let undoManager else {
             assertionFailure("Undoable buffer used without UndoManager")
             return try base.modifying(affectedRange: affectedRange, block)

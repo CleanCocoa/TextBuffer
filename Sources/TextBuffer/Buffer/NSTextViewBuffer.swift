@@ -21,19 +21,18 @@ extension NSTextView {
 /// To group multiple buffer mutations as a single edit, e.g. to delete parts of text in multiple places as one action that coalesces attribute updates, you can  use the ``wrapAsEditing(_:)`` function directly.
 @MainActor
 open class NSTextViewBuffer: @MainActor Buffer {
-    public typealias Location = UTF16Offset
-    public typealias Range = UTF16Range
+    public typealias Range = NSRange
 
     public let textView: NSTextView
 
     @inlinable
-    open var selectedRange: UTF16Range {
+    open var selectedRange: NSRange {
         get { textView.selectedRange }
         set { textView.selectedRange = newValue }
     }
 
     @inlinable
-    open var range: UTF16Range { UTF16Range(location: 0, length: textView.nsMutableString.length) }
+    open var range: NSRange { NSRange(location: 0, length: textView.nsMutableString.length) }
 
     @inlinable
     open var content: String { textView.nsMutableString as String }
@@ -52,7 +51,7 @@ open class NSTextViewBuffer: @MainActor Buffer {
     }
 
     @inlinable
-    open func lineRange(for searchRange: UTF16Range) throws(BufferAccessFailure) -> UTF16Range {
+    open func lineRange(for searchRange: NSRange) throws(BufferAccessFailure) -> NSRange {
         guard contains(range: searchRange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: searchRange,
@@ -63,7 +62,7 @@ open class NSTextViewBuffer: @MainActor Buffer {
     }
 
     @inlinable
-    open func content(in subrange: UTF16Range) throws(BufferAccessFailure) -> String {
+    open func content(in subrange: NSRange) throws(BufferAccessFailure) -> String {
         guard contains(range: subrange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: subrange,
@@ -75,14 +74,14 @@ open class NSTextViewBuffer: @MainActor Buffer {
     }
 
     @inlinable
-    open func unsafeCharacter(at location: UTF16Offset) -> String {
+    open func unsafeCharacter(at location: Int) -> String {
         // Raises an `NSExceptionName` of name `.rangeException` if `location` is out of bounds.
         return textView.nsMutableString.unsafeCharacter(at: location)
     }
 
     @inlinable
-    open func insert(_ content: String, at location: UTF16Offset) throws(BufferAccessFailure) {
-        guard contains(range: UTF16Range(location: location, length: 0)) else {
+    open func insert(_ content: String, at location: Int) throws(BufferAccessFailure) {
+        guard contains(range: NSRange(location: location, length: 0)) else {
             throw BufferAccessFailure.outOfRange(
                 location: location,
                 available: self.range
@@ -92,7 +91,7 @@ open class NSTextViewBuffer: @MainActor Buffer {
         let selectedRange = self.selectedRange
         defer {
             textView.setSelectedRange(selectedRange
-                .shifted(by: location <= selectedRange.location ? length(of: content) : 0))
+                .shifted(by: location <= selectedRange.location ? content.utf16.count : 0))
         }
 
         wrapAsEditing {
@@ -101,7 +100,7 @@ open class NSTextViewBuffer: @MainActor Buffer {
     }
 
     @inlinable
-    open func delete(in deletedRange: UTF16Range) throws(BufferAccessFailure) {
+    open func delete(in deletedRange: NSRange) throws(BufferAccessFailure) {
         guard contains(range: deletedRange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: deletedRange,
@@ -120,7 +119,7 @@ open class NSTextViewBuffer: @MainActor Buffer {
     }
 
     @inlinable
-    open func replace(range replacementRange: UTF16Range, with content: String) throws(BufferAccessFailure) {
+    open func replace(range replacementRange: NSRange, with content: String) throws(BufferAccessFailure) {
         guard contains(range: replacementRange) else {
             throw BufferAccessFailure.outOfRange(requested: replacementRange, available: self.range)
         }
@@ -130,7 +129,7 @@ open class NSTextViewBuffer: @MainActor Buffer {
             // Restore the recoverable part of the formerly selected range. By default, when the replaced range overlaps with the text view's selection, it removes the selection and switches to 0-length insertion point.
             textView.setSelectedRange(selectedRange
                 .subtracting(replacementRange)
-                .shifted(by: replacementRange.location <= selectedRange.location ? length(of: content) : 0))
+                .shifted(by: replacementRange.location <= selectedRange.location ? content.utf16.count : 0))
         }
 
         wrapAsEditing {
@@ -139,7 +138,7 @@ open class NSTextViewBuffer: @MainActor Buffer {
     }
 
     @inlinable
-    open func modifying<T>(affectedRange: UTF16Range, _ block: () -> T) throws(BufferAccessFailure) -> T {
+    open func modifying<T>(affectedRange: NSRange, _ block: () -> T) throws(BufferAccessFailure) -> T {
         guard textView.shouldChangeText(in: affectedRange, replacementString: nil) else {
             throw BufferAccessFailure.modificationForbidden(in: affectedRange)
         }
@@ -151,11 +150,11 @@ open class NSTextViewBuffer: @MainActor Buffer {
     }
 
     @inlinable // Explicit `open` declaration required so subclasses can override; protocol extension defaults are not overridable.
-    open func setSelectedRange(_ range: UTF16Range) { selectedRange = range }
+    open func setSelectedRange(_ range: NSRange) { selectedRange = range }
 
     @inlinable
-    open func setInsertionLocation(_ location: UTF16Offset) {
-        selectedRange = UTF16Range(location: location, length: 0)
+    open func setInsertionLocation(_ location: Int) {
+        selectedRange = NSRange(location: location, length: 0)
     }
 }
 #endif

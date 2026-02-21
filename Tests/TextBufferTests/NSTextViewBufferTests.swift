@@ -70,9 +70,9 @@ final class NSTextViewBufferTests: XCTestCase {
 
     func testContentInRange_OutOfBounds() throws {
         let buffer = textView("Lorem ipsum")
-        let expectedAvailableRange = UTF16Range(location: 0, length: 11)
+        let expectedAvailableRange = NSRange(location: 0, length: 11)
 
-        let invalidRanges: [UTF16Range] = [
+        let invalidRanges: [NSRange] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -120,7 +120,7 @@ final class NSTextViewBufferTests: XCTestCase {
 
     func testInsertOverSelection() throws {
         let buffer = textView("fizz buzz fizz buzz")
-        let selectedRange = UTF16Range(location: 5, length: 10)
+        let selectedRange = NSRange(location: 5, length: 10)
         buffer.select(selectedRange)
 
         assertBufferState(buffer, "fizz «buzz fizz »buzz")
@@ -171,7 +171,7 @@ final class NSTextViewBufferTests: XCTestCase {
     func testLineRange_OutOfBounds() {
         let buffer = textView("aa\nbb\ncc")
 
-        let invalidRanges: [UTF16Range] = [
+        let invalidRanges: [NSRange] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -182,7 +182,7 @@ final class NSTextViewBufferTests: XCTestCase {
             .init(location: 10, length: 0),
             .init(location: 100, length: 999),
         ]
-        let expectedAvailableRange = UTF16Range(location: 0, length: 8)
+        let expectedAvailableRange = NSRange(location: 0, length: 8)
         for invalidRange in invalidRanges {
             assertThrows(
                 try buffer.lineRange(for: invalidRange),
@@ -219,9 +219,9 @@ final class NSTextViewBufferTests: XCTestCase {
 
     func testDeleteOutsideBounds() {
         let buffer = textView("Lorem ipsum")
-        let expectedAvailableRange = UTF16Range(location: 0, length: 11)
+        let expectedAvailableRange = NSRange(location: 0, length: 11)
 
-        let invalidRanges: [UTF16Range] = [
+        let invalidRanges: [NSRange] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -296,7 +296,7 @@ final class NSTextViewBufferTests: XCTestCase {
 
     func testReplaceAroundInsertionPoint() throws {
         let buffer = textView("Goodbye, cruel universe!")
-        buffer.insertionLocation = length(of: "Goodbye, cruel")
+        buffer.insertionLocation = "Goodbye, cruel".utf16.count
 
         assertBufferState(buffer, "Goodbye, cruelˇ universe!")
 
@@ -325,9 +325,9 @@ final class NSTextViewBufferTests: XCTestCase {
 
     func testReplaceOutOfBounds() {
         let buffer = textView("Lorem ipsum")
-        let expectedAvailableRange = UTF16Range(location: 0, length: 11)
+        let expectedAvailableRange = NSRange(location: 0, length: 11)
 
-        let invalidRanges: [UTF16Range] = [
+        let invalidRanges: [NSRange] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),

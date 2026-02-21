@@ -3,7 +3,8 @@
 /// Base protocol for asynchronous text buffer access, refined by ``Buffer`` for synchronous use.
 ///
 /// Buffers are reference types (`AnyObject`) with mutable state. The primary associated type
-/// `Location` determines the index representation (e.g., `UTF16Offset` for UTF-16 code unit offsets).
+/// `Range` determines the range representation (e.g., `NSRange` for UTF-16 code unit offsets).
+/// `Location` is derived as `Range.Position`.
 ///
 /// ## SIL Compiler Bug Workaround
 ///
@@ -20,15 +21,15 @@
 /// Bug report: <https://github.com/swiftlang/swift/issues/62221>
 ///
 /// - TODO: Retry property-style requirements with Swift 6.4.
-public protocol AsyncBuffer<Location>: AnyObject {
-    /// The position/index type used to address locations within the buffer.
-    associatedtype Location: Comparable
+public protocol AsyncBuffer<Range>: AnyObject {
+    /// The range type used for addressing spans within the buffer.
+    associatedtype Range: BufferRange
 
-    /// The range type used for addressing spans within the buffer, constrained so its position matches ``Location``.
-    associatedtype Range: BufferRange where Range.Position == Location
+    /// The position/index type, derived from ``Range``.
+    typealias Location = Range.Position
 
     /// Fixed to `UTF16Length` (`Int`). All length measurements use UTF-16 code units.
-    typealias Length = UTF16Length
+    typealias Length = Int
 
     /// Fixed to `String`. All buffer content is represented as Swift strings.
     typealias Content = String

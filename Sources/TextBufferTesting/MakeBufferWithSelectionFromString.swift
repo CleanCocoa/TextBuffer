@@ -1,5 +1,6 @@
 //  Copyright © 2024 Christian Tietze. All rights reserved. Distributed under the MIT License.
 
+import Foundation
 import TextBuffer
 
 public struct InvalidBufferStringRepresentation: Error {
@@ -22,7 +23,7 @@ public func makeBuffer(_ stringRepresentation: String) throws -> MutableStringBu
 public func change<B: Buffer>(
     buffer: B,
     to stringRepresentation: String
-) throws where B.Range == UTF16Range, B.Location == UTF16Offset {
+) throws where B.Range == NSRange {
     /// Indices:
     /// - `0`: text before
     /// - `1`: text inside
@@ -33,9 +34,9 @@ public func change<B: Buffer>(
 
     if selectionParts.count == 3 {
         try buffer.replace(range: buffer.range, with: selectionParts.joined(separator: ""))
-        buffer.selectedRange = UTF16Range(
-            location: length(of: selectionParts[0]),
-            length: length(of: selectionParts[1])
+        buffer.selectedRange = NSRange(
+            location: selectionParts[0].utf16.count,
+            length: selectionParts[1].utf16.count
         )
         return
     } else if selectionParts.count > 1 {
@@ -51,8 +52,8 @@ public func change<B: Buffer>(
         .map { String($0) }
     try buffer.replace(range: buffer.range, with: insertionPointParts.joined(separator: ""))
     if stringRepresentation.contains("ˇ") {
-        buffer.selectedRange = UTF16Range(
-            location: length(of: insertionPointParts[0]),
+        buffer.selectedRange = NSRange(
+            location: insertionPointParts[0].utf16.count,
             length: 0
         )
     } else {
