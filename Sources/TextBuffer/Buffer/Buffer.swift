@@ -1,12 +1,7 @@
 //  Copyright © 2024 Christian Tietze. All rights reserved. Distributed under the MIT License.
 
 /// A text buffer contains UTF16 characters.
-public protocol Buffer: AnyObject {
-    typealias Location = UTF16Offset
-    typealias Length = UTF16Length
-    typealias Range = UTF16Range
-    typealias Content = String
-
+public protocol Buffer: AsyncBuffer {
     var content: Content { get }
 
     /// Full range of ``content``.
@@ -114,4 +109,25 @@ extension Buffer {
     public func character(at location: Location) throws -> Content {
         return try content(in: .init(location: location, length: 1))
     }
+
+    // Bridging defaults: satisfy AsyncBuffer's `getX()` requirements
+    // by forwarding to Buffer's sync properties. See AsyncBuffer.swift.
+
+    @inlinable @inline(__always)
+    public func getContent() -> Content { content }
+
+    @inlinable @inline(__always)
+    public func getRange() -> Range { range }
+
+    @inlinable @inline(__always)
+    public func getSelectedRange() -> Range { selectedRange }
+
+    @inlinable @inline(__always)
+    public func setSelectedRange(_ range: Range) { selectedRange = range }
+
+    @inlinable @inline(__always)
+    public func getInsertionLocation() -> Location { insertionLocation }
+
+    @inlinable @inline(__always)
+    public func setInsertionLocation(_ location: Location) { insertionLocation = location }
 }

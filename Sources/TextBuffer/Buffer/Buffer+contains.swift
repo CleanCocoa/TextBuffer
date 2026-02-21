@@ -10,3 +10,10 @@ extension Buffer {
         return self.range.contains(range)
     }
 }
+
+extension AsyncBuffer {
+    @inlinable
+    public func contains(range: AsyncBuffer.Range) async -> Bool {
+        return await self.getRange().contains(range)
+    }
+}

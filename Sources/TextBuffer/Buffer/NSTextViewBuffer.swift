@@ -146,5 +146,13 @@ open class NSTextViewBuffer: @MainActor Buffer {
             return block()
         }
     }
+
+    @inlinable // Explicit `open` declaration required so subclasses can override; protocol extension defaults are not overridable.
+    open func setSelectedRange(_ range: UTF16Range) { selectedRange = range }
+
+    @inlinable
+    open func setInsertionLocation(_ location: UTF16Offset) {
+        selectedRange = UTF16Range(location: location, length: 0)
+    }
 }
 #endif

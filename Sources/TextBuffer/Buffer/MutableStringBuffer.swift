@@ -128,6 +128,11 @@ public final class MutableStringBuffer: Buffer {
 
         return block()
     }
+
+    @inlinable
+    public func setInsertionLocation(_ location: UTF16Offset) {
+        selectedRange = UTF16Range(location: location, length: 0)
+    }
 }
 
 extension MutableStringBuffer {
