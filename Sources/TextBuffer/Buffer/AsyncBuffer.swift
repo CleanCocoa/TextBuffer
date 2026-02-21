@@ -31,8 +31,9 @@ public protocol AsyncBuffer<Range>: AnyObject {
     /// Fixed to `UTF16Length` (`Int`). All length measurements use UTF-16 code units.
     typealias Length = Int
 
-    /// Fixed to `String`. All buffer content is represented as Swift strings.
-    typealias Content = String
+    /// The content type returned by read operations. Conformers set this to their backing store type
+    /// (e.g., `String`, `NSAttributedString`, rope). Write operations always accept `String`.
+    associatedtype Content
 
     /// Returns the full text content of the buffer.
     func getContent() async -> Content
@@ -50,10 +51,6 @@ public protocol AsyncBuffer<Range>: AnyObject {
 
     /// Changes the selected range.
     func select(_ range: Range) async
-    /// Returns the line range encompassing `searchRange`.
-    func lineRange(for searchRange: Range) async throws(BufferAccessFailure) -> Range
-    /// Returns the word range encompassing `searchRange`.
-    func wordRange(for searchRange: Range) async throws(BufferAccessFailure) -> Range
     /// Returns a character-wide slice of content at `location`.
     func character(at location: Location) async throws(BufferAccessFailure) -> Content
     /// Returns a slice of content within `subrange`.
@@ -61,13 +58,13 @@ public protocol AsyncBuffer<Range>: AnyObject {
     /// Returns a character at `location` without bounds checking.
     func unsafeCharacter(at location: Location) async -> Content
     /// Inserts `content` at `location` without affecting the selected range.
-    func insert(_ content: Content, at location: Location) async throws(BufferAccessFailure)
+    func insert(_ content: String, at location: Location) async throws(BufferAccessFailure)
     /// Inserts `content` like typing at the current insertion location.
-    func insert(_ content: Content) async throws(BufferAccessFailure)
+    func insert(_ content: String) async throws(BufferAccessFailure)
     /// Deletes content in `deletedRange`.
     func delete(in deletedRange: Range) async throws(BufferAccessFailure)
     /// Replaces content in `replacementRange` with `content`.
-    func replace(range replacementRange: Range, with content: Content) async throws(BufferAccessFailure)
+    func replace(range replacementRange: Range, with content: String) async throws(BufferAccessFailure)
     /// Wraps changes to `affectedRange` inside `block` to bundle updates.
     func modifying<T>(affectedRange: Range, _ block: () -> T) async throws(BufferAccessFailure) -> T
 }
@@ -91,7 +88,7 @@ extension AsyncBuffer {
     }
 
     @inlinable
-    public func insert(_ content: Content) async throws(BufferAccessFailure) {
+    public func insert(_ content: String) async throws(BufferAccessFailure) {
         try await replace(range: await getSelectedRange(), with: content)
     }
 

@@ -15,8 +15,9 @@ public typealias InMemoryBuffer = MutableStringBuffer
 ///
 /// - Use ``MutableStringBuffer`` in unit tests.
 /// - Maintain multiple text buffers in memory while only ever rendering one buffer as a text view on screen, e.g. for opening multiple files in your app.
-public final class MutableStringBuffer: Buffer {
+public final class MutableStringBuffer: Buffer, TextAnalysisCapable {
     public typealias Range = NSRange
+    public typealias Content = String
 
     @usableFromInline
     let storage: NSMutableString
@@ -141,7 +142,7 @@ extension MutableStringBuffer {
     /// Create a copy of `buffer`.
     public convenience init<Wrapped>(
         wrapping buffer: Wrapped
-    ) where Wrapped: Buffer, Wrapped.Range == NSRange {
+    ) where Wrapped: Buffer, Wrapped.Range == NSRange, Wrapped.Content == String {
         self.init(
             storage: NSMutableString(string: buffer.content),
             selectedRange: buffer.selectedRange

@@ -44,8 +44,9 @@ import Foundation
 /// print(buffer) // => "Hello, World"
 /// ```
 @MainActor
-public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Range == NSRange {
+public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Range == NSRange, Base.Content == String {
     public typealias Range = NSRange
+    public typealias Content = String
 
     private let base: Base
 
@@ -124,10 +125,6 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Ra
 
     isolated deinit {
         undoManager?.removeAllActions(withTarget: self)
-    }
-
-    public func lineRange(for searchRange: Base.Range) throws(BufferAccessFailure) -> Base.Range {
-        return try base.lineRange(for: searchRange)
     }
 
     public func content(in range: NSRange) throws(BufferAccessFailure) -> Base.Content {
@@ -215,6 +212,12 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Ra
         undoManager.beginUndoGrouping()
         defer { undoManager.endUndoGrouping() }
         return try base.modifying(affectedRange: affectedRange, block)
+    }
+}
+
+extension Undoable: @MainActor TextAnalysisCapable where Base: TextAnalysisCapable {
+    public func lineRange(for searchRange: NSRange) throws(BufferAccessFailure) -> NSRange {
+        return try base.lineRange(for: searchRange)
     }
 }
 

@@ -23,7 +23,7 @@ public func makeBuffer(_ stringRepresentation: String) throws -> MutableStringBu
 public func change<B: Buffer>(
     buffer: B,
     to stringRepresentation: String
-) throws where B.Range == NSRange {
+) throws where B.Range == NSRange, B.Content == String {
     /// Indices:
     /// - `0`: text before
     /// - `1`: text inside

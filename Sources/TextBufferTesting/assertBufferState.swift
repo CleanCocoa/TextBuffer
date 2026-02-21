@@ -9,7 +9,7 @@ public func assertBufferState<B: Buffer>(
     _ expectedDescription: String,
     _ message: @autoclosure () -> String = "",
     file: StaticString = #filePath, line: UInt = #line
-) where B.Range == NSRange {
+) where B.Range == NSRange, B.Content == String {
     XCTAssertEqual(
         MutableStringBuffer(wrapping: buffer).description,
         expectedDescription,

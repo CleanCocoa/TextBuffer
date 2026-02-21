@@ -26,24 +26,6 @@ public protocol Buffer<Range>: AsyncBuffer {
     /// Change selected range in receiver.
     func select(_ range: Range)
 
-    /// Expanded `searchRange` to cover whole lines. Chained calls returns the same line range, i.e. does not expand line by line.
-    ///
-    /// Quoting from `Foundation.NSString.lineRange(for:)` (as of 2024-06-04, Xcode 15.4):
-    ///
-    /// > NSString: A line is delimited by any of these characters, the longest possible sequence being preferred to any shorter:
-    /// >
-    /// > - `U+000A` Unicode Character 'LINE FEED (LF)' (`\n`)
-    /// > - `U+000D` Unicode Character 'CARRIAGE RETURN (CR)' (`\r`)
-    /// > - `U+0085` Unicode Character 'NEXT LINE (NEL)'
-    /// > - `U+2028` Unicode Character 'LINE SEPARATOR'
-    /// > - `U+2029` Unicode Character 'PARAGRAPH SEPARATOR'
-    /// > - `\r\n`, in that order (also known as `CRLF`)
-    func lineRange(for searchRange: Range) throws(BufferAccessFailure) -> Range
-
-    /// Expanded `baseRange` to cover whole words. Chained calls returns the same word range, i.e. does not expand word by word.
-    /// - Throws: ``BufferAccessFailure`` if `subrange` exceeds ``range``.
-    func wordRange(for searchRange: Range) throws(BufferAccessFailure) -> Range
-
     /// - Returns: A character-wide slice of ``content`` at `location`.
     /// - Throws: ``BufferAccessFailure`` if `location` exceeds ``range``.
     func character(at location: Location) throws(BufferAccessFailure) -> Content
@@ -62,7 +44,7 @@ public protocol Buffer<Range>: AsyncBuffer {
     /// Inserts `content` at `location` into the buffer, not affecting the typing location of ``selectedRange`` in the process.
     ///
     /// - Throws: ``BufferAccessFailure`` if `location` exceeds ``range``.
-    func insert(_ content: Content, at location: Location) throws(BufferAccessFailure)
+    func insert(_ content: String, at location: Location) throws(BufferAccessFailure)
 
     /// Inserts `content` like typing at the current typing location of ``selectedRange``.
     ///
@@ -70,7 +52,7 @@ public protocol Buffer<Range>: AsyncBuffer {
     ///
     /// - inserting text at the insertion point moves the insertion point by `content.utf16.count`,
     /// - replacing text moves the insertion point to the end of the inserted text (exiting the selection mode).
-    func insert(_ content: Content) throws(BufferAccessFailure)
+    func insert(_ content: String) throws(BufferAccessFailure)
 
     /// Deletes content from `deletedRange`.
     ///
@@ -80,7 +62,7 @@ public protocol Buffer<Range>: AsyncBuffer {
     func delete(in deletedRange: Range) throws(BufferAccessFailure)
 
     /// - Throws: ``BufferAccessFailure`` if `replacementRange` exceeds ``range``.
-    func replace(range replacementRange: Range, with content: Content) throws(BufferAccessFailure)
+    func replace(range replacementRange: Range, with content: String) throws(BufferAccessFailure)
 
     /// Wrapping changes inside `block` in a modification request to bundle updates.
     ///
@@ -106,7 +88,7 @@ extension Buffer {
     }
 
     @inlinable @inline(__always)
-    public func insert(_ content: Content) throws(BufferAccessFailure) {
+    public func insert(_ content: String) throws(BufferAccessFailure) {
         try replace(range: selectedRange, with: content)
     }
 

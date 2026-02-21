@@ -117,38 +117,3 @@ func computeWordRange(
     return resultRange
 }
 
-extension Buffer where Range == NSRange {
-    /// Default word range computation for UTF-16-indexed buffers.
-    ///
-    /// Uses Foundation's character classification for word boundary detection.
-    /// Only available when `Range == NSRange`.
-    @inlinable
-    public func wordRange(
-        for baseRange: Range
-    ) throws(BufferAccessFailure) -> Range {
-        guard self.contains(range: baseRange)
-        else { throw BufferAccessFailure.outOfRange(requested: baseRange, available: self.range) }
-
-        return computeWordRange(
-            for: baseRange,
-            in: (self.content as NSString),
-            contentRange: self.range
-        )
-    }
-}
-
-extension AsyncBuffer where Range == NSRange {
-    @inlinable
-    public func wordRange(
-        for baseRange: Range
-    ) async throws(BufferAccessFailure) -> Range {
-        guard await self.contains(range: baseRange)
-        else { throw BufferAccessFailure.outOfRange(requested: baseRange, available: await self.getRange()) }
-
-        return computeWordRange(
-            for: baseRange,
-            in: (await self.getContent() as NSString),
-            contentRange: await self.getRange()
-        )
-    }
-}
