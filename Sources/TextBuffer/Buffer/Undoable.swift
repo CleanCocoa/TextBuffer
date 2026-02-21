@@ -43,7 +43,8 @@ import Foundation
 /// undoable.redo()
 /// print(buffer) // => "Hello, World"
 /// ```
-public final class Undoable<Base>: Buffer where Base: Buffer {
+@MainActor
+public final class Undoable<Base>: @preconcurrency Buffer where Base: Buffer {
     private let base: Base
 
     public var content: Base.Content { base.content }
@@ -105,18 +106,21 @@ public final class Undoable<Base>: Buffer where Base: Buffer {
     @inlinable
     public convenience init(
         _ base: Base,
-        undoManager: UndoManager = {
-            let undoManager = UndoManager()
-            undoManager.groupsByEvent = false
-            return undoManager
-        }()
+        undoManager: UndoManager
     ) {
         self.init(base) {
             return undoManager
         }
     }
 
-    deinit {
+    @inlinable
+    public convenience init(_ base: Base) {
+        let undoManager = UndoManager()
+        undoManager.groupsByEvent = false
+        self.init(base, undoManager: undoManager)
+    }
+
+    isolated deinit {
         undoManager?.removeAllActions(withTarget: self)
     }
 

@@ -3,6 +3,7 @@
 import XCTest
 import TextBuffer
 
+@MainActor
 final class NSTextViewBufferTests: XCTestCase {
     func testContent() {
         let string = "Test ⭐️ string 🚞 here"

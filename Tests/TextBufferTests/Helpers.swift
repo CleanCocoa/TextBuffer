@@ -9,6 +9,7 @@ import TextBuffer
 #if os(macOS)
 import AppKit
 
+@MainActor
 func textView(_ string: String) -> NSTextViewBuffer {
     let textView = NSTextView(usingTextLayoutManager: false)
     textView.string = string
