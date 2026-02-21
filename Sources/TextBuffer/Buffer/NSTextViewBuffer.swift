@@ -20,7 +20,7 @@ extension NSTextView {
 ///
 /// To group multiple buffer mutations as a single edit, e.g. to delete parts of text in multiple places as one action that coalesces attribute updates, you can  use the ``wrapAsEditing(_:)`` function directly.
 @MainActor
-open class NSTextViewBuffer: @preconcurrency Buffer {
+open class NSTextViewBuffer: @MainActor Buffer {
     public let textView: NSTextView
 
     @inlinable

@@ -44,7 +44,7 @@ import Foundation
 /// print(buffer) // => "Hello, World"
 /// ```
 @MainActor
-public final class Undoable<Base>: @preconcurrency Buffer where Base: Buffer {
+public final class Undoable<Base>: @MainActor Buffer where Base: Buffer {
     private let base: Base
 
     public var content: Base.Content { base.content }
