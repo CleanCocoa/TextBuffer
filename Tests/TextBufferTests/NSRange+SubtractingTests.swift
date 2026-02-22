@@ -165,4 +165,59 @@ final class NSRange_SubtractingTests: XCTestCase {
             "Starting in the middle and removing 'backwards' with negative length is undefined"
         )
     }
+
+    // MARK: - subtract(_:) mutating parity
+
+    func testSubtract_MatchesSubtracting() {
+        let cases: [(location: Int, length: Int)] = [
+            (200, 999),
+            (0, 50),
+            (99, 1),
+            (90, 20),
+            (100, 20),
+            (0, 199),
+            (0, 999),
+            (190, 20),
+            (100, 99),
+            (150, 20),
+            (101, 98),
+            (100, 100),
+        ]
+        for (loc, len) in cases {
+            var mutable = referenceRange
+            let other = NSRange(location: loc, length: len)
+            mutable.subtract(other)
+            XCTAssertEqual(
+                mutable,
+                referenceRange.subtracting(other),
+                "subtract(\(other)) should match subtracting(\(other))"
+            )
+        }
+    }
+
+    // MARK: - Generic dispatch
+
+    func subtractViaProtocol<R: BufferRange>(_ a: R, _ b: R) -> R {
+        a.subtracting(b)
+    }
+
+    func testSubtracting_ThroughGenericDispatch_MatchesDirectCall() {
+        let cases: [(location: Int, length: Int)] = [
+            (200, 999),
+            (0, 50),
+            (90, 20),
+            (100, 20),
+            (190, 20),
+            (150, 20),
+            (100, 100),
+        ]
+        for (loc, len) in cases {
+            let other = NSRange(location: loc, length: len)
+            XCTAssertEqual(
+                subtractViaProtocol(referenceRange, other),
+                referenceRange.subtracting(other),
+                "Generic dispatch for subtracting(\(other)) should match direct call"
+            )
+        }
+    }
 }
