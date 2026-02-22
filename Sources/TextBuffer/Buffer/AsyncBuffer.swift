@@ -28,8 +28,8 @@ public protocol AsyncBuffer<Range>: AnyObject {
     /// The position/index type, derived from ``Range``.
     typealias Location = Range.Position
 
-    /// Fixed to `UTF16Length` (`Int`). All length measurements use UTF-16 code units.
-    typealias Length = Int
+    /// The type used for length measurements, derived from ``Range``'s ``BufferRange/Position``.
+    typealias Length = Range.Position
 
     /// The content type returned by read operations. Conformers set this to their backing store type
     /// (e.g., `String`, `NSAttributedString`, rope). Write operations always accept `String`.

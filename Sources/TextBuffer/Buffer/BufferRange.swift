@@ -8,22 +8,22 @@ import Foundation
 /// that determines how locations are expressed (e.g., `Int` for UTF-16 offsets).
 public protocol BufferRange<Position> {
     /// The index type used to express positions within a buffer (e.g., `Int` for UTF-16 offsets, `String.Index` for native Swift string indexing).
-    associatedtype Position: Comparable
+    associatedtype Position: Comparable & ExpressibleByIntegerLiteral
 
     /// The start position of the range.
     var location: Position { get }
 
     /// The number of elements covered by the range.
-    var length: Int { get }
+    var length: Position { get }
 
     /// Creates a range starting at `location` with the given `length`.
-    init(location: Position, length: Int)
+    init(location: Position, length: Position)
 
     /// Returns `true` if this range fully contains `other`.
     func contains(_ other: Self) -> Bool
 
     /// Returns a copy of this range shifted by `delta` positions.
-    func shifted(by delta: Int) -> Self
+    func shifted(by delta: Position) -> Self
 
     /// Returns the portion of this range that remains after removing the overlap with `other`.
     func subtracting(_ other: Self) -> Self
