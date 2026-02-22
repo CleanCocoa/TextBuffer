@@ -8,7 +8,7 @@ import Foundation
 /// that determines how locations are expressed (e.g., `Int` for UTF-16 offsets).
 public protocol BufferRange<Position> {
     /// The index type used to express positions within a buffer (e.g., `Int` for UTF-16 offsets, `String.Index` for native Swift string indexing).
-    associatedtype Position: Comparable & ExpressibleByIntegerLiteral
+    associatedtype Position: Comparable & AdditiveArithmetic & ExpressibleByIntegerLiteral
 
     /// The start position of the range.
     var location: Position { get }
@@ -30,6 +30,19 @@ public protocol BufferRange<Position> {
 
     /// Removes the overlap with `other` from this range in place.
     mutating func subtract(_ other: Self)
+}
+
+extension BufferRange {
+    @inlinable @inline(__always)
+    public func shifted(by delta: Position) -> Self {
+        Self(location: location + delta, length: length)
+    }
+
+    @inlinable @inline(__always)
+    public func contains(_ other: Self) -> Bool {
+        location <= other.location
+            && (location + length) >= (other.location + other.length)
+    }
 }
 
 /// `NSRange` conformance to ``BufferRange``.

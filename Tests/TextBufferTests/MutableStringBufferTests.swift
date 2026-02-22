@@ -37,8 +37,8 @@ final class MutableStringBufferTests: XCTestCase {
         assertThrows(
             try buffer.character(at: 2),
             error: BufferAccessFailure.outOfRange(
-                requested: .init(location: 2, length: 1),
-                available: .init(location: 0, length: 2)
+                requested: NSRange(location: 2, length: 1),
+                available: NSRange(location: 0, length: 2)
             )
         )
     }
@@ -120,7 +120,7 @@ final class MutableStringBufferTests: XCTestCase {
             try buffer.insert("💣", at: 3),
             error: BufferAccessFailure.outOfRange(
                 location: 3,
-                available: .init(location: 0, length: 2)
+                available: NSRange(location: 0, length: 2)
             )
         )
     }
@@ -385,7 +385,7 @@ final class MutableStringBufferTests: XCTestCase {
                 },
                 error: BufferAccessFailure.outOfRange(
                     requested: invalidRange,
-                    available: .init(location: 0, length: 4)
+                    available: NSRange(location: 0, length: 4)
                 )
             )
         }

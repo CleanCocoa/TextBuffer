@@ -41,8 +41,8 @@ final class NSTextViewBufferTests: XCTestCase {
         assertThrows(
             try buffer.character(at: 2),
             error: BufferAccessFailure.outOfRange(
-                requested: .init(location: 2, length: 1),
-                available: .init(location: 0, length: 2)
+                requested: NSRange(location: 2, length: 1),
+                available: NSRange(location: 0, length: 2)
             )
         )
     }
@@ -136,7 +136,7 @@ final class NSTextViewBufferTests: XCTestCase {
             try buffer.insert("💣", at: 3),
             error: BufferAccessFailure.outOfRange(
                 location: 3,
-                available: .init(location: 0, length: 2)
+                available: NSRange(location: 0, length: 2)
             )
         )
     }
@@ -368,7 +368,7 @@ final class NSTextViewBufferTests: XCTestCase {
                 try buffer.modifying(affectedRange: .init(location: location, length: 0)) {
                     XCTFail("Modification at \(location) should not execute")
                 },
-                error: BufferAccessFailure.modificationForbidden(in: .init(location: location, length: 0))
+                error: BufferAccessFailure.modificationForbidden(in: NSRange(location: location, length: 0))
             )
         }
 

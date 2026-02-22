@@ -1,7 +1,5 @@
 //  Copyright © 2024 Christian Tietze. All rights reserved. Distributed under the MIT License.
 
-import Foundation
-
 /// Error thrown by ``Buffer`` operations when access would be out of range or a modification is forbidden.
 public struct BufferAccessFailure: Error, Sendable {
     public let label: String
@@ -19,35 +17,35 @@ public struct BufferAccessFailure: Error, Sendable {
     }
 
     /// Thrown when `requested` range falls outside the `available` buffer range.
-    public static func outOfRange(
-        requested: NSRange,
-        available: NSRange
+    public static func outOfRange<R: BufferRange>(
+        requested: R,
+        available: R
     ) -> BufferAccessFailure {
         return BufferAccessFailure(
             label: "out of range",
-            context: "tried to access (\(requested.location)..<\(requested.endLocation)) in available range (\(available.location)..<\(available.endLocation))"
+            context: "tried to access (\(requested.location)..<\(requested.location + requested.length)) in available range (\(available.location)..<\(available.location + available.length))"
         )
     }
 
     /// Thrown when a single `location` (with optional `length`) falls outside the `available` buffer range.
-    public static func outOfRange(
-        location: Int,
-        length: Int = 0,
-        available: NSRange
+    public static func outOfRange<R: BufferRange>(
+        location: R.Position,
+        length: R.Position = 0,
+        available: R
     ) -> BufferAccessFailure {
         return outOfRange(
-            requested: .init(location: location, length: length),
+            requested: R(location: location, length: length),
             available: available
         )
     }
 
     /// Thrown when a modification to `requestedRange` is rejected by the buffer (e.g., via `shouldChangeText`).
-    public static func modificationForbidden(
-        in requestedRange: NSRange
+    public static func modificationForbidden<R: BufferRange>(
+        in requestedRange: R
     ) -> BufferAccessFailure {
         BufferAccessFailure(
             label: "modification not allowed",
-            context: "tried to modify (\(requestedRange.location)..<\(requestedRange.endLocation))"
+            context: "tried to modify (\(requestedRange.location)..<\(requestedRange.location + requestedRange.length))"
         )
     }
 
