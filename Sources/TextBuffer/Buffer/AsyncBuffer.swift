@@ -33,7 +33,7 @@ public protocol AsyncBuffer<Range>: AnyObject {
 
     /// The content type returned by read operations. Conformers set this to their backing store type
     /// (e.g., `String`, `NSAttributedString`, rope). Write operations always accept `String`.
-    associatedtype Content
+    associatedtype Content: BufferContent<Range.Position>
 
     /// Returns the full text content of the buffer.
     func getContent() async -> Content
