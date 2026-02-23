@@ -44,9 +44,9 @@ import Foundation
 /// print(buffer) // => "Hello, World"
 /// ```
 @MainActor
-public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Range == NSRange, Base.Content == String {
+public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Range == NSRange {
     public typealias Range = NSRange
-    public typealias Content = String
+    public typealias Content = Base.Content
 
     private let base: Base
 
@@ -165,7 +165,7 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Ra
 
         try base.replace(range: replacementRange, with: content)
 
-        let newRange = NSRange(location: replacementRange.location, length: content.utf16.count)
+        let newRange = NSRange(location: replacementRange.location, length: content.length)
         undoManager.beginUndoGrouping()
         undoManager.registerUndo(withTarget: self) { undoableBuffer in
             try? undoableBuffer.replace(range: newRange, with: oldContent)
@@ -186,7 +186,7 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Ra
 
         try base.insert(content, at: location)
 
-        let newRange = NSRange(location: location, length: content.utf16.count)
+        let newRange = NSRange(location: location, length: content.length)
         undoManager.beginUndoGrouping()
         undoManager.registerUndo(withTarget: self) { undoableBuffer in
             try? undoableBuffer.delete(in: newRange)
@@ -215,7 +215,7 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Ra
     }
 }
 
-extension Undoable: @MainActor TextAnalysisCapable where Base: TextAnalysisCapable {
+extension Undoable: @MainActor TextAnalysisCapable where Base: TextAnalysisCapable, Base.Content == String {
     public func lineRange(for searchRange: NSRange) throws(BufferAccessFailure) -> NSRange {
         return try base.lineRange(for: searchRange)
     }

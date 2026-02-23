@@ -44,15 +44,15 @@ public protocol Buffer<Range>: AsyncBuffer {
     /// Inserts `content` at `location` into the buffer, not affecting the typing location of ``selectedRange`` in the process.
     ///
     /// - Throws: ``BufferAccessFailure`` if `location` exceeds ``range``.
-    func insert(_ content: String, at location: Location) throws(BufferAccessFailure)
+    func insert(_ content: Content, at location: Location) throws(BufferAccessFailure)
 
     /// Inserts `content` like typing at the current typing location of ``selectedRange``.
     ///
     /// This replaces any existing selected text. The ``selectedRange`` is modified in the process:
     ///
-    /// - inserting text at the insertion point moves the insertion point by `content.utf16.count`,
+    /// - inserting text at the insertion point moves the insertion point by `content.length`,
     /// - replacing text moves the insertion point to the end of the inserted text (exiting the selection mode).
-    func insert(_ content: String) throws(BufferAccessFailure)
+    func insert(_ content: Content) throws(BufferAccessFailure)
 
     /// Deletes content from `deletedRange`.
     ///
@@ -62,7 +62,7 @@ public protocol Buffer<Range>: AsyncBuffer {
     func delete(in deletedRange: Range) throws(BufferAccessFailure)
 
     /// - Throws: ``BufferAccessFailure`` if `replacementRange` exceeds ``range``.
-    func replace(range replacementRange: Range, with content: String) throws(BufferAccessFailure)
+    func replace(range replacementRange: Range, with content: Content) throws(BufferAccessFailure)
 
     /// Wrapping changes inside `block` in a modification request to bundle updates.
     ///
@@ -88,7 +88,7 @@ extension Buffer {
     }
 
     @inlinable @inline(__always)
-    public func insert(_ content: String) throws(BufferAccessFailure) {
+    public func insert(_ content: Content) throws(BufferAccessFailure) {
         try replace(range: selectedRange, with: content)
     }
 
