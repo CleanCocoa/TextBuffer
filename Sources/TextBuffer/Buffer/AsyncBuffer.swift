@@ -31,8 +31,8 @@ public protocol AsyncBuffer<Range>: AnyObject {
     /// The type used for length measurements, derived from ``Range``'s ``BufferRange/Position``.
     typealias Length = Range.Position
 
-    /// The content type returned by read operations. Conformers set this to their backing store type
-    /// (e.g., `String`, `NSAttributedString`, rope). Write operations always accept `String`.
+    /// The content type for read and write operations. Conformers set this to their backing store type
+    /// (e.g., `String`, `NSAttributedString`, rope).
     associatedtype Content: BufferContent<Range.Position>
 
     /// Returns the full text content of the buffer.
