@@ -7,7 +7,7 @@ public typealias InMemoryBuffer = MutableStringBuffer
 
 /// A self-contained ``Buffer`` implementation, backed by `NSMutableString` as the UTF-16-offset indexed storage.
 ///
-/// Used as in-memory buffers, you can apply changes to off-screen textual content in a way that is consistent with text views, but actually independent of these. Opposed to the platform's Text Kit views, which are large class clusters with a lot of automatic behavior pertaining layout, keeping a ``MutableStringBuffer`` in memory produces little overhead. (In fact, only as much overhead as a `NSMutableString` will, plus storing the selected range.)
+/// Used as in-memory buffers, you can apply changes to off-screen textual content in a way that is consistent with text views, but actually independent of these. Opposed to the platform's Text Kit views, which are large class clusters with a lot of automatic behavior pertaining layout, keeping a ``MutableStringBuffer`` in memory produces little overhead. (In fact, only as much overhead as a `NSMutableString` will, plus storing the selected range.)
 ///
 /// To adapt other buffers and copy their content, use ``MutableStringBuffer/init(wrapping:)``.
 ///
@@ -15,21 +15,24 @@ public typealias InMemoryBuffer = MutableStringBuffer
 ///
 /// - Use ``MutableStringBuffer`` in unit tests.
 /// - Maintain multiple text buffers in memory while only ever rendering one buffer as a text view on screen, e.g. for opening multiple files in your app.
-public final class MutableStringBuffer: Buffer {
+public final class MutableStringBuffer: Buffer, TextAnalysisCapable {
+    public typealias Range = NSRange
+    public typealias Content = String
+
     @usableFromInline
     let storage: NSMutableString
 
     @inlinable
-    public var range: Buffer.Range { Buffer.Range(location: 0, length: self.storage.length) }
+    public var range: NSRange { NSRange(location: 0, length: self.storage.length) }
 
     @inlinable
-    public var content: Content { self.storage as Buffer.Content }
+    public var content: String { self.storage as String }
 
-    public var selectedRange: Buffer.Range
+    public var selectedRange: NSRange
 
     fileprivate init(
         storage: NSMutableString,
-        selectedRange: Buffer.Range
+        selectedRange: NSRange
     ) {
         self.storage = storage
         self.selectedRange = selectedRange
@@ -38,15 +41,15 @@ public final class MutableStringBuffer: Buffer {
     /// Create a new `NSMutableString`-backed buffer based on `content`.
     ///
     /// > Invariant: The insertion point starts at the beginning of the buffer. This differs from `NSTextView`, which places the insertion point at the end when setting its string. The beginning-of-buffer default is intentional: ``MutableStringBuffer`` is designed for programmatic manipulation where processing typically starts from the beginning, not for user-facing editing where appending is the common case.
-    public convenience init(_ content: Buffer.Content) {
+    public convenience init(_ content: String) {
         self.init(
             storage: NSMutableString(string: content),
-            selectedRange: Buffer.Range(location: 0, length: 0)
+            selectedRange: NSRange(location: 0, length: 0)
         )
     }
 
     @inlinable
-    public func lineRange(for searchRange: Buffer.Range) throws -> Buffer.Range {
+    public func lineRange(for searchRange: NSRange) throws(BufferAccessFailure) -> NSRange {
         guard contains(range: searchRange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: searchRange,
@@ -57,7 +60,7 @@ public final class MutableStringBuffer: Buffer {
     }
 
     @inlinable
-    public func content(in subrange: UTF16Range) throws -> Buffer.Content {
+    public func content(in subrange: NSRange) throws(BufferAccessFailure) -> String {
         guard contains(range: subrange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: subrange,
@@ -69,13 +72,13 @@ public final class MutableStringBuffer: Buffer {
 
     /// Raises an `NSExceptionName` of name `.rangeException` if `location` is out of bounds.
     @inlinable
-    public func unsafeCharacter(at location: Buffer.Location) -> Buffer.Content {
+    public func unsafeCharacter(at location: Int) -> String {
         return self.storage.unsafeCharacter(at: location)
     }
 
     @inlinable
-    public func insert(_ content: Content, at location: Location) throws {
-        guard contains(range: .init(location: location, length: 0)) else {
+    public func insert(_ content: String, at location: Int) throws(BufferAccessFailure) {
+        guard contains(range: NSRange(location: location, length: 0)) else {
             throw BufferAccessFailure.outOfRange(
                 location: location,
                 available: self.range
@@ -85,11 +88,11 @@ public final class MutableStringBuffer: Buffer {
         self.storage.insert(content, at: location)
 
         self.selectedRange = self.selectedRange
-            .shifted(by: location <= self.selectedRange.location ? length(of: content) : 0)  // Nudges selection to the right if needed.
+            .shifted(by: location <= self.selectedRange.location ? content.utf16.count : 0)  // Nudges selection to the right if needed.
     }
 
     @inlinable
-    public func delete(in deletedRange: Buffer.Range) throws {
+    public func delete(in deletedRange: NSRange) throws(BufferAccessFailure) {
         guard contains(range: deletedRange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: deletedRange,
@@ -102,7 +105,7 @@ public final class MutableStringBuffer: Buffer {
     }
 
     @inlinable
-    public func replace(range replacementRange: Buffer.Range, with content: Buffer.Content) throws {
+    public func replace(range replacementRange: NSRange, with content: String) throws(BufferAccessFailure) {
         guard contains(range: replacementRange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: replacementRange,
@@ -114,11 +117,11 @@ public final class MutableStringBuffer: Buffer {
 
         self.selectedRange = self.selectedRange
             .subtracting(replacementRange)  // Removes potential overlap with the replacement range.
-            .shifted(by: replacementRange.location <= self.selectedRange.location ? length(of: content) : 0)  // Nudges selection to the right if needed.
+            .shifted(by: replacementRange.location <= self.selectedRange.location ? content.utf16.count : 0)  // Nudges selection to the right if needed.
     }
 
     @inlinable
-    public func modifying<T>(affectedRange: Buffer.Range, _ block: () -> T) throws -> T {
+    public func modifying<T>(affectedRange: NSRange, _ block: () -> T) throws(BufferAccessFailure) -> T {
         guard contains(range: affectedRange) else {
             throw BufferAccessFailure.outOfRange(
                 requested: affectedRange,
@@ -128,13 +131,18 @@ public final class MutableStringBuffer: Buffer {
 
         return block()
     }
+
+    @inlinable
+    public func setInsertionLocation(_ location: Int) {
+        selectedRange = NSRange(location: location, length: 0)
+    }
 }
 
 extension MutableStringBuffer {
     /// Create a copy of `buffer`.
     public convenience init<Wrapped>(
         wrapping buffer: Wrapped
-    ) where Wrapped: Buffer {
+    ) where Wrapped: Buffer, Wrapped.Range == NSRange, Wrapped.Content == String {
         self.init(
             storage: NSMutableString(string: buffer.content),
             selectedRange: buffer.selectedRange
@@ -159,7 +167,7 @@ extension MutableStringBuffer: CustomStringConvertible {
     /// ```swift
     /// let buffer = MutableStringBuffer("Hello, world!")
     /// print(buffer) // => "ˇHello, world!"
-    /// buffer.select(Buffer.Range(location: 7, length: 5))
+    /// buffer.select(NSRange(location: 7, length: 5))
     /// print(buffer) // => "Hello, «world»!"
     /// ```
     public var description: String {

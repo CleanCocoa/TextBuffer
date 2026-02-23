@@ -31,8 +31,8 @@ extension NSString {
         from characterSet: CharacterSet,
         direction: StringTraversalDirection,
         in range: NSRange
-    ) -> Buffer.Location? {
-        var result: Buffer.Location?
+    ) -> Int? {
+        var result: Int?
 
         var options: NSString.EnumerationOptions = [.byComposedCharacterSequences]
         if direction == .upstream {

@@ -1,14 +1,15 @@
 //  Copyright © 2024 Christian Tietze. All rights reserved. Distributed under the MIT License.
 
+import Foundation
 import XCTest
 import TextBuffer
 
-public func assertBufferState(
-    _ buffer: Buffer,
+public func assertBufferState<B: Buffer>(
+    _ buffer: B,
     _ expectedDescription: String,
     _ message: @autoclosure () -> String = "",
-    file: StaticString = #file, line: UInt = #line
-) {
+    file: StaticString = #filePath, line: UInt = #line
+) where B.Range == NSRange, B.Content == String {
     XCTAssertEqual(
         MutableStringBuffer(wrapping: buffer).description,
         expectedDescription,

@@ -4,12 +4,12 @@ import Foundation
 
 extension NSMutableString {
     @usableFromInline
-    func unsafeCharacter(at location: Buffer.Location) -> Buffer.Content {
+    func unsafeCharacter(at location: Int) -> String {
         return unsafeContent(in: self.rangeOfComposedCharacterSequence(at: location))
     }
 
     @usableFromInline
-    func unsafeContent(in range: Buffer.Range) -> Buffer.Content {
+    func unsafeContent(in range: NSRange) -> String {
         if range.length == 0 {
             // This will always return an empty string, but also raise an exception when the range is out of the string's bounds.
             return self.substring(with: range)

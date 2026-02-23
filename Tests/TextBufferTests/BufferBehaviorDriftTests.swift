@@ -5,6 +5,7 @@ import XCTest
 import TextBuffer
 
 @available(macOS, introduced: 13.0)
+@MainActor
 final class BufferBehaviorDriftTests: XCTestCase {
 
     typealias BufferPair = (inMemory: MutableStringBuffer, onScreen: NSTextViewBuffer)
@@ -16,7 +17,7 @@ final class BufferBehaviorDriftTests: XCTestCase {
         return (inMemory, onScreen)
     }
 
-    func assertBehaviorMatch(_ pair: BufferPair, message: String = "", file: StaticString = #file, line: UInt = #line) {
+    func assertBehaviorMatch(_ pair: BufferPair, message: String = "", file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertEqual(pair.inMemory.content, pair.onScreen.content, file: file, line: line)
         let msg = message.isEmpty
             ? "MutableStringBuffer=\(pair.inMemory.selectedRange) vs NSTextViewBuffer=\(pair.onScreen.selectedRange)"

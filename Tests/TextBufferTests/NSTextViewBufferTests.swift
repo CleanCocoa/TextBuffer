@@ -3,6 +3,7 @@
 import XCTest
 import TextBuffer
 
+@MainActor
 final class NSTextViewBufferTests: XCTestCase {
     func testContent() {
         let string = "Test ⭐️ string 🚞 here"
@@ -40,8 +41,8 @@ final class NSTextViewBufferTests: XCTestCase {
         assertThrows(
             try buffer.character(at: 2),
             error: BufferAccessFailure.outOfRange(
-                requested: .init(location: 2, length: 1),
-                available: .init(location: 0, length: 2)
+                requested: NSRange(location: 2, length: 1),
+                available: NSRange(location: 0, length: 2)
             )
         )
     }
@@ -69,9 +70,9 @@ final class NSTextViewBufferTests: XCTestCase {
 
     func testContentInRange_OutOfBounds() throws {
         let buffer = textView("Lorem ipsum")
-        let expectedAvailableRange = Buffer.Range(location: 0, length: 11)
+        let expectedAvailableRange = NSRange(location: 0, length: 11)
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [NSRange] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -119,7 +120,7 @@ final class NSTextViewBufferTests: XCTestCase {
 
     func testInsertOverSelection() throws {
         let buffer = textView("fizz buzz fizz buzz")
-        let selectedRange = Buffer.Range(location: 5, length: 10)
+        let selectedRange = NSRange(location: 5, length: 10)
         buffer.select(selectedRange)
 
         assertBufferState(buffer, "fizz «buzz fizz »buzz")
@@ -135,7 +136,7 @@ final class NSTextViewBufferTests: XCTestCase {
             try buffer.insert("💣", at: 3),
             error: BufferAccessFailure.outOfRange(
                 location: 3,
-                available: .init(location: 0, length: 2)
+                available: NSRange(location: 0, length: 2)
             )
         )
     }
@@ -170,7 +171,7 @@ final class NSTextViewBufferTests: XCTestCase {
     func testLineRange_OutOfBounds() {
         let buffer = textView("aa\nbb\ncc")
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [NSRange] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -181,7 +182,7 @@ final class NSTextViewBufferTests: XCTestCase {
             .init(location: 10, length: 0),
             .init(location: 100, length: 999),
         ]
-        let expectedAvailableRange = Buffer.Range(location: 0, length: 8)
+        let expectedAvailableRange = NSRange(location: 0, length: 8)
         for invalidRange in invalidRanges {
             assertThrows(
                 try buffer.lineRange(for: invalidRange),
@@ -218,9 +219,9 @@ final class NSTextViewBufferTests: XCTestCase {
 
     func testDeleteOutsideBounds() {
         let buffer = textView("Lorem ipsum")
-        let expectedAvailableRange = Buffer.Range(location: 0, length: 11)
+        let expectedAvailableRange = NSRange(location: 0, length: 11)
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [NSRange] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -294,8 +295,8 @@ final class NSTextViewBufferTests: XCTestCase {
     }
 
     func testReplaceAroundInsertionPoint() throws {
-        let buffer: Buffer = textView("Goodbye, cruel universe!")
-        buffer.insertionLocation = length(of: "Goodbye, cruel")
+        let buffer = textView("Goodbye, cruel universe!")
+        buffer.insertionLocation = "Goodbye, cruel".utf16.count
 
         assertBufferState(buffer, "Goodbye, cruelˇ universe!")
 
@@ -310,7 +311,7 @@ final class NSTextViewBufferTests: XCTestCase {
     }
 
     func testReplaceInSelectedRange() throws {
-        let buffer: Buffer = textView("Lorem ipsum")
+        let buffer = textView("Lorem ipsum")
         buffer.selectedRange = .init(location: 3, length: 5)
 
         assertBufferState(buffer, "Lor«em ip»sum")
@@ -323,10 +324,10 @@ final class NSTextViewBufferTests: XCTestCase {
     }
 
     func testReplaceOutOfBounds() {
-        let buffer: Buffer = textView("Lorem ipsum")
-        let expectedAvailableRange = Buffer.Range(location: 0, length: 11)
+        let buffer = textView("Lorem ipsum")
+        let expectedAvailableRange = NSRange(location: 0, length: 11)
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [NSRange] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -367,7 +368,7 @@ final class NSTextViewBufferTests: XCTestCase {
                 try buffer.modifying(affectedRange: .init(location: location, length: 0)) {
                     XCTFail("Modification at \(location) should not execute")
                 },
-                error: BufferAccessFailure.modificationForbidden(in: .init(location: location, length: 0))
+                error: BufferAccessFailure.modificationForbidden(in: NSRange(location: location, length: 0))
             )
         }
 

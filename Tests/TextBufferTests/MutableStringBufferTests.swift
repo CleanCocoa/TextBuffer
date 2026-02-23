@@ -37,8 +37,8 @@ final class MutableStringBufferTests: XCTestCase {
         assertThrows(
             try buffer.character(at: 2),
             error: BufferAccessFailure.outOfRange(
-                requested: .init(location: 2, length: 1),
-                available: .init(location: 0, length: 2)
+                requested: NSRange(location: 2, length: 1),
+                available: NSRange(location: 0, length: 2)
             )
         )
     }
@@ -66,9 +66,9 @@ final class MutableStringBufferTests: XCTestCase {
 
     func testContentInRange_OutOfBounds() throws {
         let buffer = MutableStringBuffer("Lorem ipsum")
-        let expectedAvailableRange = Buffer.Range(location: 0, length: 11)
+        let expectedAvailableRange = NSRange(location: 0, length: 11)
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [NSRange] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -120,7 +120,7 @@ final class MutableStringBufferTests: XCTestCase {
             try buffer.insert("💣", at: 3),
             error: BufferAccessFailure.outOfRange(
                 location: 3,
-                available: .init(location: 0, length: 2)
+                available: NSRange(location: 0, length: 2)
             )
         )
     }
@@ -128,7 +128,7 @@ final class MutableStringBufferTests: XCTestCase {
     func testInsertOverSelection() throws {
         let buffer = MutableStringBuffer("fizz buzz fizz buzz")
 
-        let selectedRange = Buffer.Range(location: 5, length: 10)
+        let selectedRange = NSRange(location: 5, length: 10)
         buffer.select(selectedRange)
 
         XCTAssertTrue(buffer.isSelectingText)
@@ -170,7 +170,7 @@ final class MutableStringBufferTests: XCTestCase {
     func testLineRange_OutOfBounds() {
         let buffer = MutableStringBuffer("aa\nbb\ncc")
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [NSRange] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -181,7 +181,7 @@ final class MutableStringBufferTests: XCTestCase {
             .init(location: 10, length: 0),
             .init(location: 100, length: 999),
         ]
-        let expectedAvailableRange = Buffer.Range(location: 0, length: 8)
+        let expectedAvailableRange = NSRange(location: 0, length: 8)
         for invalidRange in invalidRanges {
             assertThrows(
                 try buffer.lineRange(for: invalidRange),
@@ -196,7 +196,7 @@ final class MutableStringBufferTests: XCTestCase {
 
     func testDelete() throws {
         let buffer = MutableStringBuffer("Hello: world!")
-        buffer.insertionLocation = length(of: "Hello: wor")
+        buffer.insertionLocation = "Hello: wor".utf16.count
 
         assertBufferState(buffer, "Hello: worˇld!")
 
@@ -221,9 +221,9 @@ final class MutableStringBufferTests: XCTestCase {
 
     func testDeleteOutsideBounds() {
         let buffer = MutableStringBuffer("Lorem ipsum")
-        let expectedAvailableRange = Buffer.Range(location: 0, length: 11)
+        let expectedAvailableRange = NSRange(location: 0, length: 11)
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [NSRange] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -298,7 +298,7 @@ final class MutableStringBufferTests: XCTestCase {
 
     func testReplaceAroundInsertionPoint() throws {
         let buffer = MutableStringBuffer("Goodbye, cruel universe!")
-        buffer.insertionLocation = length(of: "Goodbye, cruel")
+        buffer.insertionLocation = "Goodbye, cruel".utf16.count
 
         assertBufferState(buffer, "Goodbye, cruelˇ universe!")
 
@@ -326,10 +326,10 @@ final class MutableStringBufferTests: XCTestCase {
     }
 
     func testReplaceOutOfBounds() {
-        let buffer: Buffer = MutableStringBuffer("Lorem ipsum")
-        let expectedAvailableRange = Buffer.Range(location: 0, length: 11)
+        let buffer = MutableStringBuffer("Lorem ipsum")
+        let expectedAvailableRange = NSRange(location: 0, length: 11)
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [NSRange] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -367,7 +367,7 @@ final class MutableStringBufferTests: XCTestCase {
     func testModifying_OutOfBounds_Throws() throws {
         let buffer = MutableStringBuffer("Text")
 
-        let invalidRanges: [Buffer.Range] = [
+        let invalidRanges: [NSRange] = [
             .init(location: -1, length: 999),
             .init(location: -1, length: 1),
             .init(location: -1, length: 0),
@@ -385,7 +385,7 @@ final class MutableStringBufferTests: XCTestCase {
                 },
                 error: BufferAccessFailure.outOfRange(
                     requested: invalidRange,
-                    available: .init(location: 0, length: 4)
+                    available: NSRange(location: 0, length: 4)
                 )
             )
         }

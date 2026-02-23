@@ -1,6 +1,7 @@
 //  Copyright © 2024 Christian Tietze. All rights reserved. Distributed under the MIT License.
 
-public struct BufferAccessFailure: Error {
+/// Error thrown by ``Buffer`` operations when access would be out of range or a modification is forbidden.
+public struct BufferAccessFailure: Error, Sendable {
     public let label: String
     public let context: String?
     public let underlyingError: Error?
@@ -15,36 +16,40 @@ public struct BufferAccessFailure: Error {
         self.underlyingError = underlyingError
     }
 
-    public static func outOfRange(
-        requested: Buffer.Range,
-        available: Buffer.Range
+    /// Thrown when `requested` range falls outside the `available` buffer range.
+    public static func outOfRange<R: BufferRange>(
+        requested: R,
+        available: R
     ) -> BufferAccessFailure {
         return BufferAccessFailure(
             label: "out of range",
-            context: "tried to access (\(requested.location)..<\(requested.endLocation)) in available range (\(available.location)..<\(available.endLocation))"
+            context: "tried to access (\(requested.location)..<\(requested.location + requested.length)) in available range (\(available.location)..<\(available.location + available.length))"
         )
     }
 
-    public static func outOfRange(
-        location: Buffer.Location,
-        length: Buffer.Length = 0,
-        available: Buffer.Range
+    /// Thrown when a single `location` (with optional `length`) falls outside the `available` buffer range.
+    public static func outOfRange<R: BufferRange>(
+        location: R.Position,
+        length: R.Position = 0,
+        available: R
     ) -> BufferAccessFailure {
         return outOfRange(
-            requested: .init(location: location, length: length),
+            requested: R(location: location, length: length),
             available: available
         )
     }
 
-    public static func modificationForbidden(
-        in requestedRange: Buffer.Range
+    /// Thrown when a modification to `requestedRange` is rejected by the buffer (e.g., via `shouldChangeText`).
+    public static func modificationForbidden<R: BufferRange>(
+        in requestedRange: R
     ) -> BufferAccessFailure {
         BufferAccessFailure(
             label: "modification not allowed",
-            context: "tried to modify (\(requestedRange.location)..<\(requestedRange.endLocation))"
+            context: "tried to modify (\(requestedRange.location)..<\(requestedRange.location + requestedRange.length))"
         )
     }
 
+    /// Wraps any `Error` as a `BufferAccessFailure`, passing through existing `BufferAccessFailure` values unchanged.
     public static func wrap(_ error: any Error) -> BufferAccessFailure {
         return error as? BufferAccessFailure
           ?? BufferAccessFailure(
