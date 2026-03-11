@@ -4,7 +4,7 @@
 **Date:** 2026-03-11
 **Author:** Solution Architect (AI-Assisted)
 **Status:** Draft
-**Source Requirements:** plan.md, 2026-03-07_spec-textbuffer-custom-storage.md
+**Source Requirements:** 2026-03-07_spec-textbuffer-custom-storage.md
 
 ---
 
@@ -908,7 +908,6 @@ TextBuffer/
 │       ├── TextRopeReplaceTests.swift          [NEW]
 │       └── TextRopeStressTests.swift           [NEW]
 ├── Package.swift                               [MODIFIED]
-├── plan.md                                     (existing)
 ├── 2026-03-07_spec-textbuffer-custom-storage.md (existing)
 ├── research.md                                 (research output)
 └── SPEC.md                                     [THIS FILE]
