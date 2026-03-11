@@ -1,6 +1,6 @@
 # Solution Specification: TextBuffer — Operation Log & Rope
 
-**Version:** 1.0
+**Version:** 1.1
 **Date:** 2026-03-11
 **Author:** Solution Architect (AI-Assisted)
 **Status:** Draft
@@ -490,9 +490,7 @@ extension TextRope {
 }
 ```
 
-**Design note:** Caching both utf8 and utf16 counts per node follows Apple's BigString/Rope pattern. This enables O(log n) translation between byte offsets and UTF-16 offsets (for NSRange compatibility) without scanning leaf content during navigation.
-
-Line count is included from day one — it's ~5 lines of code to count `\n` during chunk construction and enables O(log n) line-to-offset lookup for future `LineIndex` integration.
+See ADR-004 for encoding rationale.
 
 #### TextRope.Node
 
@@ -1172,31 +1170,30 @@ Overall:            Both paths → 021
 
 ---
 
-## 8. Design Assumptions
+## 8. Design Assumptions & Decisions
 
-| ID | Assumption | Rationale | Risk if Wrong |
-|---|---|---|---|
-| DA-01 | `allowsUndo = false` fully prevents NSTextView from registering undo actions | Apple documentation states this controls undo registration for text changes | Puppet stack pollution; mitigated by no-op registerUndo override |
-| DA-02 | PuppetUndoManager overrides are sufficient for Edit menu | `validateUserInterfaceItem:` reads canUndo/undoMenuItemTitle from undo manager | May need additional overrides if AppKit checks private state |
-| DA-03 | Rope leaf chunks of 1-2KB UTF-8 are appropriate | Matches Apple BigString; balances depth vs mutation cost | Tunable via named constants |
-| DA-04 | Max 8 children per inner node sufficient for v1 | Depth ~7 for 10K leaves; keeps rebalancing simple | Tunable; 12-16 if benchmarks show depth bottleneck |
-| DA-05 | `represent()` should precondition no open undo group | Document switch mid-edit is a programming error | Relax to discard open groups if legitimate use case found |
-| DA-06 | Selection-only cursor movement is not undoable | Matches standard text editor UX and NSTextView default | Some editors track selection; this matches the common case |
+Design decisions and their rationale are recorded in `docs/adr/`. Key ADRs:
 
----
+| ADR | Topic |
+|---|---|
+| [ADR-001](docs/adr/adr-001--dual-undo-implementations.md) | Why TransferableUndoable exists alongside Undoable |
+| [ADR-002](docs/adr/adr-002--operation-log-as-value-type.md) | OperationLog as value type — the core transfer enabler |
+| [ADR-003](docs/adr/adr-003--puppet-undo-manager-via-subclass.md) | PuppetUndoManager via subclass + allowsUndo=false |
+| [ADR-004](docs/adr/adr-004--utf8-rope-with-cached-utf16-counts.md) | UTF-8 rope storage with cached UTF-16 counts |
+| [ADR-005](docs/adr/adr-005--contiguous-array-children-with-managed-buffer-upgrade-path.md) | ContiguousArray children with ManagedBuffer upgrade path |
+| [ADR-006](docs/adr/adr-006--always-rooted-rope.md) | Always-rooted rope (empty leaf, no optional root) |
+| [ADR-007](docs/adr/adr-007--no-parent-pointers-in-rope-nodes.md) | No parent pointers in rope nodes |
+| [ADR-008](docs/adr/adr-008--selection-as-group-metadata.md) | Selection is group metadata, not an undo step |
+| [ADR-009](docs/adr/adr-009--undo-redo-as-proper-inverses.md) | Undo and redo as proper inverses |
 
-## 9. Design Decisions & Trade-offs
+**Remaining assumption not covered by ADRs:**
 
-| ID | Decision | Rejected Alternative | Rationale |
-|---|---|---|---|
-| DD-01 | New TransferableUndoable alongside existing Undoable | Replace Undoable internals | Keeps NSUndoManager implementation as gold standard for drift testing |
-| DD-02 | PuppetUndoManager (NSUndoManager subclass) | Proxy action push/sync pattern | Subclass is simpler; Apple explicitly supports custom undo managers |
-| DD-03 | UTF-8 rope with cached UTF-16 counts | UTF-16 internal storage | Future-proofs for UTF-8 indexing; matches Apple BigString |
-| DD-04 | ContiguousArray for children (v1) | ManagedBuffer inline storage | Simpler; double-COW acceptable for branching factor 8 |
-| DD-05 | Always-rooted rope (empty leaf) | Optional root (nil for empty) | Eliminates nil checks in every recursive function |
-| DD-06 | String for leaf chunks | [UInt8] raw bytes | Prevents invalid UTF-8 splits; withUTF8 gives raw access |
-| DD-07 | Recursive BufferStep.group | Flat begin/end steps | Maps to closure-based undoGrouping API on both types |
-| DD-08 | No parent pointers in rope nodes | Weak parent references | Weak refs break isKnownUniquelyReferenced; path-from-root only |
+- **DA-05:** `represent()` preconditions that no undo group is currently open. A document switch mid-edit-group is a programming error. If a legitimate use case arises, relax to discard open groups.
+
+**Implementation convention (not a design decision):**
+
+- `BufferStep.group` uses a recursive case (not flat begin/end steps) because it maps directly to the closure-based `undoGrouping { }` API on both `Undoable` and `TransferableUndoable`.
+- Rope leaf chunks use `String` (not `[UInt8]` raw bytes) because `String.Index` prevents invalid UTF-8 splits at chunk boundaries, and `withUTF8` provides raw byte access when needed.
 
 ---
 
@@ -1293,65 +1290,14 @@ TextBuffer/
 
 ---
 
-## 11. Appendix A: Apple BigString/Rope Reference
+## 11. Research References
 
-Preserved from research for future reference when implementing the rope.
+Detailed research is preserved in companion files:
 
-### Architecture (swift-collections, `_RopeModule`)
+- **Apple BigString/Rope analysis:** `research.md` and ADR-004. The swift-collections `_RopeModule` was evaluated and rejected as a direct dependency (unstable API, availability constraints, API mismatch) but its architecture informed our design decisions. Key borrowed patterns: UTF-8 storage with multi-count summaries, metric-based tree navigation, path-copying COW discipline.
+- **COW sub-agent review:** Detailed findings on `isKnownUniquelyReferenced` behavior, double-COW costs, and Sendable patterns are captured in ADR-005, ADR-006, and ADR-007. Implementation-specific notes (extract→check→write-back pattern for array elements, `\r\n` split invariant) are embedded in the Node type definition (Section 4.3) and task descriptions (TASK-013, TASK-015).
 
-- **Module status:** `_RopeModule` — underscore prefix = internal/unstable API. Not for external consumption.
-- **Availability:** `@available(SwiftStdlib 6.2, *)`, `#if compiler(>=6.2) && !$Embedded`
-- **Known issues:** FIXME in Package.swift: `_modify` accessors broken in Swift 6 mode; module runs in Swift 5 language mode.
-- **Generic rope:** `Rope<Element: RopeElement>` with `RopeSummary` and `RopeMetric` protocols.
-- **BigString:** `Rope<_Chunk>` where chunks are `ManagedBuffer<(), UInt8>` storing UTF-8 bytes.
-
-### Key Design Patterns
-
-- **Internal encoding:** UTF-8 (`ManagedBuffer<(), UInt8>`)
-- **Summary:** Caches `utf8`, `utf16`, `unicodeScalars`, `characters` counts per node
-- **Metrics:** Protocol-based navigation — `_UTF8Metric`, `_UTF16Metric`, `_CharacterMetric`, `_UnicodeScalarMetric`
-- **Branching factor:** Max 15, min 8 (in release builds; 10 in debug)
-- **COW:** Reference-counted nodes via `ManagedBuffer`, `isKnownUniquelyReferenced`
-
-### Why We Don't Use It Directly
-
-1. Unstable API (`_RopeModule` prefix)
-2. `SwiftStdlib 6.2` availability constraint
-3. API mismatch: `BidirectionalCollection<Character>` with opaque `BigString.Index`, not integer-offset `Buffer` operations
-4. Over-complex for our needs: grapheme cluster break tracking, ingester pipelines, ~5000 lines vs our ~500-800
-
-### What We Borrow
-
-- UTF-8 storage with multi-count summary (utf8 + utf16 + lines)
-- Metric-based tree navigation by UTF-16 at the `Buffer<NSRange>` boundary
-- `ContiguousArray`/`ManagedBuffer` for node children
-- Path-copying COW discipline
-
----
-
-## 12. Appendix B: COW Rope Sub-Agent Review Findings
-
-Preserved from sub-agent review for implementation guidance.
-
-### Critical Implementation Notes
-
-1. **Sendable placement:** `Node` has no Sendable conformance. `TextRope: Sendable` with `nonisolated(unsafe) var root: Node`. This matches `Array`'s pattern — the storage class is not Sendable; the value-semantic wrapper takes responsibility.
-
-2. **`isKnownUniquelyReferenced` with optionals:** Works correctly via the `T?` overload. Not applicable since we use always-rooted design.
-
-3. **`isKnownUniquelyReferenced` with array elements:** Unreliable via direct subscript access. Must extract → check local variable → write back. The local variable holds a second reference, so the check returns false if *any other* reference exists — which is correct.
-
-4. **Double-COW with `ContiguousArray<Node>`:** Real but manageable. Path-copying at depth D with branching factor B costs O(B × D) pointer copies (entire children array at each level). With B=8, D≤7: max 56 pointer copies per mutation.
-
-5. **`ManagedBuffer` upgrade path:** Single allocation per inner node (children inline). Superior for path-copying where new nodes are constructed with known child counts. Documented as future optimization.
-
-6. **No parent pointers:** Weak references break `isKnownUniquelyReferenced` (always returns false). Use path-from-root traversal.
-
-7. **`\r\n` cross-chunk invariant:** Never split between `\r` and `\n`. Enforce during chunk splitting: if byte before split is `\r` and byte after is `\n`, adjust split point.
-
-8. **Cursor type for sequential access:** Not in v1, but important for future. Sequential access via O(log n) per step is wasteful for line-by-line reading. A cursor maintaining a stack of `(node, childIndex, offset)` enables O(1) amortized sequential navigation. Design rope internals to accommodate this later.
-
-9. **Index invalidation:** Use version counter on TextRope incremented on every mutation. Future opaque index types carry creation version; stale access is a precondition failure. Not needed for v1 since all operations use integer offsets.
+**Future consideration not yet an ADR:** A version counter on `TextRope` (incremented on every mutation) would enable opaque index types with staleness detection. Not needed for v1 since all operations use integer offsets. Revisit when adding a cursor type for sequential access.
 
 ---
 
@@ -1360,3 +1306,4 @@ Preserved from sub-agent review for implementation guidance.
 | Version | Date | Author | Changes |
 |---|---|---|---|
 | 1.0 | 2026-03-11 | Solution Architect | Initial spec |
+| 1.1 | 2026-03-11 | Solution Architect | Extracted ADR-001 through ADR-009; trimmed Sections 8–9 and appendices to cross-references |
