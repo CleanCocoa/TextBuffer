@@ -1,20 +1,64 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Project: TextBuffer — a Swift library for text buffer abstractions and editor-engine work.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  Current package structure:
+  - TextBuffer: main library target
+  - TextRope: standalone rope storage target
+  - TextBufferTesting: shared test helpers
+
+  Core domain concepts:
+  - Buffer protocol with NSRange-based editing operations
+  - Existing conformers: MutableStringBuffer, NSTextViewBuffer
+  - Existing undo type: Undoable<Base> backed by NSUndoManager
+  - New undo type: TransferableUndoable<Base> backed by OperationLog
+  - AppKit bridge: PuppetUndoManager
+  - New storage backend: TextRope, wrapped by RopeBuffer
+
+  Source-of-truth documents:
+  - SPEC.md: comprehensive technical blueprint
+  - TASKS.md: master implementation roadmap
+  - docs/adr/: architectural decisions and rationale
+  - research.md: supporting technical research
+
+  OpenSpec changes in this repo are derived execution slices from the root SPEC/TASKS/ADR set.
+  Do not invent a parallel architecture when a decision already exists in ADRs or SPEC.md.
+
+  Technical conventions:
+  - Swift 6.2
+  - Swift Package Manager
+  - XCTest for tests
+  - @MainActor on Buffer conformers and undo types
+  - NSRange/UTF-16 compatibility is required at the Buffer boundary
+  - Prefer value types for data and reference types only where identity/mutability is required
+  - TDD is expected: failing tests first, then implementation
+  - For rope design, UTF-8 internal storage with cached UTF-16 counts is the decided direction
+
+rules:
+  proposal:
+    - Keep proposals concise and scoped to a coherent execution slice, not the whole roadmap.
+    - Derive motivation from SPEC.md and ADRs instead of restating all background from scratch.
+    - State the exact roadmap task range or milestone block the change corresponds to when applicable.
+    - Prefer capability names that are stable, concrete, and kebab-case.
+
+  design:
+    - Treat SPEC.md as the canonical technical blueprint; design.md should be a focused extraction for the change, not a rewrite of the whole spec.
+    - Reference relevant ADRs explicitly when a decision is already recorded there.
+    - Emphasize implementation shape, boundaries, and risks; avoid re-explaining settled rationale in full.
+    - Keep design docs scoped to the selected change and note what remains intentionally out of scope.
+
+  specs:
+    - Specs define behavioral contracts, not implementation plans.
+    - Use SHALL/MUST language for normative behavior.
+    - Every requirement must have at least one `#### Scenario:` block.
+    - For this project, specs should describe observable buffer behavior, undo/redo behavior, transfer semantics, AppKit integration behavior, or rope storage behavior.
+    - Do not duplicate ADR rationale in specs; capture externally visible behavior only.
+
+  tasks:
+    - Tasks must be execution-sized and suitable for openspec apply.
+    - Derive tasks from the root TASKS.md roadmap, but split large roadmap tasks into smaller checkbox tasks.
+    - Order tasks by dependency and implementation reality.
+    - Prefer tasks that mention concrete files, tests, or verification points.
+    - Preserve TDD sequencing where possible: scaffolding/tests before implementation, verification before convergence.
+    - Use the change scope to decide granularity; do not include unrelated roadmap tasks.
