@@ -61,7 +61,7 @@ public struct OperationLog: Sendable, Equatable {
         return history[index].actionName
     }
 
-    public mutating func undo(on buffer: MutableStringBuffer) -> NSRange? {
+    public mutating func undo<B: Buffer>(on buffer: B) -> NSRange? where B.Range == NSRange, B.Content == String {
         guard canUndo else { return nil }
         cursor -= 1
         let group = history[cursor]
@@ -75,10 +75,11 @@ public struct OperationLog: Sendable, Equatable {
                 try! buffer.replace(range: NSRange(location: range.location, length: newContent.utf16.count), with: oldContent)
             }
         }
+        buffer.selectedRange = group.selectionBefore
         return group.selectionBefore
     }
 
-    public mutating func redo(on buffer: MutableStringBuffer) -> NSRange? {
+    public mutating func redo<B: Buffer>(on buffer: B) -> NSRange? where B.Range == NSRange, B.Content == String {
         guard canRedo else { return nil }
         let group = history[cursor]
         cursor += 1
@@ -92,6 +93,7 @@ public struct OperationLog: Sendable, Equatable {
                 try! buffer.replace(range: range, with: newContent)
             }
         }
+        buffer.selectedRange = group.selectionAfter!
         return group.selectionAfter
     }
 }
