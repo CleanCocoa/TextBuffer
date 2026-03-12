@@ -359,6 +359,4 @@ This sequencing allows immediate user value while keeping a clear path to higher
 ## 17. Relationship to Other Documents
 
 - **`SPEC.md`** is the implementation-oriented solution specification for how this product behavior may be delivered.
-- **`2026-03-07_spec-textbuffer-custom-storage.md`** explores broader editor-engine evolution and future storage directions.
-
 This PRD is the top-level product statement: it defines the problem, the intended user-visible behavior, and the success criteria independent of implementation details.

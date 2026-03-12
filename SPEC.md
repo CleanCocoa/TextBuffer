@@ -4,7 +4,7 @@
 **Date:** 2026-03-11
 **Author:** Solution Architect (AI-Assisted)
 **Status:** Draft
-**Source Requirements:** 2026-03-07_spec-textbuffer-custom-storage.md
+**Source Requirements:** docs/PRD-single-editor-multi-buffer-transfer.md
 
 ---
 
@@ -234,6 +234,11 @@ public struct OperationLog: Sendable, Equatable {
     public mutating func endUndoGroup(selectionAfter: NSRange)
 
     /// Record an operation into the current open group.
+    /// Calling `record` outside any open group is a `preconditionFailure` —
+    /// it signals a bug in the recording wrapper (TransferableUndoable),
+    /// not a user-input error. Auto-grouping in TransferableUndoable ensures
+    /// every mutation is always inside a group, so this precondition guards
+    /// against internal misuse rather than requiring callers to manage groups.
     public mutating func record(_ operation: BufferOperation)
 
     // MARK: - Undo / Redo
@@ -911,7 +916,6 @@ TextBuffer/
 │       ├── TextRopeReplaceTests.swift          [NEW]
 │       └── TextRopeStressTests.swift           [NEW]
 ├── Package.swift                               [MODIFIED]
-├── 2026-03-07_spec-textbuffer-custom-storage.md (existing)
 ├── research.md                                 (research output)
 └── SPEC.md                                     [THIS FILE]
 ```
