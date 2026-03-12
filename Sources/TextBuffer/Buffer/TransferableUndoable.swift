@@ -137,3 +137,21 @@ extension TransferableUndoable: @MainActor TextAnalysisCapable where Base: TextA
         try base.lineRange(for: searchRange)
     }
 }
+
+extension TransferableUndoable {
+    public func snapshot() -> TransferableUndoable<MutableStringBuffer> {
+        return TransferableUndoable<MutableStringBuffer>(
+            MutableStringBuffer(wrapping: base),
+            log: log
+        )
+    }
+}
+
+extension TransferableUndoable {
+    public func represent<Source: Buffer>(_ source: TransferableUndoable<Source>) where Source.Range == NSRange, Source.Content == String {
+        precondition(!log.isGrouping, "represent(_:) called while an undo group is open")
+        try! base.replace(range: base.range, with: source.content)
+        base.selectedRange = source.selectedRange
+        log = source.log
+    }
+}
