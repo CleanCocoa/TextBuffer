@@ -7,6 +7,12 @@ Tasks are ordered by dependency. Each task references SPEC.md sections for
 type definitions and behavioral contracts. See SPEC.md §7.1 for the phase
 overview and §7.3–7.4 (below) for the dependency graph and risk priorities.
 
+This file is the **master implementation roadmap**. OpenSpec change artifacts
+under `openspec/changes/` are derived execution decompositions of this roadmap
+for specific slices of work. If a derived OpenSpec task list becomes more
+specific, update this roadmap when that specificity reflects a real project
+requirement rather than merely execution granularity.
+
 Milestone 1 (TASK-001 through TASK-009) and Milestone 2 (TASK-010 through
 TASK-020) can be developed in parallel branches. TASK-021 requires both.
 
@@ -146,8 +152,12 @@ TASK-020) can be developed in parallel branches. TASK-021 requires both.
 - Acceptance:  - puppet.canUndo/canRedo reflect log state
                - puppet.undoActionName/redoActionName reflect log
                - puppet.undo() triggers log undo
+               - puppet.redo() triggers log redo
                - Edit menu shows correct action name
                - Edit > Undo grays out when log is empty
+               - Direct `registerUndo` calls on the puppet are ignored
+               - Queries after owner deallocation return safe defaults
+               - Repeated `enableSystemUndoIntegration()` returns the same instance
                - NSTextView with allowsUndo=false doesn't register
                  its own actions on the puppet
                - Integration test: NSTextView in window, Cmd+Z works
@@ -174,7 +184,7 @@ TASK-020) can be developed in parallel branches. TASK-021 requires both.
                - represent + redo after undo restores source's state
 
 **TASK-009: Transfer integration tests**
-- Depends on:  TASK-008, TASK-002
+- Depends on:  TASK-008, TASK-007, TASK-002
 - Size:        M
 - Description: Unguard and complete the three integration tests:
                Test A: transfer-out preserves undo.
@@ -183,7 +193,12 @@ TASK-020) can be developed in parallel branches. TASK-021 requires both.
                Plus: snapshot during active puppet bridge, represent
                clears previous undo state.
 - Files:       Tests/TextBufferTests/TransferIntegrationTests.swift
-- Acceptance:  All three integration tests pass.
+- Acceptance:  - Transfer-out preserves undo passes
+               - Transfer-in preserves undo passes
+               - Transitivity passes
+               - Snapshot during active puppet bridge passes
+               - `represent()` discards receiver's previous undo state
+                 and the represented history is the one that becomes undoable
 
 ---
 
@@ -211,7 +226,7 @@ TASK-020) can be developed in parallel branches. TASK-021 requires both.
                add/subtract/of). Implement `TextRope.Node` as internal
                final class: summary, height, chunk (String), children
                (ContiguousArray<Node>), named constants, shallowCopy(),
-               emptyLeaf(), ensureUniqueChild(at:), summary(for:).
+               emptyLeaf(), ensureUniqueChild(at:).
                TextRope struct with `nonisolated(unsafe) var root: Node`,
                always-rooted (empty leaf).
 - Spec:        SPEC.md §4.3 (Summary, Node, TextRope)
@@ -359,7 +374,7 @@ TASK-020) can be developed in parallel branches. TASK-021 requires both.
 ## Convergence
 
 **TASK-021: TransferableUndoable\<RopeBuffer\> integration**
-- Depends on:  TASK-008, TASK-019
+- Depends on:  TASK-008, TASK-018, TASK-020
 - Size:        M
 - Description: Verify `TransferableUndoable<RopeBuffer>`:
                - Undo/redo on rope-backed buffer
@@ -384,6 +399,9 @@ TASK-001 ──► TASK-002
 TASK-003 ──► TASK-004 ──► TASK-005 ──┬──► TASK-006
                                      ├──► TASK-007
                                      └──► TASK-008 ──► TASK-009
+                                                  ▲
+                                                  │
+                                             TASK-007
 
 Milestone 2 (Rope) — parallel from TASK-010:
 
@@ -400,10 +418,10 @@ TASK-010 ──► TASK-011 ──┬──► TASK-012 ──┐
 
 Convergence:
 
-TASK-008 + TASK-019 ──► TASK-021
+TASK-008 + TASK-018 + TASK-020 ──► TASK-021
 
-Critical path (M1): 003 → 004 → 005 → 008 → 009
-Critical path (M2): 010 → 011 → 013 → 014 → 015 → 017 → 019 → 020
+Critical path (M1): 003 → 004 → 005 → 007 → 008 → 009
+Critical path (M2): 010 → 011 → 013 → 014 → 015 → 017 → 018 → 019 → 020
 Overall:            Both paths → 021
 ```
 

@@ -1,6 +1,6 @@
 # Solution Specification: TextBuffer — Operation Log & Rope
 
-**Version:** 1.2
+**Version:** 1.3
 **Date:** 2026-03-11
 **Author:** Solution Architect (AI-Assisted)
 **Status:** Draft
@@ -417,7 +417,10 @@ public final class PuppetUndoManager: NSUndoManager {
     public override var undoActionName: String { owner?.puppetUndoActionName ?? "" }
     public override var redoActionName: String { owner?.puppetRedoActionName ?? "" }
 
-    // Prevent external undo registration
+    // Prevent external undo registration.
+    // This override is illustrative; the implementation must neutralize
+    // all relevant NSUndoManager registration entry points that could let
+    // external callers pollute the puppet's state.
     public override func registerUndo(
         withTarget target: Any, selector: Selector, object anObject: Any?
     ) { /* no-op */ }
@@ -838,7 +841,7 @@ Design decisions and their rationale are recorded in `docs/adr/`. Key ADRs:
 
 ### 10.1 Execution Order
 
-Tasks MUST be executed in the order listed in Section 7.2. Each task's `Depends on` field defines hard prerequisites. Do not parallelize tasks within a milestone that share dependencies.
+Tasks MUST be executed in the order listed in [TASKS.md](TASKS.md). Each task's `Depends on` field defines hard prerequisites. Do not parallelize tasks within a milestone that share dependencies.
 
 Milestone 1 (TASK-001 through TASK-009) and Milestone 2 (TASK-010 through TASK-020) CAN be developed in parallel branches. TASK-021 requires both milestones complete.
 
@@ -944,3 +947,4 @@ Detailed research is preserved in companion files:
 | 1.0 | 2026-03-11 | Solution Architect | Initial spec |
 | 1.1 | 2026-03-11 | Solution Architect | Extracted ADR-001 through ADR-009; trimmed Sections 8–9 and appendices to cross-references |
 | 1.2 | 2026-03-11 | Solution Architect | Extracted §7.2–7.4 task breakdown to TASKS.md; added reading guide |
+| 1.3 | 2026-03-11 | Solution Architect | Clarified PuppetUndoManager example scope; fixed task execution reference to TASKS.md |
