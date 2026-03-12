@@ -1,0 +1,5 @@
+.git/
+.e2e.env
+.e2e-logs/
+.e2e-trace.jsonl
+e2e-out/

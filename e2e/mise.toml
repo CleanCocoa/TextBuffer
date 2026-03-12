@@ -1,0 +1,63 @@
+[tasks."build:tests"]
+description = "Build XCUITest bundle for testing"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+mint run xcodegen generate
+xcodebuild -project TextBufferTestHost.xcodeproj -scheme TextBufferXCUITests \
+  -derivedDataPath DerivedData build-for-testing 2>&1 | ./scripts/xcodebuild-filter
+"""
+
+[tasks.e2e]
+description = "Build XCUITests locally, then run on VM: mise run e2e [ClassName[/testMethod]]"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+mint run xcodegen generate
+xcodebuild -project TextBufferTestHost.xcodeproj -scheme TextBufferXCUITests \
+  -derivedDataPath DerivedData build-for-testing 2>&1 | ./scripts/xcodebuild-filter
+if [[ $# -eq 0 ]]; then
+  e2e exec -- mise run e2e:twb-all
+else
+  e2e exec -- mise run e2e:twb "$1"
+fi
+"""
+
+[tasks."e2e:open"]
+description = "Open the xcresult bundle pulled from the VM"
+run = "open e2e-out/result.xcresult"
+
+[tasks."e2e:twb"]
+description = "[VM-internal] Run a focused XCUITest without building: mise run e2e:twb ClassName/testMethod"
+run = """
+#!/usr/bin/env bash
+if [[ $# -eq 0 ]]; then
+  echo "Usage: mise run e2e:twb ClassName/testMethod"
+  echo "       mise run e2e:twb ClassName"
+  exit 1
+fi
+mkdir -p e2e-out
+RAWLOG="e2e-out/xcodebuild-raw.log"
+xcodebuild -project TextBufferTestHost.xcodeproj -scheme TextBufferXCUITests \
+  -derivedDataPath DerivedData -resultBundlePath e2e-out/result.xcresult \
+  test-without-building \
+  -only-testing:"TextBufferXCUITests/$1" 2>&1 | tee "$RAWLOG" | ./scripts/xcodebuild-filter
+FILTER_EXIT=$?
+if grep -q "Executed 0 tests" "$RAWLOG"; then
+  echo ""
+  echo "[e2e:twb] ERROR: 0 tests executed for selector '$1'."
+  echo "          Check that the method name starts with 'test' and is a valid ObjC selector (no spaces)."
+  exit 1
+fi
+exit $FILTER_EXIT
+"""
+
+[tasks."e2e:twb-all"]
+description = "[VM-internal] Run the full XCUITest suite without building"
+run = """
+#!/usr/bin/env bash
+mkdir -p e2e-out
+xcodebuild -project TextBufferTestHost.xcodeproj -scheme TextBufferXCUITests \
+  -derivedDataPath DerivedData -resultBundlePath e2e-out/result.xcresult \
+  test-without-building 2>&1 | tee e2e-out/xcodebuild-raw.log | ./scripts/xcodebuild-filter
+"""

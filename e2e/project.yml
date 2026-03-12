@@ -1,0 +1,54 @@
+name: TextBufferTestHost
+
+options:
+  bundleIdPrefix: de.christiantietze
+  deploymentTarget:
+    macOS: "26.0"
+  defaultConfig: Debug
+  xcodeVersion: "16.3"
+
+settings:
+  base:
+    SWIFT_VERSION: 6.2
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
+    DEVELOPMENT_TEAM: FRMDA3XRGC
+
+packages:
+  TextBuffer:
+    path: ../
+
+targets:
+  TextBufferTestHost:
+    type: application
+    platform: macOS
+    sources: [TestHost]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: de.christiantietze.textbuffer.testhost
+      ENABLE_HARDENED_RUNTIME: YES
+      CODE_SIGN_STYLE: Automatic
+      GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - package: TextBuffer
+        product: TextBuffer
+
+  TextBufferXCUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources: [TextBufferXCUITests]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: de.christiantietze.textbuffer.uitests
+      DEVELOPMENT_TEAM: FRMDA3XRGC
+      GENERATE_INFOPLIST_FILE: YES
+      SWIFT_VERSION: 5
+    dependencies:
+      - target: TextBufferTestHost
+
+schemes:
+  TextBufferXCUITests:
+    build:
+      targets:
+        TextBufferTestHost: all
+        TextBufferXCUITests: [test]
+    test:
+      targets:
+        - TextBufferXCUITests
