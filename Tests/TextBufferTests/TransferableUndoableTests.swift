@@ -4,57 +4,57 @@ import TextBuffer
 
 @MainActor
 final class TransferableUndoableTests: XCTestCase {
-    func `test content delegates to base`() {
+    func testContentDelegatesToBase() {
         let base = MutableStringBuffer("hello")
         let buffer = TransferableUndoable(base)
         XCTAssertEqual(buffer.content, "hello")
     }
 
-    func `test range delegates to base`() {
+    func testRangeDelegatesToBase() {
         let base = MutableStringBuffer("hello")
         let buffer = TransferableUndoable(base)
         XCTAssertEqual(buffer.range, NSRange(location: 0, length: 5))
     }
 
-    func `test content in subrange delegates to base`() {
+    func testContentInSubrangeDelegatesToBase() {
         let base = MutableStringBuffer("hello")
         let buffer = TransferableUndoable(base)
         XCTAssertEqual(try buffer.content(in: NSRange(location: 1, length: 3)), "ell")
     }
 
-    func `test selectedRange get delegates to base`() {
+    func testSelectedRangeGetDelegatesToBase() {
         let base = MutableStringBuffer("hello")
         base.selectedRange = NSRange(location: 2, length: 2)
         let buffer = TransferableUndoable(base)
         XCTAssertEqual(buffer.selectedRange, NSRange(location: 2, length: 2))
     }
 
-    func `test selectedRange set delegates to base`() {
+    func testSelectedRangeSetDelegatesToBase() {
         let base = MutableStringBuffer("hello")
         let buffer = TransferableUndoable(base)
         buffer.selectedRange = NSRange(location: 1, length: 3)
         XCTAssertEqual(base.selectedRange, NSRange(location: 1, length: 3))
     }
 
-    func `test insert makes canUndo true`() {
+    func testInsertMakesCanUndoTrue() {
         let buffer = TransferableUndoable(MutableStringBuffer("abc"))
         try! buffer.insert("X", at: 0)
         XCTAssertTrue(buffer.canUndo)
     }
 
-    func `test delete makes canUndo true`() {
+    func testDeleteMakesCanUndoTrue() {
         let buffer = TransferableUndoable(MutableStringBuffer("abc"))
         try! buffer.delete(in: NSRange(location: 0, length: 1))
         XCTAssertTrue(buffer.canUndo)
     }
 
-    func `test replace makes canUndo true`() {
+    func testReplaceMakesCanUndoTrue() {
         let buffer = TransferableUndoable(MutableStringBuffer("abc"))
         try! buffer.replace(range: NSRange(location: 0, length: 1), with: "Z")
         XCTAssertTrue(buffer.canUndo)
     }
 
-    func `test auto-grouping wraps standalone mutation`() {
+    func testAutoGroupingWrapsStandaloneMutation() {
         let buffer = TransferableUndoable(MutableStringBuffer("abc"))
         try! buffer.insert("X", at: 0)
         XCTAssertEqual(buffer.log.undoableCount, 1)
@@ -62,7 +62,7 @@ final class TransferableUndoableTests: XCTestCase {
         XCTAssertEqual(buffer.content, "abc")
     }
 
-    func `test no auto-grouping inside undoGrouping`() {
+    func testNoAutoGroupingInsideUndoGrouping() {
         let buffer = TransferableUndoable(MutableStringBuffer(""))
         buffer.undoGrouping {
             try! buffer.insert("A", at: 0)
@@ -71,7 +71,7 @@ final class TransferableUndoableTests: XCTestCase {
         XCTAssertEqual(buffer.log.undoableCount, 1)
     }
 
-    func `test undo after insert restores content`() {
+    func testUndoAfterInsertRestoresContent() {
         let buffer = TransferableUndoable(MutableStringBuffer("abc"))
         try! buffer.insert("X", at: 0)
         XCTAssertEqual(buffer.content, "Xabc")
@@ -79,7 +79,7 @@ final class TransferableUndoableTests: XCTestCase {
         XCTAssertEqual(buffer.content, "abc")
     }
 
-    func `test undo after insert restores selection`() {
+    func testUndoAfterInsertRestoresSelection() {
         let base = MutableStringBuffer("abc")
         base.selectedRange = NSRange(location: 1, length: 0)
         let buffer = TransferableUndoable(base)
@@ -89,7 +89,7 @@ final class TransferableUndoableTests: XCTestCase {
         XCTAssertEqual(buffer.selectedRange, selectionBefore)
     }
 
-    func `test undo after delete restores content`() {
+    func testUndoAfterDeleteRestoresContent() {
         let buffer = TransferableUndoable(MutableStringBuffer("abc"))
         try! buffer.delete(in: NSRange(location: 0, length: 1))
         XCTAssertEqual(buffer.content, "bc")
@@ -97,14 +97,14 @@ final class TransferableUndoableTests: XCTestCase {
         XCTAssertEqual(buffer.content, "abc")
     }
 
-    func `test undo after replace restores content`() {
+    func testUndoAfterReplaceRestoresContent() {
         let buffer = TransferableUndoable(MutableStringBuffer("abc"))
         try! buffer.replace(range: NSRange(location: 0, length: 3), with: "XYZ")
         buffer.undo()
         XCTAssertEqual(buffer.content, "abc")
     }
 
-    func `test redo after undo restores content`() {
+    func testRedoAfterUndoRestoresContent() {
         let buffer = TransferableUndoable(MutableStringBuffer("abc"))
         try! buffer.insert("X", at: 0)
         buffer.undo()
@@ -112,7 +112,7 @@ final class TransferableUndoableTests: XCTestCase {
         XCTAssertEqual(buffer.content, "Xabc")
     }
 
-    func `test undo then redo is identity`() {
+    func testUndoThenRedoIsIdentity() {
         let buffer = TransferableUndoable(MutableStringBuffer("abc"))
         try! buffer.replace(range: NSRange(location: 0, length: 3), with: "XYZ")
         let afterEdit = buffer.content
@@ -123,7 +123,7 @@ final class TransferableUndoableTests: XCTestCase {
         XCTAssertEqual(buffer.selectedRange, selectionAfterEdit)
     }
 
-    func `test redo tail truncated after new edit`() {
+    func testRedoTailTruncatedAfterNewEdit() {
         let buffer = TransferableUndoable(MutableStringBuffer(""))
         try! buffer.insert("A", at: 0)
         buffer.undo()
@@ -133,7 +133,7 @@ final class TransferableUndoableTests: XCTestCase {
         XCTAssertEqual(buffer.content, "B")
     }
 
-    func `test single group two inserts single undo reverses both`() {
+    func testSingleGroupTwoInsertsSingleUndoReversesBoth() {
         let buffer = TransferableUndoable(MutableStringBuffer(""))
         buffer.undoGrouping {
             try! buffer.insert("A", at: 0)
@@ -144,7 +144,7 @@ final class TransferableUndoableTests: XCTestCase {
         XCTAssertEqual(buffer.content, "")
     }
 
-    func `test nested grouping inner merges into outer`() {
+    func testNestedGroupingInnerMergesIntoOuter() {
         let buffer = TransferableUndoable(MutableStringBuffer(""))
         buffer.undoGrouping {
             try! buffer.insert("A", at: 0)
@@ -159,7 +159,7 @@ final class TransferableUndoableTests: XCTestCase {
         XCTAssertFalse(buffer.canUndo)
     }
 
-    func `test action name propagation`() {
+    func testActionNamePropagation() {
         let buffer = TransferableUndoable(MutableStringBuffer(""))
         buffer.undoGrouping(actionName: "MyAction") {
             try! buffer.insert("A", at: 0)
@@ -167,13 +167,13 @@ final class TransferableUndoableTests: XCTestCase {
         XCTAssertEqual(buffer.log.undoActionName, "MyAction")
     }
 
-    func `test undo when nothing to undo is noop`() {
+    func testUndoWhenNothingToUndoIsNoop() {
         let buffer = TransferableUndoable(MutableStringBuffer("abc"))
         buffer.undo()
         XCTAssertEqual(buffer.content, "abc")
     }
 
-    func `test redo when nothing to redo is noop`() {
+    func testRedoWhenNothingToRedoIsNoop() {
         let buffer = TransferableUndoable(MutableStringBuffer("abc"))
         buffer.redo()
         XCTAssertEqual(buffer.content, "abc")

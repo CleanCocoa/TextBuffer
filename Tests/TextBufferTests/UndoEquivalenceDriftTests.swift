@@ -5,7 +5,7 @@ import TextBufferTesting
 
 @MainActor
 final class UndoEquivalenceDriftTests: XCTestCase {
-    func `test simple insert undo redo`() {
+    func testSimpleInsertUndoRedo() {
         assertUndoEquivalence(initial: "abc", steps: [
             .insert(content: "X", at: 0),
             .undo,
@@ -13,14 +13,15 @@ final class UndoEquivalenceDriftTests: XCTestCase {
         ])
     }
 
-    func `test delete then undo`() {
+    func testDeleteThenUndo() {
         assertUndoEquivalence(initial: "abc", steps: [
+            .select(NSRange(location: 1, length: 0)),
             .delete(range: NSRange(location: 0, length: 1)),
             .undo,
         ])
     }
 
-    func `test replace then undo then redo`() {
+    func testReplaceThenUndoThenRedo() {
         assertUndoEquivalence(initial: "abc", steps: [
             .replace(range: NSRange(location: 0, length: 3), with: "XYZ"),
             .undo,
@@ -28,7 +29,7 @@ final class UndoEquivalenceDriftTests: XCTestCase {
         ])
     }
 
-    func `test grouped operations undo redo`() {
+    func testGroupedOperationsUndoRedo() {
         assertUndoEquivalence(initial: "", steps: [
             .group(actionName: nil, steps: [
                 .insert(content: "A", at: 0),
@@ -39,7 +40,7 @@ final class UndoEquivalenceDriftTests: XCTestCase {
         ])
     }
 
-    func `test interleaved edits and undos`() {
+    func testInterleavedEditsAndUndos() {
         assertUndoEquivalence(initial: "", steps: [
             .insert(content: "A", at: 0),
             .insert(content: "B", at: 1),
@@ -50,7 +51,7 @@ final class UndoEquivalenceDriftTests: XCTestCase {
         ])
     }
 
-    func `test redo tail truncation`() {
+    func testRedoTailTruncation() {
         assertUndoEquivalence(initial: "", steps: [
             .insert(content: "A", at: 0),
             .undo,
@@ -59,7 +60,7 @@ final class UndoEquivalenceDriftTests: XCTestCase {
         ])
     }
 
-    func `test selection state at every step`() {
+    func testSelectionStateAtEveryStep() {
         assertUndoEquivalence(initial: "hello", steps: [
             .select(NSRange(location: 0, length: 5)),
             .insert(content: "X", at: 0),

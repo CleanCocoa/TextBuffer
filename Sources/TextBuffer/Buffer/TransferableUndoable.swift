@@ -7,6 +7,7 @@ public final class TransferableUndoable<Base>: @MainActor Buffer where Base: Buf
 
     private let base: Base
     public var log: OperationLog
+    private var puppetUndoManager: PuppetUndoManager?
 
     public init(_ base: Base) {
         self.base = base
@@ -111,6 +112,24 @@ extension TransferableUndoable {
     public func redo() {
         _ = log.redo(on: base)
     }
+}
+
+extension TransferableUndoable {
+    public func enableSystemUndoIntegration() -> UndoManager {
+        if let existing = puppetUndoManager { return existing }
+        let puppet = PuppetUndoManager(owner: self)
+        puppetUndoManager = puppet
+        return puppet
+    }
+}
+
+extension TransferableUndoable: PuppetUndoManagerDelegate {
+    func puppetUndo() { undo() }
+    func puppetRedo() { redo() }
+    var puppetCanUndo: Bool { log.canUndo }
+    var puppetCanRedo: Bool { log.canRedo }
+    var puppetUndoActionName: String { log.undoActionName ?? "" }
+    var puppetRedoActionName: String { log.redoActionName ?? "" }
 }
 
 extension TransferableUndoable: @MainActor TextAnalysisCapable where Base: TextAnalysisCapable {
