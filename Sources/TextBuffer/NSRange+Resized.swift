@@ -9,7 +9,7 @@ extension NSRange {
     ///
     /// > Warning: Does not protect against integer overlow.
     public func resized(by delta: Int) -> NSRange {
-        assert(length / 2 + delta / 2 < Int.max / 2,
+        precondition(length / 2 + delta / 2 < Int.max / 2,
                "Adding `delta` (\(delta)) to `length` (\(length)) would overflow `Int.max` (\(Int.max))")
         return NSRange(
             location: self.location,
