@@ -1,10 +1,10 @@
 import Foundation
 
 public struct UndoGroup: Sendable, Equatable {
-    public var operations: [BufferOperation]
-    public var selectionBefore: NSRange
-    public var selectionAfter: NSRange?
-    public var actionName: String?
+    public internal(set) var operations: [BufferOperation]
+    public internal(set) var selectionBefore: NSRange
+    public internal(set) var selectionAfter: NSRange?
+    public internal(set) var actionName: String?
 
     public init(
         operations: [BufferOperation] = [],
