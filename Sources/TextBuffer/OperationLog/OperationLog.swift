@@ -66,13 +66,17 @@ public struct OperationLog: Sendable, Equatable {
         cursor -= 1
         let group = history[cursor]
         for operation in group.operations.reversed() {
-            switch operation.kind {
-            case .insert(let content, let at):
-                try! buffer.delete(in: NSRange(location: at, length: content.utf16.count))
-            case .delete(let range, let deletedContent):
-                try! buffer.insert(deletedContent, at: range.location)
-            case .replace(let range, let oldContent, let newContent):
-                try! buffer.replace(range: NSRange(location: range.location, length: newContent.utf16.count), with: oldContent)
+            do {
+                switch operation.kind {
+                case .insert(let content, let at):
+                    try buffer.delete(in: NSRange(location: at, length: content.utf16.count))
+                case .delete(let range, let deletedContent):
+                    try buffer.insert(deletedContent, at: range.location)
+                case .replace(let range, let oldContent, let newContent):
+                    try buffer.replace(range: NSRange(location: range.location, length: newContent.utf16.count), with: oldContent)
+                }
+            } catch {
+                preconditionFailure("OperationLog invariant violated: undo replay failed for \(operation.kind) — \(error)")
             }
         }
         buffer.selectedRange = group.selectionBefore
@@ -84,16 +88,23 @@ public struct OperationLog: Sendable, Equatable {
         let group = history[cursor]
         cursor += 1
         for operation in group.operations {
-            switch operation.kind {
-            case .insert(let content, let at):
-                try! buffer.insert(content, at: at)
-            case .delete(let range, _):
-                try! buffer.delete(in: range)
-            case .replace(let range, _, let newContent):
-                try! buffer.replace(range: range, with: newContent)
+            do {
+                switch operation.kind {
+                case .insert(let content, let at):
+                    try buffer.insert(content, at: at)
+                case .delete(let range, _):
+                    try buffer.delete(in: range)
+                case .replace(let range, _, let newContent):
+                    try buffer.replace(range: range, with: newContent)
+                }
+            } catch {
+                preconditionFailure("OperationLog invariant violated: redo replay failed for \(operation.kind) — \(error)")
             }
         }
-        buffer.selectedRange = group.selectionAfter!
+        guard let selectionAfter = group.selectionAfter else {
+            preconditionFailure("OperationLog invariant violated: redo group missing selectionAfter")
+        }
+        buffer.selectedRange = selectionAfter
         return group.selectionAfter
     }
 }

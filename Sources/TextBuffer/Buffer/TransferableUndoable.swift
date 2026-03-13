@@ -6,7 +6,7 @@ public final class TransferableUndoable<Base>: @MainActor Buffer where Base: Buf
     public typealias Content = String
 
     private let base: Base
-    public var log: OperationLog
+    public internal(set) var log: OperationLog
     private var puppetUndoManager: PuppetUndoManager?
 
     public init(_ base: Base) {
@@ -83,7 +83,12 @@ public final class TransferableUndoable<Base>: @MainActor Buffer where Base: Buf
         let newLength = base.range.length
         let lengthDelta = newLength - oldLength
         let newAffectedLength = affectedRange.length + lengthDelta
-        let newContent = try! base.content(in: NSRange(location: affectedRange.location, length: newAffectedLength))
+        let newContent: String
+        do {
+            newContent = try base.content(in: NSRange(location: affectedRange.location, length: newAffectedLength))
+        } catch {
+            preconditionFailure("TransferableUndoable invariant violated: failed to read back modified range — \(error)")
+        }
         log.record(BufferOperation(kind: .replace(range: affectedRange, oldContent: oldContent, newContent: newContent)))
         if needsAutoGroup {
             log.endUndoGroup(selectionAfter: base.selectedRange)
@@ -150,7 +155,11 @@ extension TransferableUndoable {
 extension TransferableUndoable {
     public func represent<Source: Buffer>(_ source: TransferableUndoable<Source>) where Source.Range == NSRange, Source.Content == String {
         precondition(!log.isGrouping, "represent(_:) called while an undo group is open")
-        try! base.replace(range: base.range, with: source.content)
+        do {
+            try base.replace(range: base.range, with: source.content)
+        } catch {
+            preconditionFailure("TransferableUndoable invariant violated: represent(_:) failed to replace buffer content — \(error)")
+        }
         base.selectedRange = source.selectedRange
         log = source.log
     }
