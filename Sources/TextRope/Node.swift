@@ -57,11 +57,9 @@ extension TextRope {
         }
 
         func ensureUniqueChild(at index: Int) {
-            var child = children[index]
-            if !isKnownUniquelyReferenced(&child) {
-                child = child.shallowCopy()
+            if !isKnownUniquelyReferenced(&children[index]) {
+                children[index] = children[index].shallowCopy()
             }
-            children[index] = child
         }
     }
 }
