@@ -146,7 +146,7 @@ extension TransferableUndoable: @MainActor TextAnalysisCapable where Base: TextA
 extension TransferableUndoable {
     public func snapshot() -> TransferableUndoable<MutableStringBuffer> {
         return TransferableUndoable<MutableStringBuffer>(
-            MutableStringBuffer(wrapping: base),
+            MutableStringBuffer(copying: base),
             log: log
         )
     }
