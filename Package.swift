@@ -12,14 +12,23 @@ let package = Package(
       .library(
           name: "TextBufferTesting",
           targets: ["TextBufferTesting"]),
+      .library(
+          name: "TextRope",
+          targets: ["TextRope"]),
     ],
     targets: [
-        .target(name: "TextBuffer"),
+        .target(name: "TextRope"),
+        .target(
+            name: "TextBuffer",
+            dependencies: ["TextRope"]),
         .target(
             name: "TextBufferTesting",
             dependencies: ["TextBuffer"]),
         .testTarget(
             name: "TextBufferTests",
             dependencies: ["TextBuffer", "TextBufferTesting"]),
+        .testTarget(
+            name: "TextRopeTests",
+            dependencies: ["TextRope"]),
     ]
 )
