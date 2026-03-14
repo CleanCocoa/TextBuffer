@@ -1,204 +1,13 @@
-# Implementation Tasks: TextBuffer — Operation Log & Rope
+# Implementation Tasks: TextBuffer — Rope
 
 **Source:** [SPEC.md](SPEC.md) §7
 **Date:** 2026-03-11
 
-Tasks are ordered by dependency. Each task references SPEC.md sections for
-type definitions and behavioral contracts. See SPEC.md §7.1 for the phase
-overview and §7.3–7.4 (below) for the dependency graph and risk priorities.
-
-This file is the **master implementation roadmap**. OpenSpec change artifacts
-under `openspec/changes/` are derived execution decompositions of this roadmap
-for specific slices of work. If a derived OpenSpec task list becomes more
-specific, update this roadmap when that specificity reflects a real project
-requirement rather than merely execution granularity.
-
-Milestone 1 (TASK-001 through TASK-009) and Milestone 2 (TASK-010 through
-TASK-020) can be developed in parallel branches. TASK-021 requires both.
-
 ---
 
-## Milestone 1: Operation Log
+## Milestone 1: Operation Log — Complete (0.3.0)
 
-### Phase 1: Test Infrastructure
-
-**TASK-001: BufferStep enum and equivalence test scaffolding**
-- Depends on:  —
-- Size:        S
-- Description: Create the `BufferStep` enum (insert, delete, replace,
-               select, undo, redo, group) in TextBufferTesting. Create
-               `assertUndoEquivalence` that takes an
-               `Undoable<MutableStringBuffer>` and
-               `TransferableUndoable<MutableStringBuffer>`, iterates
-               steps, applies each to both buffers via static dispatch,
-               and asserts content + selection equality after each step.
-               `TransferableUndoable` doesn't exist yet — guard with
-               `#if false` or a stub type.
-- Files:       Sources/TextBufferTesting/BufferStep.swift
-               Sources/TextBufferTesting/AssertUndoEquivalence.swift
-- Acceptance:  File compiles (with guard). Enum covers all cases.
-               Assertion function structure is reviewable.
-
-**TASK-002: High-level transfer tests (failing)**
-- Depends on:  TASK-001
-- Size:        M
-- Description: Write three integration tests from plan.md as failing
-               tests:
-               Test A: transfer-out preserves undo (editor inserts
-               twice → snapshot → undo on copy → verify).
-               Test B: transfer-in preserves undo (in-memory buffer
-               with changes → represent in editor → undo → verify).
-               Test C: transitivity (in-memory → represent → snapshot
-               → all three undo/redo identically).
-               Guarded until API exists.
-- Files:       Tests/TextBufferTests/TransferIntegrationTests.swift
-- Acceptance:  Test file present, documents three scenarios. Guarded.
-
-### Phase 2: Core Value Types
-
-**TASK-003: BufferOperation and UndoGroup**
-- Depends on:  —
-- Size:        S
-- Description: Implement `BufferOperation` (enum Kind with insert,
-               delete, replace) and `UndoGroup` (operations array,
-               selectionBefore, selectionAfter, actionName). Both
-               Sendable, Equatable, value types.
-- Spec:        SPEC.md §4.2 (BufferOperation, UndoGroup)
-- Files:       Sources/TextBuffer/OperationLog/BufferOperation.swift
-               Sources/TextBuffer/OperationLog/UndoGroup.swift
-- Acceptance:  Types compile. Equatable works.
-
-**TASK-004: OperationLog**
-- Depends on:  TASK-003
-- Size:        L
-- Description: Implement `OperationLog` as a value type per
-               SPEC.md §4.2: history array + cursor for undo/redo,
-               grouping stack for nested recording,
-               beginUndoGroup/endUndoGroup/record,
-               undo(on:)/redo(on:) generic over Buffer.
-               Inverse operations use preconditionFailure on errors.
-- Spec:        SPEC.md §4.2 (OperationLog)
-- Files:       Sources/TextBuffer/OperationLog/OperationLog.swift
-               Tests/TextBufferTests/OperationLogTests.swift
-- Acceptance:  Unit tests covering:
-               - Single operation undo/redo round-trip
-               - Multi-operation group undo/redo
-               - Nested groups merge into parent
-               - Redo tail truncation on new edit after undo
-               - canUndo/canRedo state transitions
-               - Action name propagation (nested promotes to parent)
-               - selectionBefore restored on undo
-               - selectionAfter restored on redo
-               - Undo then redo = identity (no observable difference)
-               - Value-type copy independence
-
-### Phase 3: TransferableUndoable
-
-**TASK-005: TransferableUndoable — core Buffer conformance**
-- Depends on:  TASK-004
-- Size:        L
-- Description: Implement `TransferableUndoable<Base>` per SPEC.md §4.2.
-               Each insert/delete/replace: auto-group if not grouping,
-               capture old content, delegate to base, record to log.
-               `undoGrouping` with nesting. `undo()`/`redo()` delegate
-               to log + restore selection. Does NOT include puppet
-               bridge or transfer API yet.
-- Spec:        SPEC.md §4.2 (TransferableUndoable)
-- Files:       Sources/TextBuffer/Buffer/TransferableUndoable.swift
-               Tests/TextBufferTests/TransferableUndoableTests.swift
-- Acceptance:  Unit tests:
-               - insert/delete/replace produce undoable operations
-               - undo restores content + selection exactly
-               - redo restores content + selection exactly
-               - undo then redo = no observable change
-               - undoGrouping groups multiple ops as one undo step
-               - Nested undoGrouping works
-               All tests use MutableStringBuffer as Base.
-
-**TASK-006: Undo equivalence drift tests**
-- Depends on:  TASK-001, TASK-005
-- Size:        M
-- Description: Unguard `assertUndoEquivalence`. Write equivalence
-               tests running identical step sequences on
-               `Undoable<MutableStringBuffer>` (gold standard) and
-               `TransferableUndoable<MutableStringBuffer>` (subject).
-               Scenarios: simple insert/undo/redo, delete, replace,
-               grouped operations, interleaved edits and undos,
-               multiple undos then new edit (redo tail truncation),
-               selection state at every step.
-- Spec:        SPEC.md §4.4 (Testing Infrastructure)
-- Files:       Tests/TextBufferTests/UndoEquivalenceDriftTests.swift
-               Sources/TextBufferTesting/AssertUndoEquivalence.swift
-- Acceptance:  All equivalence tests pass.
-
-### Phase 4: AppKit Bridge
-
-**TASK-007: PuppetUndoManager and system integration**
-- Depends on:  TASK-005
-- Size:        M
-- Description: Implement `PuppetUndoManager` as NSUndoManager subclass
-               per SPEC.md §4.2. Override undo/redo/canUndo/canRedo/
-               undoActionName/redoActionName to delegate via
-               `PuppetUndoManagerDelegate`. Override `registerUndo`
-               variants as no-ops. Add `enableSystemUndoIntegration()`
-               to `TransferableUndoable`. Document app-side wiring:
-               `textView.allowsUndo = false`,
-               `NSTextViewDelegate.undoManager(for:) → puppet`.
-- Spec:        SPEC.md §4.2 (PuppetUndoManager), §5.3 (AppKit Integration)
-- ADR:         ADR-003
-- Files:       Sources/TextBuffer/Buffer/PuppetUndoManager.swift
-               Sources/TextBuffer/Buffer/TransferableUndoable.swift
-               Tests/TextBufferTests/PuppetUndoManagerTests.swift
-- Acceptance:  - puppet.canUndo/canRedo reflect log state
-               - puppet.undoActionName/redoActionName reflect log
-               - puppet.undo() triggers log undo
-               - puppet.redo() triggers log redo
-               - Edit menu shows correct action name
-               - Edit > Undo grays out when log is empty
-               - Direct `registerUndo` calls on the puppet are ignored
-               - Queries after owner deallocation return safe defaults
-               - Repeated `enableSystemUndoIntegration()` returns the same instance
-               - NSTextView with allowsUndo=false doesn't register
-                 its own actions on the puppet
-               - Integration test: NSTextView in window, Cmd+Z works
-
-### Phase 5: Transfer API
-
-**TASK-008: Transfer API — snapshot and represent**
-- Depends on:  TASK-005
-- Size:        M
-- Description: Add `snapshot()` and `represent(_:)` to
-               `TransferableUndoable` per SPEC.md §4.2.
-               `snapshot()` creates `MutableStringBuffer(wrapping:)`,
-               copies log. `represent()` preconditions `!log.isGrouping`,
-               replaces content via `base.replace`, sets selection,
-               copies source log.
-- Spec:        SPEC.md §4.2 (Transfer — snapshot, Transfer — represent)
-- ADR:         ADR-002
-- Files:       Sources/TextBuffer/Buffer/TransferableUndoable.swift
-               Tests/TextBufferTests/TransferAPITests.swift
-- Acceptance:  - snapshot produces independent copy
-               - Mutating copy doesn't affect original (and vice versa)
-               - represent replaces content, selection, undo history
-               - represent + undo restores source's previous state
-               - represent + redo after undo restores source's state
-
-**TASK-009: Transfer integration tests**
-- Depends on:  TASK-008, TASK-007, TASK-002
-- Size:        M
-- Description: Unguard and complete the three integration tests:
-               Test A: transfer-out preserves undo.
-               Test B: transfer-in preserves undo.
-               Test C: transitivity.
-               Plus: snapshot during active puppet bridge, represent
-               clears previous undo state.
-- Files:       Tests/TextBufferTests/TransferIntegrationTests.swift
-- Acceptance:  - Transfer-out preserves undo passes
-               - Transfer-in preserves undo passes
-               - Transitivity passes
-               - Snapshot during active puppet bridge passes
-               - `represent()` discards receiver's previous undo state
-                 and the represented history is the one that becomes undoable
+Shipped in 0.3.0. Implemented `BufferOperation`, `UndoGroup`, `OperationLog` value types; `TransferableUndoable<Base>` with auto-grouping, `undoGrouping`, and `modifying(affectedRange:_:)`; `PuppetUndoManager` for AppKit integration; `snapshot()`/`represent(_:)` transfer API; `assertUndoEquivalence` test infrastructure; undo equivalence drift tests; transfer integration tests. See CHANGELOG.md.
 
 ---
 
@@ -374,7 +183,7 @@ TASK-020) can be developed in parallel branches. TASK-021 requires both.
 ## Convergence
 
 **TASK-021: TransferableUndoable\<RopeBuffer\> integration**
-- Depends on:  TASK-008, TASK-018, TASK-020
+- Depends on:  TASK-018, TASK-020
 - Size:        M
 - Description: Verify `TransferableUndoable<RopeBuffer>`:
                - Undo/redo on rope-backed buffer
@@ -392,18 +201,7 @@ TASK-020) can be developed in parallel branches. TASK-021 requires both.
 ## Dependency Graph
 
 ```
-Milestone 1 (Operation Log):
-
-TASK-001 ──► TASK-002
-                │
-TASK-003 ──► TASK-004 ──► TASK-005 ──┬──► TASK-006
-                                     ├──► TASK-007
-                                     └──► TASK-008 ──► TASK-009
-                                                  ▲
-                                                  │
-                                             TASK-007
-
-Milestone 2 (Rope) — parallel from TASK-010:
+Milestone 2 (Rope):
 
 TASK-010 ──► TASK-011 ──┬──► TASK-012 ──┐
                         └──► TASK-013 ──┼──► TASK-014 ──┬──► TASK-015
@@ -418,19 +216,15 @@ TASK-010 ──► TASK-011 ──┬──► TASK-012 ──┐
 
 Convergence:
 
-TASK-008 + TASK-018 + TASK-020 ──► TASK-021
+TASK-018 + TASK-020 ──► TASK-021
 
-Critical path (M1): 003 → 004 → 005 → 007 → 008 → 009
-Critical path (M2): 010 → 011 → 013 → 014 → 015 → 017 → 018 → 019 → 020
-Overall:            Both paths → 021
+Critical path: 010 → 011 → 013 → 014 → 015 → 017 → 018 → 019 → 020 → 021
 ```
 
 ## Risk-Ordered Priorities
 
 | Risk | Severity | Mitigating Task |
 |---|---|---|
-| OperationLog undo/redo correctness | High | TASK-004 (unit tests), TASK-006 (equivalence) |
 | COW path-copying bugs in rope | High | TASK-012, TASK-018 (stress tests) |
 | UTF-16 ↔ UTF-8 offset translation | Medium | TASK-014 (surrogate pair edge cases) |
 | Rope rebalancing correctness | High | TASK-015, 016, 018 |
-| PuppetUndoManager AppKit interop | Medium | TASK-007 (NSTextView integration test) |
