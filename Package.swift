@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "TextBuffer",
+    platforms: [.macOS(.v13)],
     products: [
       .library(
           name: "TextBuffer",

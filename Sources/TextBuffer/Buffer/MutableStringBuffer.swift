@@ -9,7 +9,7 @@ public typealias InMemoryBuffer = MutableStringBuffer
 ///
 /// Used as in-memory buffers, you can apply changes to off-screen textual content in a way that is consistent with text views, but actually independent of these. Opposed to the platform's Text Kit views, which are large class clusters with a lot of automatic behavior pertaining layout, keeping a ``MutableStringBuffer`` in memory produces little overhead. (In fact, only as much overhead as a `NSMutableString` will, plus storing the selected range.)
 ///
-/// To adapt other buffers and copy their content, use ``MutableStringBuffer/init(wrapping:)``.
+/// To adapt other buffers and copy their content, use ``MutableStringBuffer/init(copying:)``.
 ///
 /// ## Utility for Apps
 ///
@@ -141,7 +141,7 @@ public final class MutableStringBuffer: Buffer, TextAnalysisCapable {
 extension MutableStringBuffer {
     /// Create a copy of `buffer`.
     public convenience init<Wrapped>(
-        wrapping buffer: Wrapped
+        copying buffer: Wrapped
     ) where Wrapped: Buffer, Wrapped.Range == NSRange, Wrapped.Content == String {
         self.init(
             storage: NSMutableString(string: buffer.content),

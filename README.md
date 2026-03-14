@@ -32,6 +32,36 @@ You can also use purely in-memory buffers for text mutations of things you don't
 This is harnessed by [`DeclarativeTextKit`](https://github.com/CleanCocoa/DeclarativeTextKit/).
 
 
+## Installation
+
+Add TextBuffer as a Swift Package Manager dependency:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/CleanCocoa/TextBuffer", from: "0.3.0")
+]
+```
+
+
+## Key Types
+
+- **`Buffer`** — protocol for reading and mutating text with UTF-16 indexed ranges.
+- **`MutableStringBuffer`** — lightweight in-memory `Buffer` backed by `NSMutableString`, for off-screen mutations and tests.
+- **`NSTextViewBuffer`** — `Buffer` conformance for `NSTextView`, applying changes directly to the text view.
+- **`Undoable`** — wraps a `Buffer` with Foundation `UndoManager` integration for AppKit undo/redo.
+- **`TransferableUndoable`** — wraps a `Buffer` with an `OperationLog` for portable undo history; supports `snapshot()` and `represent(_:)` for state transfer.
+- **`OperationLog`** — value-type undo history that records `BufferOperation`s grouped into `UndoGroup`s. Inspectable via `log.history`.
+
+
+## Undo
+
+TextBuffer provides two undo wrappers:
+
+- **`Undoable`** uses Foundation's `UndoManager`. Use this when you need AppKit undo/redo integration (e.g., responding to Edit menu actions in an `NSTextView`-based editor).
+
+- **`TransferableUndoable`** uses an `OperationLog` value type instead. Use this when you need to transfer undo state between buffers — for example, swapping an in-memory buffer's state into a text view. Call `snapshot()` to capture the current content and undo history, and `represent(_:)` to restore it into another `TransferableUndoable`.
+
+
 ## License
 
 Copyright © 2025 Christian Tietze. All rights reserved. Distributed under the MIT License.
