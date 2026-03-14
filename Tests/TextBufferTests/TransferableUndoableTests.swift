@@ -178,4 +178,26 @@ final class TransferableUndoableTests: XCTestCase {
         buffer.redo()
         XCTAssertEqual(buffer.content, "abc")
     }
+
+    func testUndoAfterModifyingRestoresContent() {
+        let base = MutableStringBuffer("Hello World")
+        let buffer = TransferableUndoable(base)
+        try! buffer.modifying(affectedRange: NSRange(location: 0, length: 5)) {
+            try! base.replace(range: NSRange(location: 0, length: 5), with: "Goodbye")
+        }
+        XCTAssertEqual(buffer.content, "Goodbye World")
+        buffer.undo()
+        XCTAssertEqual(buffer.content, "Hello World")
+    }
+
+    func testRedoAfterUndoOfModifyingRestoresModifiedContent() {
+        let base = MutableStringBuffer("Hello World")
+        let buffer = TransferableUndoable(base)
+        try! buffer.modifying(affectedRange: NSRange(location: 0, length: 5)) {
+            try! base.replace(range: NSRange(location: 0, length: 5), with: "Goodbye")
+        }
+        buffer.undo()
+        buffer.redo()
+        XCTAssertEqual(buffer.content, "Goodbye World")
+    }
 }
