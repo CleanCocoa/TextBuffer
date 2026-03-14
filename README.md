@@ -38,7 +38,7 @@ Add TextBuffer as a Swift Package Manager dependency:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/CleanCocoa/TextBuffer", from: "0.3.0")
+    .package(url: "https://github.com/CleanCocoa/TextBuffer", from: "0.4.0")
 ]
 ```
 
@@ -47,6 +47,7 @@ dependencies: [
 
 - **`Buffer`** — protocol for reading and mutating text with UTF-16 indexed ranges.
 - **`MutableStringBuffer`** — lightweight in-memory `Buffer` backed by `NSMutableString`, for off-screen mutations and tests.
+- **`RopeBuffer`** — in-memory `Buffer` backed by `TextRope` (B-tree rope), for large documents with O(log n) edits.
 - **`NSTextViewBuffer`** — `Buffer` conformance for `NSTextView`, applying changes directly to the text view.
 - **`Undoable`** — wraps a `Buffer` with Foundation `UndoManager` integration for AppKit undo/redo.
 - **`TransferableUndoable`** — wraps a `Buffer` with an `OperationLog` for portable undo history; supports `snapshot()` and `represent(_:)` for state transfer.

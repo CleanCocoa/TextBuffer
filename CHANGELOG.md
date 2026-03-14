@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+### Added
+
+- `TextRope` — B-tree rope data structure with O(log n) insert, delete, and replace. UTF-8 storage with cached UTF-16 counts. Value semantics with copy-on-write.
+- `RopeBuffer` — `Buffer` and `TextAnalysisCapable` conformance wrapping `TextRope`, with selection tracking. Drop-in alternative to `MutableStringBuffer` for large documents.
+- New `TextRope` library target (zero dependencies), re-exported by `TextBuffer`.
+
 ## 0.3.0
 
 ### Added
