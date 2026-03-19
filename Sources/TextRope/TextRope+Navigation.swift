@@ -28,8 +28,12 @@ extension TextRope {
         return LeafPosition(node: current, offsetInLeaf: remaining)
     }
 
+    /// - Invariant: `utf16Range` must be within `0...utf16Count` and `length >= 0`.
     public func content(in utf16Range: NSRange) -> String {
         if utf16Range.length == 0 { return "" }
+        precondition(utf16Range.location >= 0, "content range location \(utf16Range.location) must be non-negative")
+        precondition(utf16Range.length >= 0, "content range length \(utf16Range.length) must be non-negative")
+        precondition(utf16Range.location + utf16Range.length <= utf16Count, "content range end \(utf16Range.location + utf16Range.length) exceeds utf16Count \(utf16Count)")
 
         let startOffset = utf16Range.location
         let endOffset = utf16Range.location + utf16Range.length

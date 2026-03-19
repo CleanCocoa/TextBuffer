@@ -1,6 +1,8 @@
 extension TextRope {
+    /// - Invariant: `utf16Offset` must be in `0...utf16Count`.
     public mutating func insert(_ string: String, at utf16Offset: Int) {
         if string.isEmpty { return }
+        precondition(utf16Offset >= 0 && utf16Offset <= utf16Count, "insert offset \(utf16Offset) out of range 0...\(utf16Count)")
         ensureUnique()
         if let sibling = insertIntoNode(root, at: utf16Offset, content: string) {
             root = Node.inner(ContiguousArray([root, sibling]))
