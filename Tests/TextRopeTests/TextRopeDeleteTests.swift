@@ -88,4 +88,39 @@ final class TextRopeDeleteTests: XCTestCase {
         XCTAssertEqual(rope.content, "ABCD")
         XCTAssertEqual(rope.utf16Count, 4)
     }
+
+    func testDeleteLeafMergeDoesNotSplitCRLF() {
+        let beforeCR = String(repeating: "a", count: 2047)
+        let afterLF = String(repeating: "b", count: 1500)
+        let filler = String(repeating: "c", count: 100)
+        let input = beforeCR + "\r\n" + filler + afterLF
+        var rope = TextRope(input)
+
+        XCTAssertEqual(rope.content, input)
+
+        let deleteStart = (beforeCR + "\r\n").utf16.count
+        rope.delete(in: NSRange(location: deleteStart, length: filler.utf16.count))
+
+        let expected = beforeCR + "\r\n" + afterLF
+        XCTAssertEqual(rope.content, expected)
+
+        var chunks: [String] = []
+        func collectChunks(_ node: TextRope.Node) {
+            if node.isLeaf {
+                chunks.append(node.chunk)
+            } else {
+                for child in node.children {
+                    collectChunks(child)
+                }
+            }
+        }
+        collectChunks(rope.root)
+
+        for chunk in chunks {
+            XCTAssertFalse(
+                chunk.hasSuffix("\r") && !chunk.hasSuffix("\r\n"),
+                "Chunk ends with bare \\r, meaning \\r\\n was split: chunk has \(chunk.utf8.count) bytes"
+            )
+        }
+    }
 }

@@ -178,6 +178,15 @@ extension TextRope {
             return slice.endIndex
         }
 
-        return utf8.index(utf8.startIndex, offsetBy: maxBytes)
+        let candidate = utf8.index(utf8.startIndex, offsetBy: maxBytes)
+
+        if candidate > slice.startIndex {
+            let prev = utf8.index(before: candidate)
+            if utf8[prev] == UInt8(ascii: "\r") && candidate < slice.endIndex && utf8[candidate] == UInt8(ascii: "\n") {
+                return utf8.index(after: candidate)
+            }
+        }
+
+        return candidate
     }
 }
