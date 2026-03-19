@@ -110,6 +110,15 @@ public final class RopeBuffer: Buffer, TextAnalysisCapable {
     }
 }
 
+extension RopeBuffer {
+    public convenience init<Wrapped>(
+        copying buffer: Wrapped
+    ) where Wrapped: Buffer, Wrapped.Range == NSRange, Wrapped.Content == String {
+        self.init(buffer.content)
+        self.selectedRange = buffer.selectedRange
+    }
+}
+
 extension RopeBuffer: Equatable {
     public static func == (lhs: RopeBuffer, rhs: RopeBuffer) -> Bool {
         return lhs.selectedRange == rhs.selectedRange
