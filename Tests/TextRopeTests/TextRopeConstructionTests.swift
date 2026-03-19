@@ -1,4 +1,5 @@
 import XCTest
+import Foundation
 @testable import TextRope
 
 final class TextRopeConstructionTests: XCTestCase {
@@ -31,6 +32,7 @@ final class TextRopeConstructionTests: XCTestCase {
         let input = prefix + "\r\n" + "b"
         let rope = TextRope(input)
         XCTAssertEqual(rope.content, input)
+        verifyTreeInvariants(rope)
 
         var chunks: [String] = []
         func collectChunks(_ node: TextRope.Node) {
@@ -57,6 +59,7 @@ final class TextRopeConstructionTests: XCTestCase {
         let rope = TextRope(input)
         XCTAssertEqual(rope.content, input)
         XCTAssertEqual(rope.utf16Count, input.utf16.count)
+        verifyTreeInvariants(rope)
     }
 
     func testSingleCharacter() {

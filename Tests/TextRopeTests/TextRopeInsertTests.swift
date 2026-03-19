@@ -1,5 +1,5 @@
 import XCTest
-import TextRope
+@testable import TextRope
 
 final class TextRopeInsertTests: XCTestCase {
     func testInsertAtStart() {
@@ -32,6 +32,7 @@ final class TextRopeInsertTests: XCTestCase {
         rope.insert(large, at: 1)
         XCTAssertEqual(rope.content, "a" + large)
         XCTAssertEqual(rope.utf8Count, 2501)
+        verifyTreeInvariants(rope)
     }
 
     func testInsertMultiByteCharacter() {
@@ -54,10 +55,12 @@ final class TextRopeInsertTests: XCTestCase {
         let leafCount = 8 * 8
         let bigString = String(repeating: "A", count: chunkSize * leafCount)
         var rope = TextRope(bigString)
+        verifyTreeInvariants(rope)
         let insertContent = String(repeating: "Z", count: chunkSize * 2)
         rope.insert(insertContent, at: 0)
         XCTAssertEqual(rope.content, insertContent + bigString)
         XCTAssertEqual(rope.utf8Count, bigString.utf8.count + insertContent.utf8.count)
+        verifyTreeInvariants(rope)
     }
 
     func testInsertUpdatesUTF16Count() {

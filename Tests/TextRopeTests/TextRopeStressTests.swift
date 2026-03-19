@@ -313,6 +313,11 @@ final class TextRopeStressTests: XCTestCase {
                 rope.utf16Count, string.utf16.count,
                 "UTF-16 count mismatch at iteration \(i), op=\(op)"
             )
+
+            if i % 100 == 0 {
+                verifyTreeInvariants(rope)
+            }
         }
+        verifyTreeInvariants(rope)
     }
 }

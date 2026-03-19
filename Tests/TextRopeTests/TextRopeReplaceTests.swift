@@ -1,6 +1,6 @@
 import XCTest
 import Foundation
-import TextRope
+@testable import TextRope
 
 final class TextRopeReplaceTests: XCTestCase {
     func testReplaceWithinLeaf() {
@@ -15,6 +15,7 @@ final class TextRopeReplaceTests: XCTestCase {
         var rope = TextRope(input)
         rope.replace(range: NSRange(location: chunk.utf16.count, length: 6), with: "XX")
         XCTAssertEqual(rope.content, chunk + "XX" + chunk)
+        verifyTreeInvariants(rope)
     }
 
     func testReplaceShorterString() {

@@ -61,6 +61,7 @@ final class TextRopeDeleteTests: XCTestCase {
         let expected = expectedA + expectedB
         XCTAssertEqual(rope.content, expected)
         XCTAssertEqual(rope.utf16Count, expected.utf16.count)
+        verifyTreeInvariants(rope)
     }
 
     func testDeletePreservesCOW() {
@@ -122,5 +123,7 @@ final class TextRopeDeleteTests: XCTestCase {
                 "Chunk ends with bare \\r, meaning \\r\\n was split: chunk has \(chunk.utf8.count) bytes"
             )
         }
+
+        verifyTreeInvariants(rope)
     }
 }

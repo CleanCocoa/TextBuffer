@@ -23,6 +23,14 @@ extension TextRope {
                 updateSummary(node)
                 if let sibling {
                     node.children.insert(sibling, at: i + 1)
+                    var j = i + 1
+                    while j < node.children.count
+                            && node.children[j].isLeaf
+                            && node.children[j].chunk.utf8.count > Node.maxChunkUTF8 {
+                        let extra = splitLeaf(node.children[j])
+                        node.children.insert(extra, at: j + 1)
+                        j += 1
+                    }
                     updateSummary(node)
                     if node.children.count > Node.maxChildren {
                         return splitInner(node)
