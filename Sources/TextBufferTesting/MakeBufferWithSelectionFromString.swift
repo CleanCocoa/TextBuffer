@@ -17,6 +17,13 @@ public func makeBuffer(_ stringRepresentation: String) throws -> MutableStringBu
     return buffer
 }
 
+@available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
+public func makeSendableRopeBuffer(_ stringRepresentation: String) throws -> SendableRopeBuffer {
+    var buffer = SendableRopeBuffer("")
+    try change(buffer: &buffer, to: stringRepresentation)
+    return buffer
+}
+
 @available(*, deprecated, message: "Use change(buffer: &buffer, to:) with inout instead")
 @available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
 public func change<B: Buffer>(
