@@ -1,7 +1,7 @@
 import Foundation
 import TextRope
 
-public struct SendableRopeBuffer: TextBuffer, Sendable, Equatable {
+public struct SendableRopeBuffer: TextBuffer, TextAnalysisCapable, Sendable {
     public typealias Range = NSRange
     public typealias Content = String
 
@@ -176,5 +176,33 @@ extension SendableRopeBuffer {
         }
         selectedRange = selectionAfter
         return selectionAfter
+    }
+}
+
+extension SendableRopeBuffer {
+    public enum ComparisonComponent: Sendable {
+        case content
+        case selection
+        case undoHistory
+    }
+
+    public static func comparator(
+        _ first: ComparisonComponent,
+        _ rest: ComparisonComponent...
+    ) -> @Sendable (SendableRopeBuffer, SendableRopeBuffer) -> Bool {
+        let components = [first] + rest
+        return { lhs, rhs in
+            for component in components {
+                switch component {
+                case .content:
+                    guard lhs.rope == rhs.rope else { return false }
+                case .selection:
+                    guard lhs.selectedRange == rhs.selectedRange else { return false }
+                case .undoHistory:
+                    guard lhs.log == rhs.log else { return false }
+                }
+            }
+            return true
+        }
     }
 }

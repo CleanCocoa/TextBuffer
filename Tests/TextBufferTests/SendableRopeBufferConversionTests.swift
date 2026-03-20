@@ -142,4 +142,26 @@ final class SendableRopeBufferConversionTests: XCTestCase {
         tu.undo()
         XCTAssertEqual(tu.content, "hello world")
     }
+
+    // MARK: - COW safety for rope sharing
+
+    func testSendableSnapshotCOWSafetyWithRopeBufferBase() throws {
+        let tu = TransferableUndoable(RopeBuffer("hello"))
+        var snapshot = tu.sendableSnapshot()
+
+        try snapshot.insert("X", at: 0)
+
+        XCTAssertEqual(snapshot.content, "Xhello")
+        XCTAssertEqual(tu.content, "hello")
+    }
+
+    func testSendableSnapshotCOWSafetyReverseDirection() throws {
+        let tu = TransferableUndoable(RopeBuffer("hello"))
+        let snapshot = tu.sendableSnapshot()
+
+        try tu.insert("Y", at: 0)
+
+        XCTAssertEqual(tu.content, "Yhello")
+        XCTAssertEqual(snapshot.content, "hello")
+    }
 }

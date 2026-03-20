@@ -310,26 +310,70 @@ final class SendableRopeBufferTests: XCTestCase {
         XCTAssertEqual(copy.content, "hello")
     }
 
-    // MARK: - Equatable
+    // MARK: - Comparator
 
-    func testEqualBuffers() {
-        let a = SendableRopeBuffer("hello")
+    func testComparatorContentOnly() throws {
+        var a = SendableRopeBuffer("hello")
         let b = SendableRopeBuffer("hello")
-        XCTAssertEqual(a, b)
+        try a.insert("X", at: 0)
+        _ = a.undo()
+
+        let byContent = SendableRopeBuffer.comparator(.content)
+        XCTAssertTrue(byContent(a, b))
     }
 
-    func testDifferentContentNotEqual() {
+    func testComparatorContentDetectsDifference() {
         let a = SendableRopeBuffer("hello")
         let b = SendableRopeBuffer("world")
-        XCTAssertNotEqual(a, b)
+        let byContent = SendableRopeBuffer.comparator(.content)
+        XCTAssertFalse(byContent(a, b))
     }
 
-    func testDifferentSelectionNotEqual() {
+    func testComparatorSelectionOnly() {
+        var a = SendableRopeBuffer("hello")
+        var b = SendableRopeBuffer("world")
+        a.selectedRange = NSRange(location: 2, length: 0)
+        b.selectedRange = NSRange(location: 2, length: 0)
+        let bySelection = SendableRopeBuffer.comparator(.selection)
+        XCTAssertTrue(bySelection(a, b))
+    }
+
+    func testComparatorSelectionDetectsDifference() {
         var a = SendableRopeBuffer("hello")
         var b = SendableRopeBuffer("hello")
         a.selectedRange = NSRange(location: 0, length: 5)
         b.selectedRange = NSRange(location: 0, length: 0)
-        XCTAssertNotEqual(a, b)
+        let bySelection = SendableRopeBuffer.comparator(.selection)
+        XCTAssertFalse(bySelection(a, b))
+    }
+
+    func testComparatorContentAndSelection() throws {
+        var a = SendableRopeBuffer("hello")
+        try a.insert("X", at: 0)
+        _ = a.undo()
+
+        let b = SendableRopeBuffer("hello")
+
+        let byContentAndSelection = SendableRopeBuffer.comparator(.content, .selection)
+        XCTAssertTrue(byContentAndSelection(a, b))
+    }
+
+    func testComparatorUndoHistoryDetectsDifference() throws {
+        var a = SendableRopeBuffer("hello")
+        try a.insert("X", at: 0)
+        _ = a.undo()
+
+        let b = SendableRopeBuffer("hello")
+
+        let withHistory = SendableRopeBuffer.comparator(.content, .undoHistory)
+        XCTAssertFalse(withHistory(a, b))
+    }
+
+    func testComparatorAllComponents() {
+        let a = SendableRopeBuffer("hello")
+        let b = SendableRopeBuffer("hello")
+        let byAll = SendableRopeBuffer.comparator(.content, .selection, .undoHistory)
+        XCTAssertTrue(byAll(a, b))
     }
 
     // MARK: - Sendable compile-time
