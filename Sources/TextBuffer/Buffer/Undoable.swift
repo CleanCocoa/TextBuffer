@@ -123,8 +123,10 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Ra
         self.init(base, undoManager: undoManager)
     }
 
-    isolated deinit {
-        undoManager?.removeAllActions(withTarget: self)
+    deinit {
+        MainActor.assumeIsolated {
+            undoManager?.removeAllActions(withTarget: self)
+        }
     }
 
     public func content(in range: NSRange) throws(BufferAccessFailure) -> Base.Content {
