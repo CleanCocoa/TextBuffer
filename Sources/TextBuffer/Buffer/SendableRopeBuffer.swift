@@ -212,3 +212,16 @@ extension SendableRopeBuffer {
         }
     }
 }
+
+extension SendableRopeBuffer: CustomStringConvertible {
+    public var description: String {
+        let result = NSMutableString(string: content)
+        if isSelectingText {
+            result.insert("»", at: selectedRange.endLocation)
+            result.insert("«", at: selectedRange.location)
+        } else {
+            result.insert("ˇ", at: selectedRange.location)
+        }
+        return result as String
+    }
+}

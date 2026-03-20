@@ -382,6 +382,33 @@ final class SendableRopeBufferTests: XCTestCase {
         XCTAssertTrue(byAll(a, b))
     }
 
+    // MARK: - CustomStringConvertible
+
+    func testDescriptionWithInsertionPoint() {
+        let buffer = SendableRopeBuffer("hello")
+        XCTAssertEqual(buffer.description, "ˇhello")
+    }
+
+    func testDescriptionWithInsertionPointMidText() {
+        let buffer = SendableRopeBuffer("hello", selectedRange: NSRange(location: 3, length: 0))
+        XCTAssertEqual(buffer.description, "helˇlo")
+    }
+
+    func testDescriptionWithSelection() {
+        let buffer = SendableRopeBuffer("hello world", selectedRange: NSRange(location: 6, length: 5))
+        XCTAssertEqual(buffer.description, "hello «world»")
+    }
+
+    func testDescriptionWithEmoji() {
+        let buffer = SendableRopeBuffer("🎉hello", selectedRange: NSRange(location: 0, length: 2))
+        XCTAssertEqual(buffer.description, "«🎉»hello")
+    }
+
+    func testDescriptionWithCJK() {
+        let buffer = SendableRopeBuffer("你好世界", selectedRange: NSRange(location: 2, length: 2))
+        XCTAssertEqual(buffer.description, "你好«世界»")
+    }
+
     // MARK: - Sendable compile-time
 
     func testSendableInSendableClosure() {
