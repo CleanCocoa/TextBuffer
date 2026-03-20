@@ -5,7 +5,7 @@ public struct SendableRopeBuffer: TextBuffer, Sendable, Equatable {
     public typealias Range = NSRange
     public typealias Content = String
 
-    public private(set) var rope: TextRope
+    public internal(set) var rope: TextRope
     public var selectedRange: NSRange
     public internal(set) var log: OperationLog
 
