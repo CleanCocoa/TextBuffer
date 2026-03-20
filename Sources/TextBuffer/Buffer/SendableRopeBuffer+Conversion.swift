@@ -1,5 +1,4 @@
 import Foundation
-import TextRope
 
 extension SendableRopeBuffer {
     public init<B: TextBuffer>(
