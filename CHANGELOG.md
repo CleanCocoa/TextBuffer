@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.5.0
+
+### Added
+
+- `TextBuffer` protocol — base protocol without `AnyObject`, enabling struct conformers. `Buffer` refines it, so existing class conformers are unaffected.
+- `SendableRopeBuffer` — `Sendable` value-type buffer combining `TextRope` + `OperationLog` + selection. Conforms to `TextBuffer`, `TextAnalysisCapable`, and `CustomStringConvertible`. Designed for concurrent batch processing via `TaskGroup`.
+- `SendableRopeBuffer.comparator(_:_:...)` — factory returning `@Sendable` comparison closures. Callers choose components to compare (`.content`, `.selection`, `.undoHistory`).
+- `OperationLog.popUndo()` / `popRedo()` — cursor manipulation methods for struct-based undo replay without exclusivity violations.
+- `SendableRopeBuffer` conversion surface: `init(copying:)`, `init(from:)`, `toRopeBuffer()`, `toTransferableUndoable()`.
+- `TransferableUndoable.sendableSnapshot()` / `represent(_: SendableRopeBuffer)` for round-trip snapshot transfer with undo history.
+- `makeSendableRopeBuffer(_:)` factory in `TextBufferTesting`.
+- `applyStep(_:to: inout SendableRopeBuffer)` and `assertSendableUndoEquivalence(initial:steps:)` for step-driven undo equivalence testing.
+- ADR-010: Sendable value-type buffer via protocol split.
+
+### Changed
+
+- `TextAnalysisCapable` now refines `TextBuffer` instead of `Buffer`, enabling struct conformers to provide `wordRange`/`lineRange`.
+- `assertBufferState`, `MutableStringBuffer.init(copying:)`, `RopeBuffer.init(copying:)` accept `TextBuffer` (widened from `Buffer`).
+- `change(buffer:to:)` gains an `inout` overload for `TextBuffer` value types.
+
+### Deprecated
+
+- `change(buffer:to:)` non-`inout` overload — use `change(buffer: &buffer, to:)` instead.
+
+### Fixed
+
+- TextRope: CRLF split invariant in delete's leaf merge.
+- TextRope: precondition guards on public API for bounds checking.
+- TextRope: tree invariant validation for oversized leaf siblings.
+
 ## 0.4.0
 
 ### Added
