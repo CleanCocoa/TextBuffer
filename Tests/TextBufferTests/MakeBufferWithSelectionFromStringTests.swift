@@ -21,12 +21,12 @@ final class BufferWithSelectionFromStringTests: XCTestCase {
     }
 
     func testChangeBuffer() throws {
-        let buffer = MutableStringBuffer("hello\nworld")
+        var buffer = MutableStringBuffer("hello\nworld")
 
-        try change(buffer: buffer, to: "go«od»bye")
+        try change(buffer: &buffer, to: "go«od»bye")
         assertBufferState(buffer, "go«od»bye")
 
-        try change(buffer: buffer, to: "")
+        try change(buffer: &buffer, to: "")
         assertBufferState(buffer, "ˇ")
     }
 }
