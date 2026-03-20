@@ -113,7 +113,7 @@ public final class RopeBuffer: Buffer, TextAnalysisCapable {
 extension RopeBuffer {
     public convenience init<Wrapped>(
         copying buffer: Wrapped
-    ) where Wrapped: Buffer, Wrapped.Range == NSRange, Wrapped.Content == String {
+    ) where Wrapped: TextBuffer, Wrapped.Range == NSRange, Wrapped.Content == String {
         self.init(buffer.content)
         self.selectedRange = buffer.selectedRange
     }

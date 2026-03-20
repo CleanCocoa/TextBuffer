@@ -24,6 +24,23 @@ public func change<B: Buffer>(
     buffer: B,
     to stringRepresentation: String
 ) throws where B.Range == NSRange, B.Content == String {
+    var buffer = buffer
+    try changeBuffer(&buffer, to: stringRepresentation)
+}
+
+@available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
+public func change<B: TextBuffer>(
+    buffer: inout B,
+    to stringRepresentation: String
+) throws where B.Range == NSRange, B.Content == String {
+    try changeBuffer(&buffer, to: stringRepresentation)
+}
+
+@available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
+private func changeBuffer<B: TextBuffer>(
+    _ buffer: inout B,
+    to stringRepresentation: String
+) throws where B.Range == NSRange, B.Content == String {
     /// Indices:
     /// - `0`: text before
     /// - `1`: text inside
