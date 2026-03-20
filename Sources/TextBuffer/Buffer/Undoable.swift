@@ -123,6 +123,12 @@ public final class Undoable<Base>: @MainActor Buffer where Base: Buffer, Base.Ra
         self.init(base, undoManager: undoManager)
     }
 
+    // NB: Cannot use `isolated deinit` here. When a @MainActor class with
+    // `isolated deinit` is deallocated without a running RunLoop (e.g. in
+    // XCTest's command-line runner), the Swift 6.2 runtime tries to hop to
+    // the MainActor for deinit execution and aborts (signal 6) when no
+    // RunLoop services the hop. `MainActor.assumeIsolated` asserts main-thread
+    // execution without requiring the actor hop mechanism.
     deinit {
         MainActor.assumeIsolated {
             undoManager?.removeAllActions(withTarget: self)
