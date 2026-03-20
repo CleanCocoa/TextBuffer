@@ -26,6 +26,7 @@
 
 ### Fixed
 
+- `Undoable`: replaced `isolated deinit` with nonisolated deinit using `MainActor.assumeIsolated`. The Swift 6.2 runtime aborts (signal 6) when a `@MainActor` class with `isolated deinit` is deallocated without a running RunLoop (XCTest CLI, background threads).
 - TextRope: CRLF split invariant in delete's leaf merge.
 - TextRope: precondition guards on public API for bounds checking.
 - TextRope: tree invariant validation for oversized leaf siblings.
