@@ -394,4 +394,78 @@ final class OperationLogTests: XCTestCase {
         _ = log.undo(on: buffer)
         XCTAssertEqual(log.undoableCount, 0)
     }
+
+    func testPopUndo_ReturnsNilWhenEmpty() {
+        var log = OperationLog()
+        XCTAssertNil(log.popUndo())
+    }
+
+    func testPopRedo_ReturnsNilWhenEmpty() {
+        var log = OperationLog()
+        XCTAssertNil(log.popRedo())
+    }
+
+    func testPopUndo_ReturnsGroupAndMovesCursorBack() {
+        let buffer = MutableStringBuffer("hello")
+        var log = OperationLog()
+
+        log.beginUndoGroup(selectionBefore: NSRange(location: 0, length: 0))
+        log.record(BufferOperation(kind: .insert(content: "hi ", at: 0)))
+        try! buffer.insert("hi ", at: 0)
+        log.endUndoGroup(selectionAfter: NSRange(location: 3, length: 0))
+
+        let group = log.popUndo()
+
+        XCTAssertNotNil(group)
+        XCTAssertEqual(group?.selectionBefore, NSRange(location: 0, length: 0))
+        XCTAssertEqual(group?.operations.count, 1)
+        XCTAssertFalse(log.canUndo)
+        XCTAssertTrue(log.canRedo)
+    }
+
+    func testPopRedo_ReturnsGroupAndMovesCursorForward() {
+        let buffer = MutableStringBuffer("hello")
+        var log = OperationLog()
+
+        log.beginUndoGroup(selectionBefore: NSRange(location: 0, length: 0))
+        log.record(BufferOperation(kind: .insert(content: "hi ", at: 0)))
+        try! buffer.insert("hi ", at: 0)
+        log.endUndoGroup(selectionAfter: NSRange(location: 3, length: 0))
+
+        _ = log.popUndo()
+        let group = log.popRedo()
+
+        XCTAssertNotNil(group)
+        XCTAssertEqual(group?.selectionAfter, NSRange(location: 3, length: 0))
+        XCTAssertEqual(group?.operations.count, 1)
+        XCTAssertTrue(log.canUndo)
+        XCTAssertFalse(log.canRedo)
+    }
+
+    func testPopUndo_PopRedo_RoundTrip() {
+        let buffer = MutableStringBuffer("")
+        var log = OperationLog()
+
+        log.beginUndoGroup(selectionBefore: NSRange(location: 0, length: 0), actionName: "Insert")
+        log.record(BufferOperation(kind: .insert(content: "abc", at: 0)))
+        try! buffer.insert("abc", at: 0)
+        log.endUndoGroup(selectionAfter: NSRange(location: 3, length: 0))
+
+        log.beginUndoGroup(selectionBefore: NSRange(location: 3, length: 0), actionName: "Delete")
+        log.record(BufferOperation(kind: .delete(range: NSRange(location: 0, length: 3), deletedContent: "abc")))
+        try! buffer.delete(in: NSRange(location: 0, length: 3))
+        log.endUndoGroup(selectionAfter: NSRange(location: 0, length: 0))
+
+        let group2 = log.popUndo()
+        XCTAssertEqual(group2?.actionName, "Delete")
+        XCTAssertEqual(log.undoableCount, 1)
+
+        let group1 = log.popUndo()
+        XCTAssertEqual(group1?.actionName, "Insert")
+        XCTAssertEqual(log.undoableCount, 0)
+
+        let redo1 = log.popRedo()
+        XCTAssertEqual(redo1?.actionName, "Insert")
+        XCTAssertEqual(log.undoableCount, 1)
+    }
 }

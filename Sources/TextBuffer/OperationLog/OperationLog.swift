@@ -61,6 +61,19 @@ public struct OperationLog: Sendable, Equatable {
         return history[index].actionName
     }
 
+    public mutating func popUndo() -> UndoGroup? {
+        guard canUndo else { return nil }
+        cursor -= 1
+        return history[cursor]
+    }
+
+    public mutating func popRedo() -> UndoGroup? {
+        guard canRedo else { return nil }
+        let group = history[cursor]
+        cursor += 1
+        return group
+    }
+
     public mutating func undo<B: Buffer>(on buffer: B) -> NSRange? where B.Range == NSRange, B.Content == String {
         guard canUndo else { return nil }
         cursor -= 1
