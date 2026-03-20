@@ -15,6 +15,12 @@ public struct SendableRopeBuffer: TextBuffer, TextAnalysisCapable, Sendable {
         self.log = OperationLog()
     }
 
+    public init(_ content: String, selectedRange: NSRange) {
+        self.rope = TextRope(content)
+        self.selectedRange = selectedRange
+        self.log = OperationLog()
+    }
+
     @inlinable
     public var range: NSRange { NSRange(location: 0, length: rope.utf16Count) }
 

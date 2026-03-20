@@ -20,6 +20,12 @@ final class SendableRopeBufferTests: XCTestCase {
         XCTAssertEqual(buffer.range, NSRange(location: 0, length: 0))
     }
 
+    func testInitWithSelection() {
+        let buffer = SendableRopeBuffer("hello", selectedRange: NSRange(location: 2, length: 3))
+        XCTAssertEqual(buffer.content, "hello")
+        XCTAssertEqual(buffer.selectedRange, NSRange(location: 2, length: 3))
+    }
+
     func testContentInSubrange() throws {
         let buffer = SendableRopeBuffer("hello world")
         let sub = try buffer.content(in: NSRange(location: 6, length: 5))
@@ -292,7 +298,7 @@ final class SendableRopeBufferTests: XCTestCase {
     // MARK: - COW semantics
 
     func testCopyOnWriteIndependence() throws {
-        var original = SendableRopeBuffer("hello")
+        let original = SendableRopeBuffer("hello")
         var copy = original
         try copy.insert("X", at: 0)
         XCTAssertEqual(original.content, "hello")
