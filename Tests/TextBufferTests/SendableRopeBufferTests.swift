@@ -167,6 +167,39 @@ final class SendableRopeBufferTests: XCTestCase {
         XCTAssertEqual(result, 42)
     }
 
+    // MARK: - TextAnalysisCapable
+
+    func testWordRangeExpandsToWord() throws {
+        let buffer = SendableRopeBuffer("hello world")
+        let range = try buffer.wordRange(for: NSRange(location: 7, length: 0))
+        XCTAssertEqual(range, NSRange(location: 6, length: 5))
+    }
+
+    func testLineRangeExpandsToLine() throws {
+        let buffer = SendableRopeBuffer("hello\nworld\n")
+        let range = try buffer.lineRange(for: NSRange(location: 7, length: 0))
+        XCTAssertEqual(range, NSRange(location: 6, length: 6))
+    }
+
+    func testWordRangeWithCJK() throws {
+        let buffer = SendableRopeBuffer("你好 世界")
+        let range = try buffer.wordRange(for: NSRange(location: 3, length: 0))
+        XCTAssertEqual(range, NSRange(location: 3, length: 2))
+    }
+
+    func testLineRangeWithEmoji() throws {
+        let buffer = SendableRopeBuffer("🎉 party\n🎊 fun")
+        let range = try buffer.lineRange(for: NSRange(location: 0, length: 0))
+        XCTAssertEqual(range, NSRange(location: 0, length: 9))
+    }
+
+    func testWordRangeOutOfRangeThrows() {
+        let buffer = SendableRopeBuffer("hello")
+        XCTAssertThrowsError(try buffer.wordRange(for: NSRange(location: 10, length: 0))) { error in
+            XCTAssertTrue(error is BufferAccessFailure)
+        }
+    }
+
     // MARK: - Auto-grouping
 
     func testSingleInsertIsAutoGrouped() throws {
@@ -211,6 +244,55 @@ final class SendableRopeBufferTests: XCTestCase {
         buffer.endUndoGroup()
         XCTAssertEqual(buffer.log.undoableCount, 1)
         XCTAssertEqual(buffer.log.undoActionName, "manual")
+    }
+
+    // MARK: - Nested undo grouping
+
+    func testNestedUndoGroupingFlattensIntoSingleUndo() throws {
+        var buffer = SendableRopeBuffer("")
+        try buffer.undoGrouping(actionName: "outer") { buf in
+            try buf.insert("hello", at: 0)
+            try buf.undoGrouping(actionName: "inner") { buf2 in
+                try buf2.insert(" world", at: 5)
+            }
+        }
+        XCTAssertEqual(buffer.content, "hello world")
+        XCTAssertEqual(buffer.log.undoableCount, 1)
+
+        _ = buffer.undo()
+        XCTAssertEqual(buffer.content, "")
+    }
+
+    func testNestedUndoGroupingWithEmojiContent() throws {
+        var buffer = SendableRopeBuffer("")
+        try buffer.undoGrouping { buf in
+            try buf.insert("🎉", at: 0)
+            try buf.undoGrouping { buf2 in
+                try buf2.insert("🎊", at: 2)
+            }
+        }
+        XCTAssertEqual(buffer.content, "🎉🎊")
+        XCTAssertEqual(buffer.log.undoableCount, 1)
+
+        _ = buffer.undo()
+        XCTAssertEqual(buffer.content, "")
+    }
+
+    func testNestedBeginEndUndoGroupFlattens() throws {
+        var buffer = SendableRopeBuffer("")
+        buffer.beginUndoGroup(actionName: "outer")
+        try buffer.insert("你好", at: 0)
+        buffer.beginUndoGroup(actionName: "inner")
+        try buffer.insert("世界", at: 2)
+        buffer.endUndoGroup()
+        buffer.endUndoGroup()
+
+        XCTAssertEqual(buffer.content, "你好世界")
+        XCTAssertEqual(buffer.log.undoableCount, 1)
+        XCTAssertEqual(buffer.log.undoActionName, "outer")
+
+        _ = buffer.undo()
+        XCTAssertEqual(buffer.content, "")
     }
 
     // MARK: - Undo/Redo
