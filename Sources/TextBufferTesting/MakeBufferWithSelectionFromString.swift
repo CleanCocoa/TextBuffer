@@ -12,16 +12,39 @@ public struct InvalidBufferStringRepresentation: Error {
 /// - Throws: `InvalidBufferStringRepresentation` if `stringRepresentation` is malformed.
 @available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
 public func makeBuffer(_ stringRepresentation: String) throws -> MutableStringBuffer {
-    let buffer = MutableStringBuffer("")
-    try change(buffer: buffer, to: stringRepresentation)
+    var buffer = MutableStringBuffer("")
+    try change(buffer: &buffer, to: stringRepresentation)
     return buffer
 }
 
-/// Test helper to replace `buffer`'s content and selection that matches the `debugDescription` format of either `"text «with selection»"` or `"text ˇinsertion point"`.
-/// - Throws: `InvalidBufferStringRepresentation` if `stringRepresentation` is malformed, `BufferAccessFailure` when changing `buffer` doesn't work.
+@available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
+public func makeSendableRopeBuffer(_ stringRepresentation: String) throws -> SendableRopeBuffer {
+    var buffer = SendableRopeBuffer("")
+    try change(buffer: &buffer, to: stringRepresentation)
+    return buffer
+}
+
+@available(*, deprecated, message: "Use change(buffer: &buffer, to:) with inout instead")
 @available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
 public func change<B: Buffer>(
     buffer: B,
+    to stringRepresentation: String
+) throws where B.Range == NSRange, B.Content == String {
+    var buffer = buffer
+    try changeBuffer(&buffer, to: stringRepresentation)
+}
+
+@available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
+public func change<B: TextBuffer>(
+    buffer: inout B,
+    to stringRepresentation: String
+) throws where B.Range == NSRange, B.Content == String {
+    try changeBuffer(&buffer, to: stringRepresentation)
+}
+
+@available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
+private func changeBuffer<B: TextBuffer>(
+    _ buffer: inout B,
     to stringRepresentation: String
 ) throws where B.Range == NSRange, B.Content == String {
     /// Indices:

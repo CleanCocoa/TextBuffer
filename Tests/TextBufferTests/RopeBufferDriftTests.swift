@@ -10,8 +10,8 @@ final class RopeBufferDriftTests: XCTestCase {
 
     func bufferPair(_ stringRepresentation: String) throws -> BufferPair {
         let msb = try makeBuffer(stringRepresentation)
-        let rb = RopeBuffer("")
-        try change(buffer: rb, to: stringRepresentation)
+        var rb = RopeBuffer("")
+        try change(buffer: &rb, to: stringRepresentation)
         return (msb, rb)
     }
 

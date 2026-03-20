@@ -12,7 +12,7 @@ import Foundation
 ///
 /// Concrete conformers: ``MutableStringBuffer``, ``NSTextViewBuffer``, and conditionally
 /// ``Undoable`` when its base conforms.
-public protocol TextAnalysisCapable: Buffer {
+public protocol TextAnalysisCapable: TextBuffer {
     /// Expanded `searchRange` to cover whole lines. Chained calls return the same line range,
     /// i.e. does not expand line by line.
     ///

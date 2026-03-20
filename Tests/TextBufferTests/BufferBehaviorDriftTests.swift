@@ -12,8 +12,8 @@ final class BufferBehaviorDriftTests: XCTestCase {
 
     func bufferPair(_ stringRepresentation: String) throws -> BufferPair {
         let inMemory = try makeBuffer(stringRepresentation)
-        let onScreen = textView(inMemory.content)
-        try change(buffer: onScreen, to: stringRepresentation)
+        var onScreen = textView(inMemory.content)
+        try change(buffer: &onScreen, to: stringRepresentation)
         return (inMemory, onScreen)
     }
 

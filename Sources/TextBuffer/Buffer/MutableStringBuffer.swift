@@ -142,7 +142,7 @@ extension MutableStringBuffer {
     /// Create a copy of `buffer`.
     public convenience init<Wrapped>(
         copying buffer: Wrapped
-    ) where Wrapped: Buffer, Wrapped.Range == NSRange, Wrapped.Content == String {
+    ) where Wrapped: TextBuffer, Wrapped.Range == NSRange, Wrapped.Content == String {
         self.init(
             storage: NSMutableString(string: buffer.content),
             selectedRange: buffer.selectedRange

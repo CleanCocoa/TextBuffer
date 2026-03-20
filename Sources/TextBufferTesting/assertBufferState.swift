@@ -4,7 +4,7 @@ import Foundation
 import XCTest
 import TextBuffer
 
-public func assertBufferState<B: Buffer>(
+public func assertBufferState<B: TextBuffer>(
     _ buffer: B,
     _ expectedDescription: String,
     _ message: @autoclosure () -> String = "",

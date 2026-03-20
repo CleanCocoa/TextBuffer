@@ -21,12 +21,36 @@ final class BufferWithSelectionFromStringTests: XCTestCase {
     }
 
     func testChangeBuffer() throws {
-        let buffer = MutableStringBuffer("hello\nworld")
+        var buffer = MutableStringBuffer("hello\nworld")
 
-        try change(buffer: buffer, to: "go«od»bye")
+        try change(buffer: &buffer, to: "go«od»bye")
         assertBufferState(buffer, "go«od»bye")
 
-        try change(buffer: buffer, to: "")
+        try change(buffer: &buffer, to: "")
         assertBufferState(buffer, "ˇ")
+    }
+
+    func testMakeSendableRopeBufferWithInsertionPoint() throws {
+        let buffer = try makeSendableRopeBuffer("helloˇ world")
+        XCTAssertEqual(buffer.content, "hello world")
+        XCTAssertEqual(buffer.selectedRange, NSRange(location: 5, length: 0))
+    }
+
+    func testMakeSendableRopeBufferWithSelection() throws {
+        let buffer = try makeSendableRopeBuffer("hello «world»")
+        XCTAssertEqual(buffer.content, "hello world")
+        XCTAssertEqual(buffer.selectedRange, NSRange(location: 6, length: 5))
+    }
+
+    func testMakeSendableRopeBufferWithEmoji() throws {
+        let buffer = try makeSendableRopeBuffer("«🎉»party")
+        XCTAssertEqual(buffer.content, "🎉party")
+        XCTAssertEqual(buffer.selectedRange, NSRange(location: 0, length: 2))
+    }
+
+    func testMakeSendableRopeBufferWithCJK() throws {
+        let buffer = try makeSendableRopeBuffer("你好«世界»")
+        XCTAssertEqual(buffer.content, "你好世界")
+        XCTAssertEqual(buffer.selectedRange, NSRange(location: 2, length: 2))
     }
 }
