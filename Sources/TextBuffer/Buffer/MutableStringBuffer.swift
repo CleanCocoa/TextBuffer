@@ -2,9 +2,6 @@
 
 import Foundation
 
-/// Memory-efficient ``Buffer`` implementation (``MutableStringBuffer``) you can use for off-screen mutations and in unit tests.
-public typealias InMemoryBuffer = MutableStringBuffer
-
 /// A self-contained ``Buffer`` implementation, backed by `NSMutableString` as the UTF-16-offset indexed storage.
 ///
 /// Used as in-memory buffers, you can apply changes to off-screen textual content in a way that is consistent with text views, but actually independent of these. Opposed to the platform's Text Kit views, which are large class clusters with a lot of automatic behavior pertaining layout, keeping a ``MutableStringBuffer`` in memory produces little overhead. (In fact, only as much overhead as a `NSMutableString` will, plus storing the selected range.)

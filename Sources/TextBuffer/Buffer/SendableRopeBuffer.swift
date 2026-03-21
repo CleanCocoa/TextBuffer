@@ -1,6 +1,28 @@
 import Foundation
 import TextRope
 
+public typealias InMemoryBuffer = SendableRopeBuffer
+public typealias EditingBuffer = TransferableUndoable<RopeBuffer>
+
+/// A `Sendable` value-type text buffer backed by a ``TextRope`` with built-in undo/redo via ``OperationLog``.
+///
+/// `SendableRopeBuffer` combines efficient rope-based text storage with a self-contained operation log,
+/// making it safe to pass across actor boundaries while preserving full undo history.
+///
+/// ## Undo and Redo
+///
+/// Every mutation automatically records a ``BufferOperation`` in the ``log``. Individual mutations
+/// are auto-wrapped in an ``UndoGroup``; use ``undoGrouping(actionName:_:)`` or the manual
+/// ``beginUndoGroup(actionName:)`` / ``endUndoGroup()`` pair to group multiple mutations
+/// into a single undoable step.
+///
+/// Call ``undo()`` and ``redo()`` to walk the history. Both return the restored selection, or `nil`
+/// if there is nothing to undo/redo.
+///
+/// ## String Representation
+///
+/// The ``description`` uses `«guillemets»` for selections and `ˇ` for the insertion point,
+/// matching the notation used by ``MutableStringBuffer`` and the `TextBufferTesting` helpers.
 public struct SendableRopeBuffer: TextBuffer, TextAnalysisCapable, Sendable {
     public typealias Range = NSRange
     public typealias Content = String
