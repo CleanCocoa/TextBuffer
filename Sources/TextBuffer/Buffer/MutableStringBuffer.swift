@@ -2,16 +2,13 @@
 
 import Foundation
 
-/// A self-contained ``Buffer`` implementation, backed by `NSMutableString` as the UTF-16-offset indexed storage.
+/// A ``Buffer`` implementation backed by `NSMutableString` as the UTF-16-offset indexed storage.
 ///
-/// Used as in-memory buffers, you can apply changes to off-screen textual content in a way that is consistent with text views, but actually independent of these. Opposed to the platform's Text Kit views, which are large class clusters with a lot of automatic behavior pertaining layout, keeping a ``MutableStringBuffer`` in memory produces little overhead. (In fact, only as much overhead as a `NSMutableString` will, plus storing the selected range.)
+/// `MutableStringBuffer` is a lightweight reference-type buffer useful for simple tests and for
+/// copying snapshots of other buffers. For general-purpose in-memory text manipulation,
+/// prefer ``SendableRopeBuffer``, which offers O(log n) mutations, built-in undo, and `Sendable` safety.
 ///
-/// To adapt other buffers and copy their content, use ``MutableStringBuffer/init(copying:)``.
-///
-/// ## Utility for Apps
-///
-/// - Use ``MutableStringBuffer`` in unit tests.
-/// - Maintain multiple text buffers in memory while only ever rendering one buffer as a text view on screen, e.g. for opening multiple files in your app.
+/// To copy another buffer's content, use ``MutableStringBuffer/init(copying:)``.
 public final class MutableStringBuffer: Buffer, TextAnalysisCapable {
     public typealias Range = NSRange
     public typealias Content = String

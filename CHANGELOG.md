@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- DocC documentation for all three library products: TextBuffer, TextRope, and TextBufferTesting each have a DocC catalog with a landing page and organized topic groups.
+- "Choosing a Buffer" article — decision guide with comparison table and code examples, positioning `SendableRopeBuffer` as the recommended in-memory buffer.
+- "Undo and Redo" article — explains both `UndoManager`-based and `OperationLog`-based strategies with code examples.
+- Doc comments for previously undocumented public types: `TextBuffer` protocol, `RopeBuffer`, `SendableRopeBuffer`, `TransferableUndoable`, `PuppetUndoManager`, `OperationLog`, `UndoGroup`, `BufferOperation`, `BufferContent`, `TextRope`, and all TextBufferTesting helpers.
+
 ### Changed
 
 - **BREAKING:** `InMemoryBuffer` typealias now points to `SendableRopeBuffer` (was `MutableStringBuffer`). The rope-backed, `Sendable` value type with built-in undo is the proper in-memory buffer for production use. `MutableStringBuffer` remains available by its concrete name.

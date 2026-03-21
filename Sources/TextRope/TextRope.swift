@@ -1,3 +1,14 @@
+/// A B-tree based rope for efficient text storage and manipulation.
+///
+/// `TextRope` provides O(log n) insert, delete, and replace operations, making it well-suited
+/// for large documents where `NSMutableString`'s O(n) mutations become a bottleneck.
+///
+/// The struct uses copy-on-write semantics and is `Sendable`. All positions and ranges use
+/// UTF-16 offsets (`Int` and `NSRange`) for compatibility with Foundation and AppKit text APIs.
+///
+/// `TextRope` is used internally by `RopeBuffer` and `SendableRopeBuffer` in the TextBuffer library.
+/// Import the `TextRope` module directly when you need a standalone text storage primitive
+/// without the buffer protocol API.
 public struct TextRope: Sendable {
     internal nonisolated(unsafe) var root: Node
 

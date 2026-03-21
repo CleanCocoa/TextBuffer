@@ -1,5 +1,20 @@
 import Foundation
 
+/// A linear undo history that records ``BufferOperation``s grouped into ``UndoGroup``s.
+///
+/// `OperationLog` maintains a flat history array with a cursor separating undoable from redoable groups.
+/// New groups are appended at the cursor, discarding any redo history beyond it.
+///
+/// ## Grouping
+///
+/// Every recorded operation must be inside an undo group. Call ``beginUndoGroup(selectionBefore:actionName:)``
+/// before mutations and ``endUndoGroup(selectionAfter:)`` after. Groups can be nested; inner groups merge
+/// their operations into the outermost group.
+///
+/// ## Replaying
+///
+/// Use ``undo(on:)`` and ``redo(on:)`` to replay operations on any ``Buffer``, or use ``popUndo()``
+/// and ``popRedo()`` to retrieve groups for manual replay (as ``SendableRopeBuffer`` does).
 public struct OperationLog: Sendable, Equatable {
     public private(set) var history: [UndoGroup]
     public private(set) var cursor: Int

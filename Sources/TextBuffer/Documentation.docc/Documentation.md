@@ -4,23 +4,50 @@ Text buffer abstractions to power your text editor, in UI or in memory.
 
 ## Overview
 
-To simulate modifications and insertion point movement or selection changes in text views, you need to create the actual UI component. This is both rather resource intensive and constrained to the `MainActor`.
+TextBuffer provides a uniform API for reading, mutating, and selecting text — whether backed by
+an `NSMutableString`, a rope, or an `NSTextView`. All buffers share the same operations: access
+content, manage a selection or insertion point, and insert, delete, or replace text.
 
-With in-memory buffers, you get the same behavior, but without the UI overhead.
+The library defines two parallel protocol hierarchies. ``Buffer`` (which refines ``AsyncBuffer``)
+targets reference-type conformers like ``MutableStringBuffer``, ``RopeBuffer``, and
+``NSTextViewBuffer``. ``TextBuffer`` targets value types like ``SendableRopeBuffer``.
+Both hierarchies expose the same API surface; ``TextAnalysisCapable`` adds word and line range
+analysis to either.
 
 ## Topics
 
-### Buffers
+### Essentials
 
-A `Buffer` is an abstraction of textual content and a selection.
+- <doc:ChoosingABuffer>
+- <doc:UndoAndRedo>
+
+### Protocols
 
 - ``Buffer``
+- ``TextBuffer``
+- ``AsyncBuffer``
+- ``TextAnalysisCapable``
+- ``BufferRange``
+- ``BufferContent``
+
+### In-Memory Buffers
+
 - ``MutableStringBuffer``
-- ``Undoable``
+- ``RopeBuffer``
+- ``SendableRopeBuffer``
 
-### Platform-Specific Buffer Adapters
-
-Text Kit's text views behave as buffers, but offer a much wider surface API to perform layout and typesetting. Opposed to these, a `Buffer` is a lightweight API to perform changes like a user would in an interactive text view, which we expose as adapters.
+### Platform Adapters
 
 - ``NSTextViewBuffer``
 
+### Undo Support
+
+- ``Undoable``
+- ``TransferableUndoable``
+- ``OperationLog``
+- ``UndoGroup``
+- ``BufferOperation``
+
+### Error Handling
+
+- ``BufferAccessFailure``

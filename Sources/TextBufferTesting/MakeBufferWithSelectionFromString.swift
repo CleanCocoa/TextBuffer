@@ -3,12 +3,13 @@
 import Foundation
 import TextBuffer
 
+/// Error thrown when a buffer string representation is malformed, e.g. with unmatched or nested `«»` markers.
 public struct InvalidBufferStringRepresentation: Error {
     public let stringRepresentation: String
     public let parts: [String]
 }
 
-/// Test helper to create ``/TextBuffer/MutableStringBuffer`` from a string that matches the `debugDescription` format of either `"text «with selection»"` or `"text ˇinsertion point"`.
+/// Test helper to create `MutableStringBuffer` from a string that matches the `debugDescription` format of either `"text «with selection»"` or `"text ˇinsertion point"`.
 /// - Throws: `InvalidBufferStringRepresentation` if `stringRepresentation` is malformed.
 @available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
 public func makeBuffer(_ stringRepresentation: String) throws -> MutableStringBuffer {
@@ -17,6 +18,8 @@ public func makeBuffer(_ stringRepresentation: String) throws -> MutableStringBu
     return buffer
 }
 
+/// Test helper to create a `SendableRopeBuffer` from a string using `«selection»` or `ˇ` notation.
+/// - Throws: ``InvalidBufferStringRepresentation`` if `stringRepresentation` is malformed.
 @available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
 public func makeSendableRopeBuffer(_ stringRepresentation: String) throws -> SendableRopeBuffer {
     var buffer = SendableRopeBuffer("")
@@ -34,6 +37,10 @@ public func change<B: Buffer>(
     try changeBuffer(&buffer, to: stringRepresentation)
 }
 
+/// Replaces a buffer's content and selection to match the given string representation.
+///
+/// Uses `«selection»` for a selected range and `ˇ` for an insertion point.
+/// - Throws: ``InvalidBufferStringRepresentation`` if `stringRepresentation` is malformed.
 @available(macOS, introduced: 13.0, message: "macOS 13 required for Regex")
 public func change<B: TextBuffer>(
     buffer: inout B,

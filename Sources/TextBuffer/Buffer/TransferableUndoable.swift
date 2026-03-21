@@ -1,5 +1,22 @@
 import Foundation
 
+/// Decorator of any ``Buffer`` to add undo/redo functionality through an ``OperationLog``.
+///
+/// Unlike ``Undoable``, which relies on Foundation's `UndoManager`, `TransferableUndoable` records
+/// all mutations as ``BufferOperation`` values for replay-based undo. This makes the undo history
+/// inspectable, serializable, and transferable between buffer instances.
+///
+/// ## Snapshots and State Transfer
+///
+/// - ``snapshot()`` captures the current content, selection, and operation log as a new
+///   `TransferableUndoable<MutableStringBuffer>`.
+/// - ``sendableSnapshot()`` produces a ``SendableRopeBuffer`` that can cross actor boundaries.
+/// - `represent(_:)` restores state from another `TransferableUndoable` or a ``SendableRopeBuffer``.
+///
+/// ## System Undo Integration
+///
+/// Call ``enableSystemUndoIntegration()`` to obtain an `UndoManager` that bridges to this buffer's
+/// ``OperationLog``, enabling AppKit undo menu items and the responder chain.
 @MainActor
 public final class TransferableUndoable<Base>: @MainActor Buffer where Base: Buffer, Base.Range == NSRange, Base.Content == String {
     public typealias Range = NSRange

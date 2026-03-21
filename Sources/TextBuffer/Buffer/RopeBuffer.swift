@@ -1,6 +1,18 @@
 import Foundation
 import TextRope
 
+/// A ``Buffer`` implementation backed by a ``TextRope`` for efficient manipulation of large texts.
+///
+/// `RopeBuffer` provides O(log n) insert, delete, and replace operations, making it a better choice
+/// than ``MutableStringBuffer`` when working with very large documents.
+///
+/// `RopeBuffer` is a reference type and is **not** `Sendable`. For a thread-safe value-type alternative,
+/// use ``SendableRopeBuffer``.
+///
+/// `RopeBuffer` does not include built-in undo support. Wrap it in ``Undoable`` or ``TransferableUndoable``
+/// to add undo/redo.
+///
+/// To copy another buffer's content, use ``init(copying:)``.
 public final class RopeBuffer: Buffer, TextAnalysisCapable {
     public typealias Range = NSRange
     public typealias Content = String

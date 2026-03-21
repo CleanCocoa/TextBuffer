@@ -10,6 +10,11 @@ protocol PuppetUndoManagerDelegate: AnyObject {
     var puppetRedoActionName: String { get }
 }
 
+/// An `UndoManager` subclass that delegates undo and redo to a ``TransferableUndoable``'s ``OperationLog``.
+///
+/// You don't create instances directly. Instead, call
+/// ``TransferableUndoable/enableSystemUndoIntegration()`` to obtain one. Assign the returned
+/// undo manager to your window or document to enable AppKit's Edit menu undo/redo items.
 @MainActor
 public final class PuppetUndoManager: UndoManager {
     weak var owner: (any PuppetUndoManagerDelegate)?

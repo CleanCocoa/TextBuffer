@@ -1,3 +1,11 @@
+/// Synchronous text buffer protocol for value types.
+///
+/// ``TextBuffer`` is the counterpart to ``Buffer`` (which targets reference types and refines ``AsyncBuffer``).
+/// Both protocols expose the same API surface — content access, selection management, and text mutations —
+/// but ``TextBuffer`` uses `mutating` methods, making it suitable for structs like ``SendableRopeBuffer``.
+///
+/// The primary associated type is `Range`, which determines the range representation.
+/// `Location` is derived as `Range.Position`.
 public protocol TextBuffer<Range> {
     associatedtype Range: BufferRange
     typealias Location = Range.Position

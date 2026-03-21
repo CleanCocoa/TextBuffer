@@ -46,6 +46,8 @@ private func applyStep(_ step: BufferStep, to buffer: TransferableUndoable<Mutab
     }
 }
 
+/// Verifies that an `Undoable` reference and a `TransferableUndoable` subject
+/// produce identical content and selection after each step.
 @MainActor
 public func assertUndoEquivalence(
     reference: Undoable<MutableStringBuffer>,
@@ -62,6 +64,8 @@ public func assertUndoEquivalence(
     }
 }
 
+/// Convenience that creates both an `Undoable` and a `TransferableUndoable`
+/// from `initial` and compares them through `steps`.
 @MainActor
 public func assertUndoEquivalence(
     initial: String,
@@ -74,6 +78,7 @@ public func assertUndoEquivalence(
     assertUndoEquivalence(reference: reference, subject: subject, steps: steps, file: file, line: line)
 }
 
+/// Applies a single ``BufferStep`` to a `SendableRopeBuffer`.
 public func applyStep(_ step: BufferStep, to buffer: inout SendableRopeBuffer) {
     switch step {
     case .insert(let content, let at):
@@ -95,6 +100,8 @@ public func applyStep(_ step: BufferStep, to buffer: inout SendableRopeBuffer) {
     }
 }
 
+/// Verifies that a `TransferableUndoable` reference and a `SendableRopeBuffer` subject
+/// produce identical content and selection after each step.
 @MainActor
 public func assertUndoEquivalence(
     reference: TransferableUndoable<MutableStringBuffer>,
@@ -111,6 +118,8 @@ public func assertUndoEquivalence(
     }
 }
 
+/// Convenience that creates a `TransferableUndoable` and a `SendableRopeBuffer`
+/// from `initial` and compares them through `steps`.
 @MainActor
 public func assertSendableUndoEquivalence(
     initial: String,
