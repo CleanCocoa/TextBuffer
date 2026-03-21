@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0
+
+### Changed
+
+- **BREAKING:** `InMemoryBuffer` typealias now points to `SendableRopeBuffer` (was `MutableStringBuffer`). The rope-backed, `Sendable` value type with built-in undo is the proper in-memory buffer for production use. `MutableStringBuffer` remains available by its concrete name.
+- `EditingBuffer` typealias added for `TransferableUndoable<RopeBuffer>` — the `@MainActor` buffer for UI-connected editing with system undo integration.
+- ADR-011: Multi-buffer in-memory architecture.
+
 ## 0.5.0
 
 ### Added
@@ -16,8 +24,6 @@
 
 ### Changed
 
-- **BREAKING:** `InMemoryBuffer` typealias now points to `SendableRopeBuffer` (was `MutableStringBuffer`). The rope-backed, `Sendable` value type with built-in undo is the proper in-memory buffer for production use. `MutableStringBuffer` remains available by its concrete name.
-- `EditingBuffer` typealias added for `TransferableUndoable<RopeBuffer>` — the `@MainActor` buffer for UI-connected editing with system undo integration.
 - `TextAnalysisCapable` now refines `TextBuffer` instead of `Buffer`, enabling struct conformers to provide `wordRange`/`lineRange`.
 - `assertBufferState`, `MutableStringBuffer.init(copying:)`, `RopeBuffer.init(copying:)` accept `TextBuffer` (widened from `Buffer`).
 - `change(buffer:to:)` gains an `inout` overload for `TextBuffer` value types.
