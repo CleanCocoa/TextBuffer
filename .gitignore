@@ -7,6 +7,6 @@ DerivedData/
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 .netrc
 e2e/TextBufferTestHost.xcodeproj/
-e2e/DerivedData/
+e2e/.build/
 e2e/e2e-out/
 e2e/.e2e.env
