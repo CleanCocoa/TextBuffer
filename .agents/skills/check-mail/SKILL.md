@@ -17,7 +17,7 @@ agent-mail persona current --json
 ```
 
 This reads `.agent-mail/identities.toml` in the project and returns your persona name.
-Use that name wherever `<you>` appears below. Do **not** create a new persona unless the user explicitly asks for setup work.
+Use that name wherever `<you>` appears below. Do **not** register a new durable persona unless the user explicitly asks for setup work. If you're a one-off agent with no resolved persona, mint a throwaway one instead — see the `ephemeral-identity` skill — and use its name (or `AGENT_MAIL_PERSONA`) wherever `<you>` appears.
 
 ## Workflow
 

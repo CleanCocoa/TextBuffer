@@ -16,7 +16,7 @@ Resolve your persona first if you haven't already:
 agent-mail persona current --json
 ```
 
-Do **not** create a new persona unless the user explicitly asks for setup work.
+Do **not** register a new durable persona unless the user explicitly asks for setup work. If you're a one-off agent with no resolved persona, mint a throwaway one instead — see the `ephemeral-identity` skill — and use its name as `<you>`. An ephemeral identity is reply-capable, so teammates can answer you by your `eph-…` name.
 
 If the current thread may have more context than the single message you were given, inspect it first:
 

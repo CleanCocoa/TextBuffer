@@ -23,7 +23,7 @@ Resolve your persona first if you haven't already:
 agent-mail persona current --json
 ```
 
-Do **not** create a new persona unless the user explicitly asks for setup work.
+Do **not** register a new durable persona unless the user explicitly asks for setup work. If you're a one-off agent with no resolved persona, mint a throwaway one instead — see the `ephemeral-identity` skill — and use its name as `<you>`.
 
 If the recipient is unclear, discover likely personas first:
 
