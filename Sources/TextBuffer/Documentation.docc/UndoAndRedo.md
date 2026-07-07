@@ -60,7 +60,15 @@ buffer.represent(snapshot)
 
 // Bridge to system undo for AppKit menus
 let undoManager = buffer.enableSystemUndoIntegration()
-myWindow.undoManager = undoManager
+```
+
+Vend the returned undo manager from your window delegate so AppKit's
+Edit menu picks it up:
+
+```swift
+func windowWillReturnUndoManager(_ window: NSWindow) -> UndoManager? {
+    undoManager
+}
 ```
 
 ### SendableRopeBuffer

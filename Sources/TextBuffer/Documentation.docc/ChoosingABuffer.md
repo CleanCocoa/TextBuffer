@@ -15,9 +15,9 @@ that scale to large documents.
 
 | Type | Backing | Semantics | Built-in Undo | Sendable | Best for |
 |------|---------|-----------|---------------|----------|----------|
-| ``SendableRopeBuffer`` | ``TextRope`` | value | ``OperationLog`` | yes | general-purpose in-memory buffer |
+| ``SendableRopeBuffer`` | `TextRope` | value | ``OperationLog`` | yes | general-purpose in-memory buffer |
 | ``MutableStringBuffer`` | `NSMutableString` | reference | no | no | simple tests |
-| ``RopeBuffer`` | ``TextRope`` | reference | no | no | reference-type rope without undo |
+| ``RopeBuffer`` | `TextRope` | reference | no | no | reference-type rope without undo |
 | ``NSTextViewBuffer`` | `NSTextView` | reference, `@MainActor` | no | no | driving an AppKit text view |
 
 All four conform to ``TextAnalysisCapable``, so you get ``TextAnalysisCapable/wordRange(for:)``
@@ -27,7 +27,7 @@ and ``TextAnalysisCapable/lineRange(for:)`` on every buffer.
 
 ``SendableRopeBuffer`` is the default choice for in-memory text manipulation. It combines:
 
-- **Efficient storage** via ``TextRope`` — O(log n) insert, delete, and replace, even for large documents.
+- **Efficient storage** via `TextRope` — O(log n) insert, delete, and replace, even for large documents.
 - **Built-in undo/redo** via ``OperationLog`` — no decorator needed.
 - **Value semantics and `Sendable`** — safe to pass across actor boundaries.
 

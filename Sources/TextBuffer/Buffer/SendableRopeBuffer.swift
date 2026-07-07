@@ -4,7 +4,7 @@ import TextRope
 public typealias InMemoryBuffer = SendableRopeBuffer
 public typealias EditingBuffer = TransferableUndoable<RopeBuffer>
 
-/// A `Sendable` value-type text buffer backed by a ``TextRope`` with built-in undo/redo via ``OperationLog``.
+/// A `Sendable` value-type text buffer backed by a `TextRope` with built-in undo/redo via ``OperationLog``.
 ///
 /// `SendableRopeBuffer` combines efficient rope-based text storage with a self-contained operation log,
 /// making it safe to pass across actor boundaries while preserving full undo history.
