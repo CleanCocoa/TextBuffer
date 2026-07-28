@@ -93,6 +93,23 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             ])
         }
 
+        @Test func `a multi-range edit that outruns the staged change resets history instead of recording a lie`() {
+            let (textView, bridge) = makeBridgedTextView("aaa bbb aaa")
+            type("!", replacing: NSRange(location: 11, length: 0), in: textView, forwardingTo: bridge)
+            #expect(bridge.log.history.count == 1)
+
+            bridge.shouldChangeText(in: NSRange(location: 8, length: 3), replacementString: "cc")
+            bridge.shouldChangeText(in: NSRange(location: 0, length: 3), replacementString: "cc")
+            textView.textStorage!.replaceCharacters(in: NSRange(location: 8, length: 3), with: "cc")
+            textView.textStorage!.replaceCharacters(in: NSRange(location: 0, length: 3), with: "cc")
+            bridge.textDidChange()
+
+            #expect(textView.string == "cc bbb cc!")
+            #expect(bridge.log.history.isEmpty)
+            #expect(bridge.log.canUndo == false)
+            #expect(bridge.log.canRedo == false)
+        }
+
         @Test func `an attribute-only change with a nil replacement string records nothing`() {
             let (textView, bridge) = makeBridgedTextView("abc")
 

@@ -27,6 +27,14 @@ public final class NSTextViewOperationLogBridge {
         var oldContent: String
         var replacement: String
         var selectionBefore: NSRange
+        var textLengthBefore: Int
+
+        func isConsistent(with string: NSMutableString) -> Bool {
+            let expectedLength = textLengthBefore - affectedRange.length + replacement.utf16.count
+            guard string.length == expectedLength else { return false }
+            let replacedRange = NSRange(location: affectedRange.location, length: replacement.utf16.count)
+            return string.substring(with: replacedRange) == replacement
+        }
 
         var bufferOperation: BufferOperation? {
             switch (affectedRange.length, replacement.isEmpty) {
@@ -69,16 +77,27 @@ public final class NSTextViewOperationLogBridge {
             affectedRange: affectedRange,
             oldContent: textView.nsMutableString.substring(with: affectedRange),
             replacement: replacementString,
-            selectionBefore: textView.selectedRange
+            selectionBefore: textView.selectedRange,
+            textLengthBefore: textView.nsMutableString.length
         )
     }
 
     /// Commits the staged edit to the log as one undo group. Forward from
     /// `NSTextDelegate.textDidChange(_:)`. Without a staged edit, this is a no-op.
+    ///
+    /// When the view's content is inconsistent with the staged edit — e.g. a multi-range edit
+    /// like find-and-replace-all funneled more than one range through
+    /// ``shouldChangeText(in:replacementString:)`` — the bridge discards the log instead of
+    /// recording an operation that would not replay: stale history replayed against diverged
+    /// content would corrupt it.
     public func textDidChange() {
         guard !isReplaying else { return }
         guard let pending = pendingChange else { return }
         pendingChange = nil
+        guard pending.isConsistent(with: textView.nsMutableString) else {
+            log = OperationLog()
+            return
+        }
         guard let operation = pending.bufferOperation else { return }
         log.beginUndoGroup(selectionBefore: pending.selectionBefore)
         log.record(operation)
