@@ -66,6 +66,62 @@ final class TextRopeNavigationTests: XCTestCase {
         XCTAssertEqual(end.offsetInLeaf, 2048)
     }
 
+    private func character(at utf16Offset: Int, in rope: TextRope) -> Character {
+        let position = rope.findLeaf(utf16Offset: utf16Offset)
+        let utf16View = position.node.chunk.utf16
+        let index = utf16View.index(utf16View.startIndex, offsetBy: position.offsetInLeaf)
+        return position.node.chunk[index]
+    }
+
+    func testUTF16OffsetTranslatesToStringIndexInASCIIChunk() {
+        let rope = TextRope("hello")
+        XCTAssertEqual(character(at: 0, in: rope), "h")
+        XCTAssertEqual(character(at: 3, in: rope), "l")
+        XCTAssertEqual(character(at: 4, in: rope), "o")
+    }
+
+    func testUTF16OffsetTranslatesToStringIndexInMultiByteChunk() {
+        let rope = TextRope("café 你好")
+        XCTAssertEqual(character(at: 3, in: rope), "é")
+        XCTAssertEqual(character(at: 5, in: rope), "你")
+        XCTAssertEqual(character(at: 6, in: rope), "好")
+    }
+
+    func testUTF16OffsetTranslatesToStringIndexAtSurrogatePairs() {
+        let rope = TextRope("a😀b𝄞c")
+        XCTAssertEqual(character(at: 1, in: rope), "😀")
+        XCTAssertEqual(character(at: 3, in: rope), "b")
+        XCTAssertEqual(character(at: 4, in: rope), "𝄞")
+        XCTAssertEqual(character(at: 6, in: rope), "c")
+    }
+
+    func testContentInRangeSpanningHeadMiddleAndTailLeaves() {
+        let blocks = ["a", "b", "c", "d"].map { String(repeating: $0, count: 2048) }
+        let input = blocks.joined()
+        let rope = TextRope(input)
+        XCTAssertEqual(rope.root.children.count, 4)
+
+        let range = NSRange(location: 1000, length: 6000)
+        let expected = (input as NSString).substring(with: range)
+        XCTAssertEqual(rope.content(in: range), expected)
+    }
+
+    func testContentInRangeOnEmptyRope() {
+        let rope = TextRope("")
+        XCTAssertEqual(rope.content(in: NSRange(location: 0, length: 0)), "")
+    }
+
+    func testContentInDoesNotTriggerCopyOnWrite() {
+        let blocks = ["a", "b", "c", "d"].map { String(repeating: $0, count: 2048) }
+        let rope = TextRope(blocks.joined())
+        let copy = rope
+
+        _ = rope.content(in: NSRange(location: 1000, length: 3000))
+        _ = copy.content(in: NSRange(location: 0, length: 8192))
+
+        XCTAssertTrue(rope.root === copy.root)
+    }
+
     func testContentInRangeSingleLeaf() {
         let rope = TextRope("Hello, world!")
         let result = rope.content(in: NSRange(location: 7, length: 5))

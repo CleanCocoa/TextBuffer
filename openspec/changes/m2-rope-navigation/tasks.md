@@ -7,19 +7,19 @@
 
 ## 2. Leaf-Level UTF-16 → String.Index Translation
 
-- [ ] 2.1 Write tests for UTF-16-to-`String.Index` translation: ASCII chunk, multi-byte characters (CJK, accented Latin), surrogate pairs (emoji above U+FFFF)
+- [x] 2.1 Write tests for UTF-16-to-`String.Index` translation: ASCII chunk, multi-byte characters (CJK, accented Latin), surrogate pairs (emoji above U+FFFF)
 - [x] 2.2 Implement leaf-level `String.Index` resolution via `chunk.utf16` view indexing in `TextRope+Navigation.swift`
 
 ## 3. content(in:) — Range Extraction
 
 - [x] 3.1 Write tests for `content(in:)` with range inside a single leaf
-- [ ] 3.2 Write tests for `content(in:)` with range spanning multiple leaves (head + middle + tail)
+- [x] 3.2 Write tests for `content(in:)` with range spanning multiple leaves (head + middle + tail)
 - [x] 3.3 Write tests for `content(in:)` edge cases: empty range, full-document range, range at boundaries (offset 0, offset == utf16Count)
 - [x] 3.4 Write tests for `content(in:)` with multi-byte/emoji/surrogate-pair content
-- [ ] 3.5 Write test for `content(in:)` on empty rope with `NSRange(location: 0, length: 0)`
+- [x] 3.5 Write test for `content(in:)` on empty rope with `NSRange(location: 0, length: 0)`
 - [x] 3.6 Write test for `content(in:)` with range exceeding bounds (precondition failure)
 - [x] 3.7 Implement `content(in utf16Range: NSRange) -> String` in `TextRope+Navigation.swift` — locate start leaf, traverse collecting head/middle/tail, concatenate result
 
 ## 4. Read-Only Invariant
 
-- [ ] 4.1 Write test verifying navigation does not trigger COW: copy a rope, call `content(in:)` on both, assert they still share the same root identity
+- [x] 4.1 Write test verifying navigation does not trigger COW: copy a rope, call `content(in:)` on both, assert they still share the same root identity
