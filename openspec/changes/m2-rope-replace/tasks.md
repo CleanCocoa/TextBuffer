@@ -6,13 +6,13 @@
 
 ## 2. Replace Tests — Core Behavior
 
-- [ ] 2.1 Write tests for replace within a single leaf: same-length replacement, shorter replacement, longer replacement
+- [x] 2.1 Write tests for replace within a single leaf: same-length replacement, shorter replacement, longer replacement
 - [ ] 2.2 Write tests for replace spanning multiple leaves: build a multi-leaf rope, replace a range that crosses leaf boundaries, verify content correctness
 - [ ] 2.3 Write tests for replace with multi-byte characters: replace ASCII with emoji, replace emoji with ASCII, replace within text containing surrogate pairs
 
 ## 3. Replace Implementation
 
-- [ ] 3.1 Implement `mutating func replace(range:with:)` in `Sources/TextRope/TextRope+Replace.swift` — guard degenerate cases (empty string → delete only, empty range → insert only, both empty → return), then compose as `delete(in:)` followed by `insert(_:at:)` at the range's start location
+- [x] 3.1 Implement `mutating func replace(range:with:)` in `Sources/TextRope/TextRope+Replace.swift` — guard degenerate cases (empty string → delete only, empty range → insert only, both empty → return), then compose as `delete(in:)` followed by `insert(_:at:)` at the range's start location
 
 ## 4. Summary and COW Verification
 

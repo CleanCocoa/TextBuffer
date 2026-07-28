@@ -13,9 +13,9 @@
 
 ## 3. Recursive Delete with COW Path-Copying
 
-- [ ] 3.1 Write tests for basic delete operations: delete from single-leaf rope (beginning, middle, end), delete empty range (no-op), delete with multi-byte characters and emoji, delete spanning a surrogate pair
+- [x] 3.1 Write tests for basic delete operations: delete from single-leaf rope (beginning, middle, end), delete empty range (no-op), delete with multi-byte characters and emoji, delete spanning a surrogate pair
 - [ ] 3.2 Write tests for spanning deletes: delete across two leaves, delete removing entire intermediate leaves, delete spanning multiple levels of the tree
-- [ ] 3.3 Implement the recursive delete descent in `Sources/TextRope/TextRope+Delete.swift` — `ensureUnique()` at root, navigate to affected children using UTF-16 summary accumulation, `ensureUniqueChild(at:)` at each level, remove content from edge leaves, remove intermediate children entirely
+- [x] 3.3 Implement the recursive delete descent in `Sources/TextRope/TextRope+Delete.swift` — `ensureUnique()` at root, navigate to affected children using UTF-16 summary accumulation, `ensureUniqueChild(at:)` at each level, remove content from edge leaves, remove intermediate children entirely
 - [ ] 3.4 Implement merge handling in the delete return path — if a child becomes undersized, merge or redistribute with sibling; if an inner node becomes undersized, propagate upward; if root collapses, reduce tree height
 
 ## 4. Always-Rooted Invariant
@@ -26,7 +26,7 @@
 ## 5. Summary Correctness
 
 - [ ] 5.1 Write tests verifying summary correctness: after simple delete (utf8, utf16, lines), after delete removing multi-byte characters, after delete removing newlines, after multi-level cascading merges — validate every node's summary via full tree traversal
-- [ ] 5.2 Implement bottom-up summary updates on the delete unwind path — recompute leaf summary from chunk after removal, recompute inner node summary from children after child removal/merge
+- [x] 5.2 Implement bottom-up summary updates on the delete unwind path — recompute leaf summary from chunk after removal, recompute inner node summary from children after child removal/merge
 
 ## 6. COW Independence
 
@@ -36,4 +36,4 @@
 
 - [ ] 7.1 Write tests for delete with `\r\n` sequences: delete that leaves `\r` at end of one leaf and `\n` at start of next — verify merge or redistribution preserves the pair together
 - [ ] 7.2 Write test for repeated deletions that shrink the tree from 3+ levels down to a single leaf, verify final `content` matches expected string and root summary matches `Summary.of(content)`
-- [ ] 7.3 Write test for alternating insert and delete operations to verify structural integrity is maintained across mixed mutations
+- [x] 7.3 Write test for alternating insert and delete operations to verify structural integrity is maintained across mixed mutations
