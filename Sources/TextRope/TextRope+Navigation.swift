@@ -6,7 +6,9 @@ extension TextRope {
         var offsetInLeaf: Int
     }
 
+    /// - Invariant: `utf16Offset` must be in `0...utf16Count`.
     internal func findLeaf(utf16Offset: Int) -> LeafPosition {
+        precondition(utf16Offset >= 0 && utf16Offset <= utf16Count, "findLeaf offset \(utf16Offset) out of range 0...\(utf16Count)")
         var remaining = utf16Offset
         var current = root
 
