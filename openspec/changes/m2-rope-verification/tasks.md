@@ -39,7 +39,7 @@
 
 ## 7. Stress Test (10K Random Operations)
 
-- [ ] 7.1 Implement the main stress test: 10K random insert/delete/replace operations on TextRope + String oracle with seeded RNG, asserting content and summary equality after every operation
+- [x] 7.1 Implement the main stress test: 10K random insert/delete/replace operations on TextRope + String oracle with seeded RNG, asserting content and summary equality after every operation
 - [x] 7.2 Add periodic tree structure validation (every 100 operations) and final validation at the end of the stress test
-- [ ] 7.3 Add operation distribution assertion: verify the generated sequence contains all three operation types and no type exceeds 60%
+- [x] 7.3 Add operation distribution assertion: verify the generated sequence contains all three operation types and no type exceeds 60%
 - [x] 7.4 Run full test suite with `swift test`, verify all tests pass with zero mismatches
