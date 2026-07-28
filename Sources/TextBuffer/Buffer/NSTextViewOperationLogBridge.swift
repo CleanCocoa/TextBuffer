@@ -25,6 +25,12 @@ import AppKit
 /// ``undo()`` and ``redo()`` replay log groups back onto the view, restoring content and
 /// selection. Call ``enableSystemUndoIntegration()`` to route AppKit's Edit menu and Cmd+Z
 /// to the log.
+///
+/// The bridge treats a `nil` replacement string as attribute-only and stages nothing, so
+/// character mutations forwarded that way go unrecorded — including any performed inside
+/// ``NSTextViewBuffer/modifying(affectedRange:_:)``, which wraps its block in exactly that
+/// `nil`-replacement forward. Mutate characters through the buffer's typed mutation methods
+/// instead while a bridge is attached.
 @MainActor
 public final class NSTextViewOperationLogBridge {
     private struct PendingChange {

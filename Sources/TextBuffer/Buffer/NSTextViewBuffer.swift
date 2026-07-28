@@ -138,6 +138,14 @@ open class NSTextViewBuffer: @MainActor Buffer, @MainActor TextAnalysisCapable {
         }
     }
 
+    /// Wraps `block` in `shouldChangeText(in:replacementString:)`/`didChangeText()` with a `nil`
+    /// replacement string — the AppKit contract for an attribute-only change.
+    ///
+    /// - Warning: Character mutations inside `block` are invisible to an attached
+    ///   ``NSTextViewOperationLogBridge``: a `nil`-replacement forward stages nothing, so the
+    ///   bridge records no operation for them and its mirrored log goes silently stale. With a
+    ///   live bridge, mutate characters through ``insert(_:at:)``, ``delete(in:)``, or
+    ///   ``replace(range:with:)`` instead, and reserve this method for attribute-only changes.
     @inlinable
     open func modifying<T>(affectedRange: NSRange, _ block: () -> T) throws(BufferAccessFailure) -> T {
         guard textView.shouldChangeText(in: affectedRange, replacementString: nil) else {
