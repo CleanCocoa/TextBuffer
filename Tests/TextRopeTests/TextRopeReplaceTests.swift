@@ -75,4 +75,79 @@ final class TextRopeReplaceTests: XCTestCase {
         XCTAssertEqual(rope.content, "AB!!CD")
         XCTAssertEqual(rope.utf16Count, 6)
     }
+
+    func testReplaceEntireContentWithEmptyStringYieldsEmptyRope() {
+        let blocks = (0..<4).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
+        var rope = TextRope(blocks.joined())
+
+        rope.replace(range: NSRange(location: 0, length: rope.utf16Count), with: "")
+
+        XCTAssertTrue(rope.isEmpty)
+        XCTAssertEqual(rope.content, "")
+        XCTAssertEqual(rope.utf16Count, 0)
+        XCTAssertEqual(rope.utf8Count, 0)
+        XCTAssertTrue(rope.root.isLeaf)
+    }
+
+    func testReplaceEmptyRangeInsertsAtStartAndEnd() {
+        var atStart = TextRope("hello")
+        atStart.replace(range: NSRange(location: 0, length: 0), with: ">>")
+        XCTAssertEqual(atStart.content, ">>hello")
+
+        var atEnd = TextRope("hello")
+        atEnd.replace(range: NSRange(location: 5, length: 0), with: "<<")
+        XCTAssertEqual(atEnd.content, "hello<<")
+    }
+
+    func testReplaceEmptyRangeWithEmptyStringIsNoOp() {
+        var rope = TextRope("hello world")
+        rope.replace(range: NSRange(location: 5, length: 0), with: "")
+        XCTAssertEqual(rope.content, "hello world")
+        XCTAssertEqual(rope.utf16Count, 11)
+    }
+
+    func testReplaceASCIIWithEmoji() {
+        var rope = TextRope("hello world")
+        rope.replace(range: NSRange(location: 0, length: 5), with: "😀🎉")
+        XCTAssertEqual(rope.content, "😀🎉 world")
+        XCTAssertEqual(rope.utf16Count, 10)
+        XCTAssertEqual(rope.utf8Count, "😀🎉 world".utf8.count)
+    }
+
+    func testReplaceWithinTextContainingSurrogatePairs() {
+        var rope = TextRope("😀b🎉")
+        rope.replace(range: NSRange(location: 2, length: 1), with: "𝄞")
+        XCTAssertEqual(rope.content, "😀𝄞🎉")
+        XCTAssertEqual(rope.utf16Count, 6)
+    }
+
+    func testSummaryCorrectAfterReplacesWithNewlinesEmojiAndMultiLeafSpans() {
+        var newlines = TextRope("one\ntwo\r\nthree")
+        newlines.replace(range: NSRange(location: 3, length: 6), with: "\n\n")
+        XCTAssertEqual(newlines.root.summary, TextRope.Summary.of(newlines.content))
+        XCTAssertEqual(newlines.root.summary.lines, TextRopeStressTests.newlineCount(in: newlines.content))
+
+        var emoji = TextRope("aébc")
+        emoji.replace(range: NSRange(location: 1, length: 2), with: "😀你𝄞")
+        XCTAssertEqual(emoji.root.summary, TextRope.Summary.of(emoji.content))
+
+        let blocks = (0..<4).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
+        var spanning = TextRope(blocks.joined())
+        spanning.replace(range: NSRange(location: 1000, length: 5000), with: "line\r\n你😀")
+        XCTAssertEqual(spanning.root.summary, TextRope.Summary.of(spanning.content))
+        verifyTreeInvariants(spanning, context: "multi-leaf replace")
+    }
+
+    func testReplaceOnSingleOwnerRopeMutatesInPlace() {
+        let blocks = (0..<4).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
+        var rope = TextRope(blocks.joined())
+        let rootBefore = ObjectIdentifier(rope.root)
+        let untouchedBefore = ObjectIdentifier(rope.root.children[2])
+
+        rope.replace(range: NSRange(location: 100, length: 10), with: "XYZ")
+
+        XCTAssertEqual(ObjectIdentifier(rope.root), rootBefore)
+        XCTAssertEqual(ObjectIdentifier(rope.root.children[2]), untouchedBefore)
+        XCTAssertEqual(rope.root.summary, TextRope.Summary.of(rope.content))
+    }
 }
