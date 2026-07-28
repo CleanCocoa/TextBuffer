@@ -1,27 +1,27 @@
 ## 1. Test File Setup
 
 - [x] 1.1 Create `Tests/TextBufferTests/RopeTransferIntegrationTests.swift` with `@MainActor final class RopeTransferIntegrationTests: XCTestCase`, importing TextBuffer, TextRope, and Foundation
-- [ ] 1.2 Add helper method to create a `TransferableUndoable<RopeBuffer>` from an initial string, and a parallel `TransferableUndoable<MutableStringBuffer>` from the same string, for side-by-side comparison
+- [x] 1.2 Add helper method to create a `TransferableUndoable<RopeBuffer>` from an initial string, and a parallel `TransferableUndoable<MutableStringBuffer>` from the same string, for side-by-side comparison
 
 ## 2. Undo/Redo on Rope-Backed Buffer
 
-- [ ] 2.1 Test single insert then undo on `TransferableUndoable<RopeBuffer>` — verify content restored, `canUndo` false, `canRedo` true
+- [x] 2.1 Test single insert then undo on `TransferableUndoable<RopeBuffer>` — verify content restored, `canUndo` false, `canRedo` true
 - [x] 2.2 Test grouped mutations (via `undoGrouping`) undo atomically on rope buffer
-- [ ] 2.3 Test undo then redo restores state on rope buffer
+- [x] 2.3 Test undo then redo restores state on rope buffer
 - [x] 2.4 Test undo/redo with multi-byte Unicode content (emoji U+10000+, CJK, combining marks) — no corruption at UTF-8/UTF-16 boundaries
 
 ## 3. Snapshot from Rope to String Buffer
 
-- [ ] 3.1 Test `snapshot()` preserves content and selectedRange from `TransferableUndoable<RopeBuffer>` to `TransferableUndoable<MutableStringBuffer>`
+- [x] 3.1 Test `snapshot()` preserves content and selectedRange from `TransferableUndoable<RopeBuffer>` to `TransferableUndoable<MutableStringBuffer>`
 - [x] 3.2 Test `snapshot()` preserves undo history — calling undo on snapshot produces same content as undo on original
 - [x] 3.3 Test snapshot independence — mutations on original do not affect snapshot and vice versa
 - [x] 3.4 Test `snapshot()` with multi-byte Unicode content — byte-identical content, correct UTF-16 selectedRange
 
 ## 4. Represent from String Buffer into Rope Buffer
 
-- [ ] 4.1 Test `represent(_:)` loads content and selectedRange into `TransferableUndoable<RopeBuffer>`
+- [x] 4.1 Test `represent(_:)` loads content and selectedRange into `TransferableUndoable<RopeBuffer>`
 - [x] 4.2 Test `represent(_:)` loads undo history — undo after represent replays correctly through rope buffer
-- [ ] 4.3 Test `represent(_:)` replaces previous state entirely — old undo history discarded
+- [x] 4.3 Test `represent(_:)` replaces previous state entirely — old undo history discarded
 - [x] 4.4 Test `represent(_:)` with multi-byte Unicode content — no UTF-8/UTF-16 translation errors
 
 ## 5. Cross-Type Transfer Round-Trip

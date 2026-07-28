@@ -5,6 +5,85 @@ import TextBufferTesting
 
 @MainActor
 final class RopeTransferIntegrationTests: XCTestCase {
+    private func makeBufferPair(_ content: String) -> (rope: TransferableUndoable<RopeBuffer>, msb: TransferableUndoable<MutableStringBuffer>) {
+        (TransferableUndoable(RopeBuffer(content)), TransferableUndoable(MutableStringBuffer(content)))
+    }
+
+    private func assertPairMatch(
+        _ pair: (rope: TransferableUndoable<RopeBuffer>, msb: TransferableUndoable<MutableStringBuffer>),
+        _ step: String,
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
+        XCTAssertEqual(pair.rope.content, pair.msb.content, "content diverged: \(step)", file: file, line: line)
+        XCTAssertEqual(pair.rope.selectedRange, pair.msb.selectedRange, "selection diverged: \(step)", file: file, line: line)
+    }
+
+    func testSingleInsertThenUndoOnRopeBuffer() {
+        let buffer = TransferableUndoable(RopeBuffer("hello"))
+        try! buffer.insert("X", at: 5)
+        XCTAssertEqual(buffer.content, "helloX")
+        XCTAssertTrue(buffer.canUndo)
+
+        buffer.undo()
+
+        XCTAssertEqual(buffer.content, "hello")
+        XCTAssertFalse(buffer.canUndo)
+        XCTAssertTrue(buffer.canRedo)
+    }
+
+    func testUndoThenRedoRestoresStateOnRopeBuffer() {
+        let buffer = TransferableUndoable(RopeBuffer("base"))
+        buffer.select(NSRange(location: 4, length: 0))
+        try! buffer.insert("ment", at: 4)
+        XCTAssertEqual(buffer.content, "basement")
+
+        buffer.undo()
+        XCTAssertEqual(buffer.content, "base")
+
+        buffer.redo()
+        XCTAssertEqual(buffer.content, "basement")
+        XCTAssertTrue(buffer.canUndo)
+        XCTAssertFalse(buffer.canRedo)
+    }
+
+    func testSnapshotPreservesContentAndSelection() {
+        let rope = TransferableUndoable(RopeBuffer("hello world"))
+        rope.select(NSRange(location: 6, length: 5))
+
+        let snap: TransferableUndoable<MutableStringBuffer> = rope.snapshot()
+
+        XCTAssertEqual(snap.content, "hello world")
+        XCTAssertEqual(snap.selectedRange, NSRange(location: 6, length: 5))
+    }
+
+    func testRepresentLoadsContentAndSelectionIntoRopeBuffer() {
+        let source = TransferableUndoable(MutableStringBuffer("données"))
+        source.select(NSRange(location: 3, length: 2))
+
+        let receiver = TransferableUndoable(RopeBuffer("stale"))
+        receiver.represent(source)
+
+        XCTAssertEqual(receiver.content, "données")
+        XCTAssertEqual(receiver.selectedRange, NSRange(location: 3, length: 2))
+    }
+
+    func testRepresentDiscardsPreviousStateAndHistory() {
+        let receiver = TransferableUndoable(RopeBuffer("old"))
+        try! receiver.insert("!", at: 3)
+        XCTAssertEqual(receiver.content, "old!")
+        XCTAssertTrue(receiver.canUndo)
+
+        let source = TransferableUndoable(MutableStringBuffer("new"))
+        try! source.insert("?", at: 3)
+
+        receiver.represent(source)
+        XCTAssertEqual(receiver.content, "new?")
+
+        receiver.undo()
+        XCTAssertEqual(receiver.content, "new")
+        XCTAssertFalse(receiver.canUndo)
+    }
+
     func testUndoRedoOnRopeBuffer() {
         let buffer = TransferableUndoable(RopeBuffer("hello"))
         try! buffer.insert(" world", at: 5)
