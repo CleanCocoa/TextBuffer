@@ -44,6 +44,17 @@ final class TextRopeInsertTests: XCTestCase {
         verifyTreeInvariants(rope)
     }
 
+    func testInsertHugeStringIntoFullInnerNode() {
+        let base = String(repeating: "A", count: 8 * 2048)
+        var rope = TextRope(base)
+        verifyTreeInvariants(rope)
+        let insert = String(repeating: "Z", count: 100 * 1024)
+        rope.insert(insert, at: 0)
+        XCTAssertEqual(rope.content, insert + base)
+        XCTAssertEqual(rope.utf8Count, base.utf8.count + insert.utf8.count)
+        verifyTreeInvariants(rope)
+    }
+
     func testInsertMultiByteCharacter() {
         var rope = TextRope("abc")
         rope.insert("\u{1F600}", at: 1)

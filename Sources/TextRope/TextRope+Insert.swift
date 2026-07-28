@@ -11,14 +11,18 @@ extension TextRope {
             }
             return
         }
-        if let sibling = insertIntoNode(root, at: utf16Offset, content: string) {
-            root = Node.inner(ContiguousArray([root, sibling]))
+        let siblings = insertIntoNode(root, at: utf16Offset, content: string)
+        if !siblings.isEmpty {
+            root = Self.buildTree(from: [root] + siblings)
         }
     }
 
-    private func insertIntoNode(_ node: Node, at utf16Offset: Int, content: String) -> Node? {
+    private func insertIntoNode(_ node: Node, at utf16Offset: Int, content: String) -> [Node] {
         if node.isLeaf {
-            return insertIntoLeaf(node, at: utf16Offset, content: content)
+            if let sibling = insertIntoLeaf(node, at: utf16Offset, content: content) {
+                return [sibling]
+            }
+            return []
         }
 
         var remaining = utf16Offset
@@ -26,10 +30,10 @@ extension TextRope {
             let childUTF16 = node.children[i].summary.utf16
             if remaining < childUTF16 || i == node.children.count - 1 {
                 node.ensureUniqueChild(at: i)
-                let sibling = insertIntoNode(node.children[i], at: remaining, content: content)
+                let siblings = insertIntoNode(node.children[i], at: remaining, content: content)
                 updateSummary(node)
-                if let sibling {
-                    node.children.insert(sibling, at: i + 1)
+                if !siblings.isEmpty {
+                    node.children.insert(contentsOf: siblings, at: i + 1)
                     var j = i + 1
                     while j < node.children.count
                             && node.children[j].isLeaf
@@ -43,11 +47,11 @@ extension TextRope {
                         return node.splitInner()
                     }
                 }
-                return nil
+                return []
             }
             remaining -= childUTF16
         }
-        return nil
+        return []
     }
 
     private func insertIntoLeaf(_ node: Node, at utf16Offset: Int, content: String) -> Node? {

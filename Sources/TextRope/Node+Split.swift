@@ -8,16 +8,28 @@ extension TextRope.Node {
         return TextRope.Node.leaf(right)
     }
 
-    func splitInner() -> TextRope.Node {
-        let mid = children.count / 2
-        let rightChildren = ContiguousArray(children[mid...])
-        children.removeSubrange(mid...)
+    func splitInner() -> [TextRope.Node] {
+        let total = children.count
+        let groupCount = (total + Self.maxChildren - 1) / Self.maxChildren
+        let base = total / groupCount
+        let extra = total % groupCount
+
+        var siblings: [TextRope.Node] = []
+        var start = base + (extra > 0 ? 1 : 0)
+        let firstGroupEnd = start
+        for group in 1..<groupCount {
+            let size = base + (group < extra ? 1 : 0)
+            siblings.append(TextRope.Node.inner(ContiguousArray(children[start..<(start + size)])))
+            start += size
+        }
+
+        children.removeSubrange(firstGroupEnd...)
         var recomputed = TextRope.Summary.zero
         for child in children {
             recomputed.add(child.summary)
         }
         summary = recomputed
-        return TextRope.Node.inner(rightChildren)
+        return siblings
     }
 
     static func leafSplitPoint(in slice: Substring) -> String.Index {
