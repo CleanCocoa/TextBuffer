@@ -429,6 +429,30 @@ final class TextRopeDeleteTests: XCTestCase {
         XCTAssertEqual(original.content, blocks.joined())
     }
 
+    func testRepeatedDeletionsShrinkThreeLevelTreeToSingleLeaf() {
+        let blocks = (0..<72).map { String(repeating: Character(UnicodeScalar(97 + $0 % 26)!), count: 2048) }
+        var rope = TextRope(blocks.joined())
+        var oracle = blocks.joined()
+        XCTAssertEqual(Int(rope.root.height), 3)
+
+        while oracle.utf16.count > 500 {
+            let length = min(5000, oracle.utf16.count - 500)
+            let location = (oracle.utf16.count - length) / 2
+            rope.delete(in: NSRange(location: location, length: length))
+
+            let startIdx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: location)
+            let endIdx = oracle.utf16.index(startIdx, offsetBy: length)
+            oracle.removeSubrange(startIdx..<endIdx)
+
+            XCTAssertEqual(rope.content, oracle)
+            verifyTreeInvariants(rope, context: "\(oracle.utf16.count) units remaining")
+        }
+
+        XCTAssertTrue(rope.root.isLeaf)
+        XCTAssertEqual(rope.content, oracle)
+        XCTAssertEqual(rope.root.summary, TextRope.Summary.of(oracle))
+    }
+
     func testDeleteLeavingCRAndLFOnAdjacentWellSizedLeavesRejoinsThePair() {
         let a = String(repeating: "a", count: 1500)
         let middle = String(repeating: "m", count: 600)
