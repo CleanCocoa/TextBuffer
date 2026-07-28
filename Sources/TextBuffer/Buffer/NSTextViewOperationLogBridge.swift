@@ -50,7 +50,7 @@ public final class NSTextViewOperationLogBridge {
         }
     }
 
-    let textView: NSTextView
+    private let textView: NSTextView
 
     /// The mirrored undo history. A value type: copy it to snapshot or transfer undo state.
     public private(set) var log: OperationLog
