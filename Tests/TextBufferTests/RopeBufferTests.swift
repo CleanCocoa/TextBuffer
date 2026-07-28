@@ -98,6 +98,70 @@ final class RopeBufferTests: XCTestCase {
         XCTAssertEqual(buffer.selectedRange, NSRange(location: 4, length: 0))
     }
 
+    func testLineRangeExpandsToWholeLine() throws {
+        let buffer = RopeBuffer("first line\nsecond line\nthird")
+
+        XCTAssertEqual(
+            try buffer.lineRange(for: NSRange(location: 13, length: 3)),
+            NSRange(location: 11, length: 12)
+        )
+        XCTAssertEqual(
+            try buffer.lineRange(for: NSRange(location: 0, length: 0)),
+            NSRange(location: 0, length: 11)
+        )
+    }
+
+    func testLineRangeThrowsForOutOfBoundsRange() {
+        let buffer = RopeBuffer("short")
+
+        assertThrows(
+            try buffer.lineRange(for: NSRange(location: 3, length: 9)),
+            error: BufferAccessFailure.outOfRange(
+                requested: NSRange(location: 3, length: 9),
+                available: NSRange(location: 0, length: 5)
+            )
+        )
+    }
+
+    func testModifyingExecutesBlockAndReturnsItsResult() throws {
+        let buffer = RopeBuffer("hello world")
+
+        let result = try buffer.modifying(affectedRange: NSRange(location: 0, length: 5)) {
+            "block result"
+        }
+
+        XCTAssertEqual(result, "block result")
+    }
+
+    func testModifyingThrowsForOutOfBoundsRangeWithoutExecutingBlock() {
+        let buffer = RopeBuffer("hello")
+        var blockExecuted = false
+
+        assertThrows(
+            try buffer.modifying(affectedRange: NSRange(location: 2, length: 9)) {
+                blockExecuted = true
+            },
+            error: BufferAccessFailure.outOfRange(
+                requested: NSRange(location: 2, length: 9),
+                available: NSRange(location: 0, length: 5)
+            )
+        )
+        XCTAssertFalse(blockExecuted)
+    }
+
+    func testWordRangeExpandsToWholeWord() throws {
+        let buffer = RopeBuffer("hello wonderful world")
+
+        XCTAssertEqual(
+            try buffer.wordRange(for: NSRange(location: 8, length: 2)),
+            NSRange(location: 6, length: 9)
+        )
+        XCTAssertEqual(
+            try buffer.wordRange(for: NSRange(location: 2, length: 0)),
+            NSRange(location: 0, length: 5)
+        )
+    }
+
     func testDescriptionShowsInsertionPointWithCaretNotation() {
         let buffer = RopeBuffer("Hello, world!")
         XCTAssertEqual(String(describing: buffer), "ˇHello, world!")

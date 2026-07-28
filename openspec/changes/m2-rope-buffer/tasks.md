@@ -7,8 +7,8 @@
 
 - [x] 2.1 Implement `content(in:)` — validate range with `contains(range:)`, delegate to `rope.content(in:)`. Write test for valid subrange returning correct substring.
 - [x] 2.2 Implement `unsafeCharacter(at:)` — delegate to rope content extraction for a single character at UTF-16 offset.
-- [ ] 2.3 Implement `lineRange(for:)` — validate range, delegate to `(self.content as NSString).lineRange(for:)`. Write test for line range expansion.
-- [ ] 2.4 Implement `modifying(affectedRange:_:)` — validate range, execute block. Write tests for valid and invalid ranges.
+- [x] 2.3 Implement `lineRange(for:)` — validate range, delegate to `(self.content as NSString).lineRange(for:)`. Write test for line range expansion.
+- [x] 2.4 Implement `modifying(affectedRange:_:)` — validate range, execute block. Write tests for valid and invalid ranges.
 
 ## 3. RopeBuffer Edit Operations with Selection Adjustment
 
@@ -20,7 +20,7 @@
 
 - [x] 4.1 Add `@available(*, unavailable) extension RopeBuffer: @unchecked Sendable {}` to match MutableStringBuffer's Sendable opt-out pattern.
 - [x] 4.2 Add `CustomStringConvertible` conformance with guillemet/caret notation matching `MutableStringBuffer.description`.
-- [ ] 4.3 Verify `wordRange(for:)` works via the `TextAnalysisCapable` protocol extension default — write a test exercising word range expansion.
+- [x] 4.3 Verify `wordRange(for:)` works via the `TextAnalysisCapable` protocol extension default — write a test exercising word range expansion.
 
 ## 5. RopeBuffer Drift Tests — Insert Scenarios
 
