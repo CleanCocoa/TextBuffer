@@ -25,9 +25,9 @@
 
 ## 5. Surrogate Pair Edge-Case Tests
 
-- [ ] 5.1 Write tests for delete at surrogate boundaries: delete the full emoji from `"a🎉b"`, delete just `"a"` leaving emoji intact, delete range covering multiple emoji
-- [ ] 5.2 Write tests for replace at surrogate boundaries: replace a single emoji with ASCII, replace a range spanning partial emoji sequences
-- [ ] 5.3 Write test for emoji near chunk boundaries in a multi-chunk rope: construct a rope sized to place an emoji near a chunk boundary, then delete/replace targeting that region — verify no surrogate corruption
+- [x] 5.1 Write tests for delete at surrogate boundaries: delete the full emoji from `"a🎉b"`, delete just `"a"` leaving emoji intact, delete range covering multiple emoji
+- [x] 5.2 Write tests for replace at surrogate boundaries: replace a single emoji with ASCII, replace a range spanning partial emoji sequences
+- [x] 5.3 Write test for emoji near chunk boundaries in a multi-chunk rope: construct a rope sized to place an emoji near a chunk boundary, then delete/replace targeting that region — verify no surrogate corruption
 
 ## 6. Repeated Single-Character Operation Tests
 

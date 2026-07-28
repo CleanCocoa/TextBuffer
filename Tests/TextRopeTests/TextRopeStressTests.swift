@@ -370,6 +370,65 @@ final class TextRopeStressTests: XCTestCase {
         XCTAssertEqual(rope.content, string)
     }
 
+    // MARK: - Surrogate pair edge cases
+
+    func testDeleteAtSurrogateBoundaries() {
+        var deleteEmoji = TextRope("a🎉b")
+        deleteEmoji.delete(in: NSRange(location: 1, length: 2))
+        XCTAssertEqual(deleteEmoji.content, "ab")
+        XCTAssertEqual(deleteEmoji.utf16Count, 2)
+
+        var deleteBefore = TextRope("a🎉b")
+        deleteBefore.delete(in: NSRange(location: 0, length: 1))
+        XCTAssertEqual(deleteBefore.content, "🎉b")
+        XCTAssertEqual(deleteBefore.utf16Count, 3)
+
+        var deleteMultiple = TextRope("a🎉🚀😀b")
+        deleteMultiple.delete(in: NSRange(location: 1, length: 6))
+        XCTAssertEqual(deleteMultiple.content, "ab")
+        XCTAssertEqual(deleteMultiple.utf16Count, 2)
+    }
+
+    func testReplaceAtSurrogateBoundaries() {
+        var replaceEmoji = TextRope("a🎉b")
+        replaceEmoji.replace(range: NSRange(location: 1, length: 2), with: "XY")
+        XCTAssertEqual(replaceEmoji.content, "aXYb")
+        XCTAssertEqual(replaceEmoji.utf16Count, 4)
+
+        let family = "👨\u{200D}👩\u{200D}👧"
+        var replacePartial = TextRope(family)
+        let range = NSRange(location: 2, length: 3)
+        replacePartial.replace(range: range, with: "X")
+        let expected = (family as NSString).replacingCharacters(in: range, with: "X")
+        XCTAssertEqual(replacePartial.content, expected)
+        XCTAssertEqual(replacePartial.utf16Count, expected.utf16.count)
+        XCTAssertEqual(replacePartial.utf8Count, expected.utf8.count)
+    }
+
+    func testDeleteAndReplaceEmojiNearChunkBoundary() {
+        let base = String(repeating: "a", count: 2046) + "😀" + String(repeating: "b", count: 2046)
+        let emojiRange = NSRange(location: 2046, length: 2)
+
+        let constructed = TextRope(base)
+        XCTAssertEqual(constructed.content, base)
+        verifyTreeInvariants(constructed, context: "construction")
+
+        var deleted = constructed
+        deleted.delete(in: emojiRange)
+        let expectedAfterDelete = (base as NSString).replacingCharacters(in: emojiRange, with: "")
+        XCTAssertEqual(deleted.content, expectedAfterDelete)
+        XCTAssertEqual(deleted.utf16Count, expectedAfterDelete.utf16.count)
+        verifyTreeInvariants(deleted, context: "delete emoji")
+
+        var replaced = constructed
+        replaced.replace(range: emojiRange, with: "🚀🎉")
+        let expectedAfterReplace = (base as NSString).replacingCharacters(in: emojiRange, with: "🚀🎉")
+        XCTAssertEqual(replaced.content, expectedAfterReplace)
+        XCTAssertEqual(replaced.utf16Count, expectedAfterReplace.utf16.count)
+        XCTAssertEqual(replaced.utf8Count, expectedAfterReplace.utf8.count)
+        verifyTreeInvariants(replaced, context: "replace emoji")
+    }
+
     // MARK: - Stress test
 
     private static let stressCharset: [String] = [
