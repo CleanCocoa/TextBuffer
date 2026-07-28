@@ -2,7 +2,7 @@
 
 - [x] 1.1 Create `Tests/TextRopeTests/TextRopeStressTests.swift` with `@testable import TextRope` and a `TextRopeStressTests: XCTestCase` class
 - [x] 1.2 Implement a deterministic seeded RNG conforming to `RandomNumberGenerator` for reproducible test sequences
-- [ ] 1.3 Implement a `validateTreeStructure(_ rope: TextRope)` helper that recursively walks the tree and asserts: inner node summaries equal sum of children, leaf summaries equal `Summary.of(chunk)`, uniform leaf depth, B-tree child count bounds, chunk size bounds, and no `\r\n` split across chunk boundaries
+- [x] 1.3 Implement a `validateTreeStructure(_ rope: TextRope)` helper that recursively walks the tree and asserts: inner node summaries equal sum of children, leaf summaries equal `Summary.of(chunk)`, uniform leaf depth, B-tree child count bounds, chunk size bounds, and no `\r\n` split across chunk boundaries
 - [x] 1.4 Define a character pool constant containing ASCII, multi-byte Latin, emoji (surrogate pairs), CJK, and `\r\n` for random string generation
 - [ ] 1.5 Implement `randomString(using rng:)` and `randomValidRange(in utf16Count:, using rng:)` helpers for generating random operations
 

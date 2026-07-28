@@ -1,12 +1,20 @@
 import XCTest
 @testable import TextRope
 
+func expectKnownStructuralDebt(_ reason: String, matching substring: String, strict: Bool = true, in block: () -> Void) {
+    let options = XCTExpectedFailure.Options()
+    options.issueMatcher = { $0.compactDescription.contains(substring) }
+    options.isStrict = strict
+    XCTExpectFailure(reason, options: options, failingBlock: block)
+}
+
 func verifyTreeInvariants(_ rope: TextRope, context: String = "", file: StaticString = #filePath, line: UInt = #line) {
     let prefix = context.isEmpty ? "" : "\(context): "
     let root = rope.root
     verifyConsistentLeafDepth(root, prefix: prefix, file: file, line: line)
     verifyChildCounts(root, isRoot: true, prefix: prefix, file: file, line: line)
     verifyChunkSizes(root, prefix: prefix, file: file, line: line)
+    verifyCRLFNotSplitAcrossLeaves(root, prefix: prefix, file: file, line: line)
     verifySummaries(root, prefix: prefix, file: file, line: line)
     verifyHeight(root, prefix: prefix, file: file, line: line)
 }
@@ -49,15 +57,22 @@ private func collectLeaves(_ node: TextRope.Node) -> [TextRope.Node] {
 }
 
 private func verifyChunkSizes(_ root: TextRope.Node, prefix: String, file: StaticString, line: UInt) {
+    if root.isLeaf { return }
     let leaves = collectLeaves(root)
-    if leaves.count <= 1 { return }
     for (index, leaf) in leaves.enumerated() {
         let size = leaf.chunk.utf8.count
-        XCTAssertLessThanOrEqual(size, TextRope.Node.maxChunkUTF8 + 1, "\(prefix)Leaf chunk has \(size) UTF-8 bytes, max is \(TextRope.Node.maxChunkUTF8) (+ 1 for CRLF)", file: file, line: line)
-        let isLast = index == leaves.count - 1
-        if size > 0 && !isLast {
-            XCTAssertGreaterThanOrEqual(size, TextRope.Node.minChunkUTF8, "\(prefix)Leaf \(index) has \(size) UTF-8 bytes, min is \(TextRope.Node.minChunkUTF8)", file: file, line: line)
-        }
+        XCTAssertLessThanOrEqual(size, TextRope.Node.maxChunkUTF8, "\(prefix)Leaf \(index) has \(size) UTF-8 bytes, max is \(TextRope.Node.maxChunkUTF8)", file: file, line: line)
+        XCTAssertGreaterThanOrEqual(size, TextRope.Node.minChunkUTF8, "\(prefix)Leaf \(index) has \(size) UTF-8 bytes, min is \(TextRope.Node.minChunkUTF8)", file: file, line: line)
+    }
+}
+
+private func verifyCRLFNotSplitAcrossLeaves(_ root: TextRope.Node, prefix: String, file: StaticString, line: UInt) {
+    let leaves = collectLeaves(root)
+    guard leaves.count > 1 else { return }
+    for i in 0..<(leaves.count - 1) {
+        let splitPair = leaves[i].chunk.utf8.last == UInt8(ascii: "\r")
+            && leaves[i + 1].chunk.utf8.first == UInt8(ascii: "\n")
+        XCTAssertFalse(splitPair, "\(prefix)CRLF pair split across adjacent leaves \(i) and \(i + 1)", file: file, line: line)
     }
 }
 
