@@ -578,6 +578,41 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             #expect(textView.string == "")
         }
 
+        @Test func `an unmark without a character change resolves the baseline before the next edit`() {
+            let (textView, bridge) = makeBridgedTextView()
+            markText("に", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            textView.unmarkText()
+            #expect(textView.hasMarkedText() == false)
+
+            type("a", replacing: NSRange(location: 1, length: 0), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "にa")
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .insert(content: "に", at: 0))],
+                [BufferOperation(kind: .insert(content: "a", at: 1))],
+            ])
+
+            bridge.undo()
+            #expect(textView.string == "に")
+            bridge.undo()
+            #expect(textView.string == "")
+        }
+
+        @Test func `an unmark that restored the baseline content discards the stale baseline`() {
+            let (textView, bridge) = makeBridgedTextView()
+            markText("に", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            textView.textStorage!.replaceCharacters(in: NSRange(location: 0, length: 1), with: "")
+            textView.unmarkText()
+            #expect(textView.hasMarkedText() == false)
+
+            type("a", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "a")
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .insert(content: "a", at: 0))],
+            ])
+        }
+
         @Test func `cancelling a composition records nothing`() {
             let (textView, bridge) = makeBridgedTextView()
             markText("に", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
