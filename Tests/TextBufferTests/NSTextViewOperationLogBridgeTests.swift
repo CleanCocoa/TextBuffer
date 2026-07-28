@@ -275,6 +275,69 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             bridge.undo()
             #expect(textView.string == "")
         }
+
+        @Test func `a continuous backspace run coalesces into one undo group`() {
+            let (textView, bridge) = makeBridgedTextView("hello")
+            textView.setSelectedRange(NSRange(location: 5, length: 0))
+
+            for location in [4, 3, 2] {
+                type("", replacing: NSRange(location: location, length: 1), in: textView, forwardingTo: bridge)
+            }
+
+            #expect(textView.string == "he")
+            #expect(bridge.log.history.count == 1)
+
+            bridge.undo()
+            #expect(textView.string == "hello")
+        }
+
+        @Test func `a continuous forward-delete run coalesces into one undo group`() {
+            let (textView, bridge) = makeBridgedTextView("abc")
+            textView.setSelectedRange(NSRange(location: 0, length: 0))
+
+            for _ in 0..<3 {
+                type("", replacing: NSRange(location: 0, length: 1), in: textView, forwardingTo: bridge)
+            }
+
+            #expect(textView.string == "")
+            #expect(bridge.log.history.count == 1)
+
+            bridge.undo()
+            #expect(textView.string == "abc")
+        }
+
+        @Test func `a typing run followed by a backspace run records two groups`() {
+            let (textView, bridge) = makeBridgedTextView()
+            typeEachCharacter(of: "abc", startingAt: 0, in: textView, forwardingTo: bridge)
+
+            type("", replacing: NSRange(location: 2, length: 1), in: textView, forwardingTo: bridge)
+            type("", replacing: NSRange(location: 1, length: 1), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "a")
+            #expect(bridge.log.history.count == 2)
+
+            bridge.undo()
+            #expect(textView.string == "abc")
+            bridge.undo()
+            #expect(textView.string == "")
+        }
+
+        @Test func `an explicit break splits a backspace run into two groups`() {
+            let (textView, bridge) = makeBridgedTextView("abcd")
+            textView.setSelectedRange(NSRange(location: 4, length: 0))
+            type("", replacing: NSRange(location: 3, length: 1), in: textView, forwardingTo: bridge)
+
+            bridge.breakUndoCoalescing()
+            type("", replacing: NSRange(location: 2, length: 1), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "ab")
+            #expect(bridge.log.history.count == 2)
+
+            bridge.undo()
+            #expect(textView.string == "abc")
+            bridge.undo()
+            #expect(textView.string == "abcd")
+        }
     }
 
     @MainActor

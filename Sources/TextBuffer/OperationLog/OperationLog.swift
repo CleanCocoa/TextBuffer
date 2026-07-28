@@ -147,30 +147,49 @@ public struct OperationLog: Sendable, Equatable {
 extension OperationLog {
     /// Records `operation` as part of the current typing run, or starts a new group.
     ///
-    /// An insert extends the run only while coalescing is active, the cursor sits at the end of
-    /// history, and the insert continues exactly where the run's last insert ended; the extended
-    /// group keeps its original `selectionBefore` and adopts `selectionAfter`. Anything else —
-    /// a break via ``breakCoalescing()``, undo/redo, an explicit group, a non-insert operation,
-    /// or a non-contiguous insert — records a fresh group, and only an insert opens a new run.
+    /// The run extends only while coalescing is active, the cursor sits at the end of history,
+    /// and the operation continues the run's last operation in kind and position: an insert
+    /// continues exactly where the run's last insert ended; a delete continues a backspace run
+    /// (its end meets the previous delete's start) or a forward-delete run (same location as the
+    /// previous delete). The extended group keeps its original `selectionBefore` and adopts
+    /// `selectionAfter`. Anything else — a break via ``breakCoalescing()``, undo/redo, an explicit
+    /// group, a replace, or a kind or position mismatch — records a fresh group; an insert or a
+    /// delete opens a new run, a replace never does.
     mutating func coalesce(_ operation: BufferOperation, selectionBefore: NSRange, selectionAfter: NSRange) {
         if isCoalescing,
            cursor == history.count,
-           case .insert(_, let location) = operation.kind,
-           case .insert(let runContent, let runLocation)? = history.last?.operations.last?.kind,
-           runLocation + runContent.utf16.count == location {
+           let runKind = history.last?.operations.last?.kind,
+           operation.kind.extendsRun(endingIn: runKind) {
             history[cursor - 1].operations.append(operation)
             history[cursor - 1].selectionAfter = selectionAfter
         } else {
             beginUndoGroup(selectionBefore: selectionBefore)
             record(operation)
             endUndoGroup(selectionAfter: selectionAfter)
-            if case .insert = operation.kind {
+            switch operation.kind {
+            case .insert, .delete:
                 isCoalescing = true
+            case .replace:
+                break
             }
         }
     }
 
     mutating func breakCoalescing() {
         isCoalescing = false
+    }
+}
+
+extension BufferOperation.Kind {
+    func extendsRun(endingIn runKind: BufferOperation.Kind) -> Bool {
+        switch (runKind, self) {
+        case (.insert(let runContent, let runLocation), .insert(_, let location)):
+            return runLocation + runContent.utf16.count == location
+        case (.delete(let previousRange, _), .delete(let nextRange, _)):
+            return nextRange.location + nextRange.length == previousRange.location
+                || nextRange.location == previousRange.location
+        default:
+            return false
+        }
     }
 }
