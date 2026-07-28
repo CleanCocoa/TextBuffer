@@ -53,6 +53,8 @@ public final class PuppetUndoManager: UndoManager {
 
     public override func registerUndo(withTarget target: Any, selector: Selector, object: Any?) {}
 
+    public override func __registerUndoWithTarget(_ target: Any, handler: @escaping @MainActor (Any) -> Void) {}
+
     public override func prepare(withInvocationTarget target: Any) -> Any {
         self
     }

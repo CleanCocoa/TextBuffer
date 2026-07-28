@@ -59,6 +59,20 @@ final class PuppetUndoManagerTests: XCTestCase {
         XCTAssertFalse(puppet.canUndo)
     }
 
+    func testRegisterUndoWithHandlerDoesNotRetainTheHandler() {
+        let buffer = TransferableUndoable(MutableStringBuffer(""))
+        let puppet = buffer.enableSystemUndoIntegration()
+        weak var weakSpy: NSObject?
+        autoreleasepool {
+            let spy = NSObject()
+            weakSpy = spy
+            puppet.registerUndo(withTarget: buffer) { [spy] _ in _ = spy }
+        }
+        XCTAssertNil(weakSpy)
+        XCTAssertEqual(puppet.groupingLevel, 1)
+        XCTAssertEqual(puppet.undoActionName, "")
+    }
+
     func testRegisterUndoWithSelectorDoesNotChangeCanUndo() {
         let buffer = TransferableUndoable(MutableStringBuffer(""))
         let puppet = buffer.enableSystemUndoIntegration()
