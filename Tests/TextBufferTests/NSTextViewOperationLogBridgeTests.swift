@@ -471,7 +471,6 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
                 textView.textStorage!.addAttribute(.font, value: NSFont.boldSystemFont(ofSize: 12), range: range)
                 textView.didChangeText()
             }
-            bridge.breakUndoCoalescing()
             textView.insertText("b", replacementRange: NSRange(location: 1, length: 0))
 
             #expect(textView.string == "ab")

@@ -71,10 +71,11 @@ public final class NSTextViewOperationLogBridge {
     /// Stages the edit the text view is about to perform. Forward from
     /// `NSTextViewDelegate.textView(_:shouldChangeTextIn:replacementString:)`.
     ///
-    /// A `nil` `replacementString` (attribute-only change) stages nothing and invalidates any
-    /// previously staged edit that never committed — e.g. one whose delegate callback the host
-    /// vetoed after forwarding it here. The bridge never vetoes an edit; the delegate's return
-    /// value remains the caller's decision.
+    /// A `nil` `replacementString` (attribute-only change) stages nothing, ends the current
+    /// typing run — native treats a formatting pass like Cmd+B as an interaction break — and
+    /// invalidates any previously staged edit that never committed, e.g. one whose delegate
+    /// callback the host vetoed after forwarding it here. The bridge never vetoes an edit; the
+    /// delegate's return value remains the caller's decision.
     ///
     /// While the view `hasMarkedText()`, composition intermediates stage nothing; the finished
     /// composition is recorded once, from the baseline staged when composition began. If
@@ -93,6 +94,7 @@ public final class NSTextViewOperationLogBridge {
         }
         guard let replacementString else {
             pendingChange = nil
+            log.breakCoalescing()
             return
         }
         pendingChange = PendingChange(
