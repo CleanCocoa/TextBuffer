@@ -82,6 +82,24 @@ final class TextRopeStressTests: XCTestCase {
         }
     }
 
+    func testConstructionRoundTripAcrossChunkSizeBoundaries() {
+        let strings = [
+            "",
+            String(repeating: "x", count: 500),
+            String(repeating: "x", count: 2048),
+            String(repeating: "x", count: 3000),
+            String(repeating: "né😀\n", count: 15_000),
+        ]
+        for s in strings {
+            let rope = TextRope(s)
+            XCTAssertEqual(rope.content, s, "round-trip failed for \(s.utf8.count) UTF-8 bytes")
+            XCTAssertEqual(rope.utf16Count, s.utf16.count)
+            XCTAssertEqual(rope.utf8Count, s.utf8.count)
+            XCTAssertEqual(rope.root.summary.lines, Self.newlineCount(in: s))
+        }
+        XCTAssertGreaterThan(strings.last!.utf8.count, 100_000)
+    }
+
     // MARK: - Edge cases
 
     func testInsertAtEveryPosition() {
@@ -172,6 +190,64 @@ final class TextRopeStressTests: XCTestCase {
         XCTAssertEqual(copies[2].content, "defghij")
         XCTAssertEqual(copies[3].content, "abXYghij")
         XCTAssertEqual(copies[4].content, "abcdefghij😀")
+    }
+
+    func testCOWIndependenceOnMultiChunkRope() {
+        let original = String(repeating: "abcdé\n", count: 1500)
+        let rope = TextRope(original)
+        XCTAssertFalse(rope.root.isLeaf)
+
+        var inserted = rope
+        inserted.insert("😀", at: 3000)
+        XCTAssertEqual(rope.content, original, "insert on copy mutated original")
+
+        var deleted = rope
+        deleted.delete(in: NSRange(location: 100, length: 2000))
+        XCTAssertEqual(rope.content, original, "delete on copy mutated original")
+
+        var replaced = rope
+        replaced.replace(range: NSRange(location: 500, length: 1000), with: "你好")
+        XCTAssertEqual(rope.content, original, "replace on copy mutated original")
+    }
+
+    func testCOWUnderSustainedMutation() {
+        var rng = SeededRNG(state: 7)
+        var oracle = ""
+        for _ in 0..<4000 {
+            oracle += Self.stressCharset.randomElement(using: &rng)!
+        }
+        let original = TextRope(oracle)
+        let originalContent = original.content
+
+        var copy = original
+        for i in 0..<100 {
+            let op = Int.random(in: 0..<3, using: &rng)
+            switch op {
+            case 0:
+                let pos = Self.validUTF16Offset(Int.random(in: 0...oracle.utf16.count, using: &rng), in: oracle)
+                let text = Self.randomString(using: &rng)
+                copy.insert(text, at: pos)
+                let idx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: pos)
+                oracle.insert(contentsOf: text, at: idx)
+            case 1:
+                if let range = Self.randomValidRange(in: oracle, using: &rng) {
+                    copy.delete(in: range)
+                    let startIdx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: range.location)
+                    let endIdx = oracle.utf16.index(startIdx, offsetBy: range.length)
+                    oracle.removeSubrange(startIdx..<endIdx)
+                }
+            default:
+                if let range = Self.randomValidRange(in: oracle, using: &rng) {
+                    let text = Self.randomString(using: &rng)
+                    copy.replace(range: range, with: text)
+                    let startIdx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: range.location)
+                    let endIdx = oracle.utf16.index(startIdx, offsetBy: range.length)
+                    oracle.replaceSubrange(startIdx..<endIdx, with: text)
+                }
+            }
+            XCTAssertEqual(original.content, originalContent, "original changed after mutation \(i)")
+            XCTAssertEqual(copy.content, oracle, "copy diverged from oracle at mutation \(i)")
+        }
     }
 
     // MARK: - Summary correctness

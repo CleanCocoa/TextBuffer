@@ -8,13 +8,13 @@
 
 ## 2. Construction and Content Round-Trip Tests
 
-- [ ] 2.1 Write tests for construction round-trip: empty string, sub-chunk string, single-chunk-sized string, multi-chunk string, and large string (100KB+) — verify `content` equals input and summary counts match
+- [x] 2.1 Write tests for construction round-trip: empty string, sub-chunk string, single-chunk-sized string, multi-chunk string, and large string (100KB+) — verify `content` equals input and summary counts match
 - [x] 2.2 Write tests for encoding-specific round-trips: pure ASCII, multi-byte Latin (verify `utf8Count > utf16Count`), emoji (verify `utf16Count` accounts for surrogate pairs), CJK (verify `utf8Count` is 3× character count), and mixed-encoding text
 
 ## 3. COW Independence Tests
 
-- [ ] 3.1 Write tests for COW independence: copy a multi-chunk rope, insert/delete/replace on the copy, verify original `content` is unchanged after each mutation type
-- [ ] 3.2 Write test for COW under sustained mutation: copy a rope, apply 100 random mutations to the copy, assert original remains unchanged throughout
+- [x] 3.1 Write tests for COW independence: copy a multi-chunk rope, insert/delete/replace on the copy, verify original `content` is unchanged after each mutation type
+- [x] 3.2 Write test for COW under sustained mutation: copy a rope, apply 100 random mutations to the copy, assert original remains unchanged throughout
 
 ## 4. CRLF Invariant Edge-Case Tests
 
