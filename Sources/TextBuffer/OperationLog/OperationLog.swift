@@ -145,6 +145,16 @@ public struct OperationLog: Sendable, Equatable {
 }
 
 extension OperationLog {
+    /// Compares recorded history only. Whether a typing run is open is transient interaction
+    /// state, so a coalescing break (e.g. a mouse click) never reads as a history change.
+    public static func == (lhs: OperationLog, rhs: OperationLog) -> Bool {
+        lhs.history == rhs.history
+            && lhs.cursor == rhs.cursor
+            && lhs.groupingStack == rhs.groupingStack
+    }
+}
+
+extension OperationLog {
     /// Records `operation` as part of the current typing run, or starts a new group.
     ///
     /// The run extends only while coalescing is active, the cursor sits at the end of history,

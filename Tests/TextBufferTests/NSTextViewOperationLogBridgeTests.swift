@@ -353,6 +353,17 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             #expect(textView.string == "")
         }
 
+        @Test func `logs with identical histories compare equal regardless of an open typing run`() {
+            let (textViewA, bridgeA) = makeBridgedTextView()
+            typeEachCharacter(of: "ab", startingAt: 0, in: textViewA, forwardingTo: bridgeA)
+
+            let (textViewB, bridgeB) = makeBridgedTextView()
+            typeEachCharacter(of: "ab", startingAt: 0, in: textViewB, forwardingTo: bridgeB)
+            bridgeB.breakUndoCoalescing()
+
+            #expect(bridgeA.log == bridgeB.log)
+        }
+
         @Test func `an explicit break splits a backspace run into two groups`() {
             let (textView, bridge) = makeBridgedTextView("abcd")
             textView.setSelectedRange(NSRange(location: 4, length: 0))
