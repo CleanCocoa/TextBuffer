@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `NSTextViewOperationLogBridge.shouldChangeText(inRanges:replacementStrings:)` — plural funnel for `NSTextViewDelegate.textView(_:shouldChangeTextInRanges:replacementStrings:)`. A single-range forward delegates to the singular funnel; an edit spanning more than one range (multiple insertion points, find-and-replace-all) marks the log for discard at the next `textDidChange()` — drop history rather than record a delta that would not replay. Hosts forwarding only the singular method get the divergence discard only while an edit is staged; forward the plural method too so multi-range edits can never leave the log silently stale.
+- Undo groups that open a coalescing run (single-character inserts, deletes) are named "Typing" (unlocalized), so a system undo manager's `undoMenuItemTitle` yields "Undo Typing", matching native `NSTextView` undo. Multi-character inserts (paste) and replaces stay unnamed: the log cannot tell a paste from a drop, and a wrong name is worse than a bare "Undo".
+
+### Fixed
+
+- `PuppetUndoManager` swallows block-based `registerUndoWithTarget:handler:` like it already swallowed the selector-based form. Native registrations from a text view with `allowsUndo` enabled no longer accumulate (and retain their handlers) forever in the puppet's never-closed init group.
+- `PuppetUndoManager.prepare(withInvocationTarget:)` returns a swallowing invocation target instead of `self`, so invoking a non-`UndoManager` selector on the result no-ops instead of crashing with `doesNotRecognizeSelector:`. Nothing is recorded either way.
+
 ## 0.7.0
 
 ### Added
