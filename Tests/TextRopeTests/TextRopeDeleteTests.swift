@@ -41,6 +41,68 @@ final class TextRopeDeleteTests: XCTestCase {
         XCTAssertTrue(rope.isEmpty)
         XCTAssertEqual(rope.content, "")
         XCTAssertEqual(rope.utf16Count, 0)
+        XCTAssertEqual(rope.utf8Count, 0)
+        XCTAssertTrue(rope.root.isLeaf)
+    }
+
+    func testDeleteAllFromTwoLeafRope() {
+        let a = String(repeating: "a", count: 1200)
+        let b = String(repeating: "b", count: 1200)
+        var rope = TextRope(a + b)
+        XCTAssertEqual(leafChunkSizes(rope), [1200, 1200])
+
+        rope.delete(in: NSRange(location: 0, length: 2400))
+
+        XCTAssertTrue(rope.isEmpty)
+        XCTAssertEqual(rope.content, "")
+        XCTAssertEqual(rope.utf16Count, 0)
+        XCTAssertEqual(rope.utf8Count, 0)
+        XCTAssertTrue(rope.root.isLeaf)
+        verifyTreeInvariants(rope)
+    }
+
+    func testDeleteAllFromMultiLevelRope() {
+        let blocks = (0..<24).map { String(repeating: Character(UnicodeScalar(97 + $0 % 26)!), count: 2048) }
+        var rope = TextRope(blocks.joined())
+        XCTAssertEqual(Int(rope.root.height), 2)
+
+        rope.delete(in: NSRange(location: 0, length: rope.utf16Count))
+
+        XCTAssertTrue(rope.isEmpty)
+        XCTAssertEqual(rope.content, "")
+        XCTAssertEqual(rope.utf16Count, 0)
+        XCTAssertEqual(rope.utf8Count, 0)
+        XCTAssertTrue(rope.root.isLeaf)
+        verifyTreeInvariants(rope)
+    }
+
+    func testDeleteAlmostEverythingCollapsesRootRepeatedlyToSingleLeaf() {
+        let blocks = (0..<24).map { String(repeating: Character(UnicodeScalar(97 + $0 % 26)!), count: 2048) }
+        var rope = TextRope(blocks.joined())
+        XCTAssertEqual(Int(rope.root.height), 2)
+
+        rope.delete(in: NSRange(location: 100, length: rope.utf16Count - 100))
+
+        XCTAssertEqual(rope.content, String(blocks[0].prefix(100)))
+        XCTAssertTrue(rope.root.isLeaf)
+        XCTAssertEqual(rope.utf16Count, 100)
+        verifyTreeInvariants(rope)
+    }
+
+    func testDeleteAllThenInsertFunctionsCorrectly() {
+        let blocks = (0..<24).map { String(repeating: Character(UnicodeScalar(97 + $0 % 26)!), count: 2048) }
+        var rope = TextRope(blocks.joined())
+
+        rope.delete(in: NSRange(location: 0, length: rope.utf16Count))
+        rope.insert("new", at: 0)
+
+        XCTAssertEqual(rope.content, "new")
+        XCTAssertEqual(rope.utf16Count, 3)
+        XCTAssertFalse(rope.isEmpty)
+
+        rope.insert(" content", at: 3)
+        XCTAssertEqual(rope.content, "new content")
+        verifyTreeInvariants(rope)
     }
 
     func testDeleteSpanningLeaves() {

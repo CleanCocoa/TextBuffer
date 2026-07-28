@@ -8,7 +8,7 @@
 
 - [x] 2.1 Write tests for inner node merge when child count falls below `minChildren`: correct child distribution after merge, summary recomputation
 - [x] 2.2 Write tests for inner node redistribution when merging would exceed `maxChildren`: children are moved from the fuller sibling so both are above `minChildren`
-- [ ] 2.3 Write tests for root collapse: root with single child collapses to that child as new root, repeated collapse until root is a leaf or has ≥ 2 children
+- [x] 2.3 Write tests for root collapse: root with single child collapses to that child as new root, repeated collapse until root is a leaf or has ≥ 2 children
 - [x] 2.4 Implement inner node merge, redistribution, and root collapse logic in `Sources/TextRope/TextRope+Delete.swift`
 
 ## 3. Recursive Delete with COW Path-Copying
@@ -20,8 +20,8 @@
 
 ## 4. Always-Rooted Invariant
 
-- [ ] 4.1 Write tests for delete-all: delete entire content from a single-leaf rope, from a two-leaf rope, from a multi-level rope — verify result is an empty leaf root with `isEmpty == true`, `utf16Count == 0`, `utf8Count == 0`
-- [ ] 4.2 Write test for usability after delete-all: delete everything then insert new content, verify rope functions correctly
+- [x] 4.1 Write tests for delete-all: delete entire content from a single-leaf rope, from a two-leaf rope, from a multi-level rope — verify result is an empty leaf root with `isEmpty == true`, `utf16Count == 0`, `utf8Count == 0`
+- [x] 4.2 Write test for usability after delete-all: delete everything then insert new content, verify rope functions correctly
 
 ## 5. Summary Correctness
 
