@@ -5,8 +5,13 @@ extension TextRope {
             return
         }
 
+        self.init()
+        self.root = Self.buildTree(from: Self.chunkLeaves(from: string[...]))
+    }
+
+    static func chunkLeaves(from slice: Substring) -> [Node] {
         var leaves: [Node] = []
-        var remaining = string[...]
+        var remaining = slice
 
         while !remaining.isEmpty {
             let chunkEnd = Self.chunkEnd(in: remaining)
@@ -14,8 +19,7 @@ extension TextRope {
             remaining = remaining[chunkEnd...]
         }
 
-        self.init()
-        self.root = Self.buildTree(from: leaves)
+        return leaves
     }
 
     private static func chunkEnd(in slice: Substring) -> String.Index {
@@ -41,7 +45,7 @@ extension TextRope {
         return candidate
     }
 
-    private static func buildTree(from nodes: [Node]) -> Node {
+    static func buildTree(from nodes: [Node]) -> Node {
         precondition(!nodes.isEmpty)
         var level = nodes
         while level.count > 1 {

@@ -4,6 +4,13 @@ extension TextRope {
         if string.isEmpty { return }
         precondition(utf16Offset >= 0 && utf16Offset <= utf16Count, "insert offset \(utf16Offset) out of range 0...\(utf16Count)")
         ensureUnique()
+        if root.isLeaf {
+            spliceIntoLeaf(root, at: utf16Offset, content: string)
+            if root.chunk.utf8.count > Node.maxChunkUTF8 {
+                root = Self.buildTree(from: Self.chunkLeaves(from: root.chunk[...]))
+            }
+            return
+        }
         if let sibling = insertIntoNode(root, at: utf16Offset, content: string) {
             root = Node.inner(ContiguousArray([root, sibling]))
         }
@@ -44,6 +51,15 @@ extension TextRope {
     }
 
     private func insertIntoLeaf(_ node: Node, at utf16Offset: Int, content: String) -> Node? {
+        spliceIntoLeaf(node, at: utf16Offset, content: content)
+
+        if node.chunk.utf8.count > Node.maxChunkUTF8 {
+            return node.splitLeaf()
+        }
+        return nil
+    }
+
+    private func spliceIntoLeaf(_ node: Node, at utf16Offset: Int, content: String) {
         let utf16View = node.chunk.utf16
         let insertIdx: String.Index
         if utf16Offset >= node.chunk.utf16.count {
@@ -54,11 +70,6 @@ extension TextRope {
 
         node.chunk.insert(contentsOf: content, at: insertIdx)
         node.summary = Summary.of(node.chunk)
-
-        if node.chunk.utf8.count > Node.maxChunkUTF8 {
-            return node.splitLeaf()
-        }
-        return nil
     }
 
     private func updateSummary(_ node: Node) {

@@ -32,9 +32,16 @@ final class TextRopeInsertTests: XCTestCase {
         rope.insert(large, at: 1)
         XCTAssertEqual(rope.content, "a" + large)
         XCTAssertEqual(rope.utf8Count, 2501)
-        expectKnownStructuralDebt("m2-rope-insert 1.1 midpoint split — greedy split point leaves an undersized right sibling", matching: "UTF-8 bytes, min is") {
-            verifyTreeInvariants(rope)
-        }
+        verifyTreeInvariants(rope)
+    }
+
+    func testInsertLargeStringIntoSingleLeafRope() {
+        var rope = TextRope("a")
+        let large = String(repeating: "B", count: 10 * 1024)
+        rope.insert(large, at: 1)
+        XCTAssertEqual(rope.content, "a" + large)
+        XCTAssertEqual(rope.utf8Count, 10241)
+        verifyTreeInvariants(rope)
     }
 
     func testInsertMultiByteCharacter() {
