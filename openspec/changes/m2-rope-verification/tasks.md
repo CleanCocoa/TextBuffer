@@ -31,11 +31,11 @@
 
 ## 6. Repeated Single-Character Operation Tests
 
-- [ ] 6.1 Write test for 1000 single-char inserts at position 0: verify final content is the reversed input and tree structure is valid
-- [ ] 6.2 Write test for 1000 single-char appends at end: verify final content and tree balance
-- [ ] 6.3 Write test for build-up then tear-down: insert 1000 chars one at a time, then delete one at a time from the end — verify empty rope at the end
-- [ ] 6.4 Write test for alternating insert/delete: 2000 operations alternating between random single-char insert and random single-char delete, verify content matches oracle
-- [ ] 6.5 Write test for 500 single emoji inserts at random positions: verify `utf16Count` is `1000`, content matches oracle, tree is valid
+- [x] 6.1 Write test for 1000 single-char inserts at position 0: verify final content is the reversed input and tree structure is valid
+- [x] 6.2 Write test for 1000 single-char appends at end: verify final content and tree balance
+- [x] 6.3 Write test for build-up then tear-down: insert 1000 chars one at a time, then delete one at a time from the end — verify empty rope at the end
+- [x] 6.4 Write test for alternating insert/delete: 2000 operations alternating between random single-char insert and random single-char delete, verify content matches oracle
+- [x] 6.5 Write test for 500 single emoji inserts at random positions: verify `utf16Count` is `1000`, content matches oracle, tree is valid
 
 ## 7. Stress Test (10K Random Operations)
 

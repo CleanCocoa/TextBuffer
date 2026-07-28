@@ -429,6 +429,108 @@ final class TextRopeStressTests: XCTestCase {
         verifyTreeInvariants(replaced, context: "replace emoji")
     }
 
+    // MARK: - Repeated single-character operations
+
+    private static func singleCharacters(count: Int, seed: UInt64) -> [String] {
+        var rng = SeededRNG(state: seed)
+        let pool = stressCharset.filter { $0.utf16.count <= 2 && $0 != "\r\n" }
+        return (0..<count).map { _ in pool.randomElement(using: &rng)! }
+    }
+
+    func testThousandSingleCharInsertsAtPositionZero() {
+        let chars = Self.singleCharacters(count: 1000, seed: 1)
+        var rope = TextRope()
+        for char in chars {
+            rope.insert(char, at: 0)
+        }
+        let expected = chars.reversed().joined()
+        XCTAssertEqual(rope.content, expected)
+        XCTAssertEqual(rope.utf16Count, expected.utf16.count)
+        verifyTreeInvariants(rope)
+    }
+
+    func testThousandSingleCharAppendsAtEnd() {
+        let chars = Self.singleCharacters(count: 1000, seed: 2)
+        var rope = TextRope()
+        for char in chars {
+            rope.insert(char, at: rope.utf16Count)
+        }
+        let expected = chars.joined()
+        XCTAssertEqual(rope.content, expected)
+        XCTAssertEqual(rope.utf16Count, expected.utf16.count)
+        verifyTreeInvariants(rope)
+    }
+
+    func testBuildUpThenTearDownLeavesEmptyRope() {
+        let chars = Self.singleCharacters(count: 1000, seed: 3)
+        var rope = TextRope()
+        for char in chars {
+            rope.insert(char, at: rope.utf16Count)
+        }
+        XCTAssertEqual(rope.content, chars.joined())
+
+        for char in chars.reversed() {
+            let length = char.utf16.count
+            rope.delete(in: NSRange(location: rope.utf16Count - length, length: length))
+        }
+
+        XCTAssertTrue(rope.isEmpty)
+        XCTAssertEqual(rope.content, "")
+        XCTAssertEqual(rope.utf16Count, 0)
+        XCTAssertEqual(rope.utf8Count, 0)
+    }
+
+    func testAlternatingSingleCharInsertAndDeleteMatchesOracle() {
+        var rng = SeededRNG(state: 4)
+        let pool = Self.stressCharset.filter { $0 != "\r\n" }
+        var rope = TextRope()
+        var oracle = ""
+
+        for i in 0..<2000 {
+            if i % 2 == 0 {
+                let char = pool.randomElement(using: &rng)!
+                let pos = Self.validUTF16Offset(Int.random(in: 0...oracle.utf16.count, using: &rng), in: oracle)
+                rope.insert(char, at: pos)
+                let idx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: pos)
+                oracle.insert(contentsOf: char, at: idx)
+            } else if !oracle.isEmpty {
+                let start = Self.validUTF16Offset(Int.random(in: 0..<oracle.utf16.count, using: &rng), in: oracle)
+                var length = 1
+                if start + 1 < oracle.utf16.count {
+                    let next = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: start + 1)
+                    if UTF16.isTrailSurrogate(oracle.utf16[next]) { length = 2 }
+                }
+                rope.delete(in: NSRange(location: start, length: length))
+                let startIdx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: start)
+                let endIdx = oracle.utf16.index(startIdx, offsetBy: length)
+                oracle.removeSubrange(startIdx..<endIdx)
+            }
+
+            XCTAssertEqual(rope.content, oracle, "diverged from oracle at operation \(i)")
+            if i % 100 == 0 {
+                verifyTreeInvariants(rope, context: "operation \(i)")
+            }
+        }
+        verifyTreeInvariants(rope, context: "final")
+    }
+
+    func testFiveHundredEmojiInsertsAtRandomPositions() {
+        var rng = SeededRNG(state: 5)
+        var rope = TextRope()
+        var oracle = ""
+
+        for _ in 0..<500 {
+            let pos = Self.validUTF16Offset(Int.random(in: 0...oracle.utf16.count, using: &rng), in: oracle)
+            rope.insert("😀", at: pos)
+            let idx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: pos)
+            oracle.insert(contentsOf: "😀", at: idx)
+        }
+
+        XCTAssertEqual(rope.utf16Count, 1000)
+        XCTAssertEqual(rope.content, oracle)
+        verifyTreeInvariants(rope)
+    }
+
     // MARK: - Stress test
 
     private static let stressCharset: [String] = [
