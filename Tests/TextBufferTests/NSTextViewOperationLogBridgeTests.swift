@@ -81,5 +81,75 @@ private func type(
             #expect(bridge.log.history.isEmpty)
         }
     }
+
+    @MainActor
+    @Suite struct UndoRedoRouting {
+        @Test func `undo replays the last group onto the view restoring content and selection`() {
+            let (textView, bridge) = makeBridgedTextView()
+            type("a", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            type("b", replacing: NSRange(location: 1, length: 0), in: textView, forwardingTo: bridge)
+
+            bridge.undo()
+
+            #expect(textView.string == "a")
+            #expect(textView.selectedRange == NSRange(location: 1, length: 0))
+        }
+
+        @Test func `undo restores the selection that preceded a replacement`() {
+            let (textView, bridge) = makeBridgedTextView("hello world")
+            textView.setSelectedRange(NSRange(location: 0, length: 5))
+            type("goodbye", replacing: NSRange(location: 0, length: 5), in: textView, forwardingTo: bridge)
+
+            bridge.undo()
+
+            #expect(textView.string == "hello world")
+            #expect(textView.selectedRange == NSRange(location: 0, length: 5))
+        }
+
+        @Test func `redo reapplies an undone group restoring content and selection`() {
+            let (textView, bridge) = makeBridgedTextView()
+            type("a", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            type("b", replacing: NSRange(location: 1, length: 0), in: textView, forwardingTo: bridge)
+            bridge.undo()
+
+            bridge.redo()
+
+            #expect(textView.string == "ab")
+            #expect(textView.selectedRange == NSRange(location: 2, length: 0))
+        }
+
+        @Test func `undo and redo without history leave the view untouched`() {
+            let (textView, bridge) = makeBridgedTextView("abc")
+
+            bridge.undo()
+            bridge.redo()
+
+            #expect(textView.string == "abc")
+        }
+
+        @Test func `the puppet undo manager routes AppKit undo and redo to the log`() {
+            let (textView, bridge) = makeBridgedTextView()
+            let undoManager = bridge.enableSystemUndoIntegration()
+            #expect(undoManager.canUndo == false)
+
+            type("a", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            #expect(undoManager.canUndo)
+
+            undoManager.undo()
+            #expect(textView.string == "")
+            #expect(undoManager.canUndo == false)
+            #expect(undoManager.canRedo)
+
+            undoManager.redo()
+            #expect(textView.string == "a")
+            #expect(undoManager.canRedo == false)
+        }
+
+        @Test func `enabling system undo integration twice returns the same undo manager`() {
+            let (_, bridge) = makeBridgedTextView()
+
+            #expect(bridge.enableSystemUndoIntegration() === bridge.enableSystemUndoIntegration())
+        }
+    }
 }
 #endif

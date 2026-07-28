@@ -18,10 +18,13 @@ public final class NSTextViewOperationLogBridge {
     let textView: NSTextView
     public private(set) var log: OperationLog
     private var pendingChange: PendingChange?
+    private let replayBuffer: ReplayingNSTextViewBuffer
+    private var puppetUndoManager: PuppetUndoManager?
 
     public init(textView: NSTextView, log: OperationLog = OperationLog()) {
         self.textView = textView
         self.log = log
+        self.replayBuffer = ReplayingNSTextViewBuffer(textView: textView)
     }
 
     public func shouldChangeText(in affectedRange: NSRange, replacementString: String?) {
@@ -54,6 +57,51 @@ public final class NSTextViewOperationLogBridge {
         case (_, false):
             return BufferOperation(kind: .replace(range: pending.affectedRange, oldContent: pending.oldContent, newContent: pending.replacement))
         }
+    }
+}
+
+extension NSTextViewOperationLogBridge {
+    public func undo() {
+        _ = log.undo(on: replayBuffer)
+    }
+
+    public func redo() {
+        _ = log.redo(on: replayBuffer)
+    }
+}
+
+extension NSTextViewOperationLogBridge {
+    public func enableSystemUndoIntegration() -> UndoManager {
+        if let existing = puppetUndoManager { return existing }
+        let puppet = PuppetUndoManager(owner: self)
+        puppetUndoManager = puppet
+        return puppet
+    }
+}
+
+extension NSTextViewOperationLogBridge: PuppetUndoManagerDelegate {
+    func puppetUndo() { undo() }
+    func puppetRedo() { redo() }
+    var puppetCanUndo: Bool { log.canUndo }
+    var puppetCanRedo: Bool { log.canRedo }
+    var puppetUndoActionName: String { log.undoActionName ?? "" }
+    var puppetRedoActionName: String { log.redoActionName ?? "" }
+}
+
+/// Replays log operations through `NSTextView.insertText(_:replacementRange:)` so the view
+/// re-emits its regular change callbacks for downstream consumers.
+@MainActor
+final class ReplayingNSTextViewBuffer: NSTextViewBuffer {
+    override func insert(_ content: String, at location: Int) throws(BufferAccessFailure) {
+        textView.insertText(content, replacementRange: NSRange(location: location, length: 0))
+    }
+
+    override func delete(in deletedRange: NSRange) throws(BufferAccessFailure) {
+        textView.insertText("", replacementRange: deletedRange)
+    }
+
+    override func replace(range replacementRange: NSRange, with content: String) throws(BufferAccessFailure) {
+        textView.insertText(content, replacementRange: replacementRange)
     }
 }
 #endif
