@@ -23,7 +23,7 @@
 ## 4. COW Infrastructure (TASK-012)
 
 - [x] 4.1 Implement `Node.shallowCopy() -> Node` — new Node with same summary, height, chunk, and children references (no deep copy)
-- [ ] 4.2 Implement `Node.ensureUniqueChild(at:)` — extract→check→write-back pattern using `isKnownUniquelyReferenced`
+- [x] 4.2 Implement `Node.ensureUniqueChild(at:)` — extract→check→write-back pattern using `isKnownUniquelyReferenced`
 - [x] 4.3 Implement `TextRope.ensureUnique()` in `Sources/TextRope/TextRope+COW.swift` — check `isKnownUniquelyReferenced(&root)`, shallow-copy root if shared
 - [x] 4.4 Write `Tests/TextRopeTests/TextRopeCOWTests.swift` — test: unique root is not copied; shared root triggers copy; `ensureUniqueChild` on unique child is no-op; `ensureUniqueChild` on shared child replaces with copy; shallow copy shares children by identity (`===`)
 
