@@ -161,6 +161,71 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
     }
 
     @MainActor
+    @Suite struct AttributeOnlyEdits {
+        @Test func `a bold-style attribute pass through the view's change callbacks records nothing`() {
+            let (textView, bridge) = makeBridgedTextView()
+            let delegate = ForwardingDelegate(bridge: bridge)
+            textView.delegate = delegate
+            defer { withExtendedLifetime(delegate) {} }
+            textView.insertText("abc", replacementRange: NSRange(location: 0, length: 0))
+            let historyAfterTyping = bridge.log.history
+
+            let boldRange = NSRange(location: 0, length: 3)
+            if textView.shouldChangeText(in: boldRange, replacementString: nil) {
+                textView.textStorage!.addAttribute(.font, value: NSFont.boldSystemFont(ofSize: 12), range: boldRange)
+                textView.didChangeText()
+            }
+
+            #expect(textView.string == "abc")
+            #expect(bridge.log.history == historyAfterTyping)
+        }
+
+        @Test func `a direct textStorage attribute edit leaves the log untouched and replayable`() {
+            let (textView, bridge) = makeBridgedTextView()
+            let delegate = ForwardingDelegate(bridge: bridge)
+            textView.delegate = delegate
+            defer { withExtendedLifetime(delegate) {} }
+            textView.insertText("abc", replacementRange: NSRange(location: 0, length: 0))
+            let historyAfterTyping = bridge.log.history
+
+            textView.textStorage!.beginEditing()
+            textView.textStorage!.addAttribute(.foregroundColor, value: NSColor.systemRed, range: NSRange(location: 1, length: 2))
+            textView.textStorage!.endEditing()
+
+            #expect(bridge.log.history == historyAfterTyping)
+
+            bridge.undo()
+            #expect(textView.string == "")
+
+            bridge.redo()
+            #expect(textView.string == "abc")
+        }
+
+        @Test func `an attribute pass between typing keeps later undo groups replayable`() {
+            let (textView, bridge) = makeBridgedTextView()
+            let delegate = ForwardingDelegate(bridge: bridge)
+            textView.delegate = delegate
+            defer { withExtendedLifetime(delegate) {} }
+            textView.insertText("a", replacementRange: NSRange(location: 0, length: 0))
+
+            let range = NSRange(location: 0, length: 1)
+            if textView.shouldChangeText(in: range, replacementString: nil) {
+                textView.textStorage!.addAttribute(.font, value: NSFont.boldSystemFont(ofSize: 12), range: range)
+                textView.didChangeText()
+            }
+            textView.insertText("b", replacementRange: NSRange(location: 1, length: 0))
+
+            #expect(textView.string == "ab")
+
+            bridge.undo()
+            #expect(textView.string == "a")
+
+            bridge.undo()
+            #expect(textView.string == "")
+        }
+    }
+
+    @MainActor
     @Suite struct MarkedTextComposition {
         @Test func `composition intermediates record nothing while marked text is active`() {
             let (textView, bridge) = makeBridgedTextView()
