@@ -148,13 +148,14 @@ extension OperationLog {
     /// Records `operation` as part of the current typing run, or starts a new group.
     ///
     /// The run extends only while coalescing is active, the cursor sits at the end of history,
-    /// and the operation continues the run's last operation in kind and position: an insert
-    /// continues exactly where the run's last insert ended; a delete continues a backspace run
-    /// (its end meets the previous delete's start) or a forward-delete run (same location as the
-    /// previous delete). The extended group keeps its original `selectionBefore` and adopts
-    /// `selectionAfter`. Anything else — a break via ``breakCoalescing()``, undo/redo, an explicit
-    /// group, a replace, or a kind or position mismatch — records a fresh group; an insert or a
-    /// delete opens a new run, a replace never does.
+    /// and the operation continues the run's last operation in kind and position: a
+    /// single-character insert continues exactly where the run's last insert ended; a delete
+    /// continues a backspace run (its end meets the previous delete's start) or a forward-delete
+    /// run (same location as the previous delete). The extended group keeps its original
+    /// `selectionBefore` and adopts `selectionAfter`. Anything else — a break via
+    /// ``breakCoalescing()``, undo/redo, an explicit group, a replace, a multi-character insert
+    /// (paste), or a kind or position mismatch — records a fresh group; a single-character insert
+    /// or a delete opens a new run, a multi-character insert or a replace never does.
     mutating func coalesce(_ operation: BufferOperation, selectionBefore: NSRange, selectionAfter: NSRange) {
         if isCoalescing,
            cursor == history.count,
@@ -167,7 +168,9 @@ extension OperationLog {
             record(operation)
             endUndoGroup(selectionAfter: selectionAfter)
             switch operation.kind {
-            case .insert, .delete:
+            case .insert(let content, _):
+                isCoalescing = content.count == 1
+            case .delete:
                 isCoalescing = true
             case .replace:
                 break
@@ -183,8 +186,8 @@ extension OperationLog {
 extension BufferOperation.Kind {
     func extendsRun(endingIn runKind: BufferOperation.Kind) -> Bool {
         switch (runKind, self) {
-        case (.insert(let runContent, let runLocation), .insert(_, let location)):
-            return runLocation + runContent.utf16.count == location
+        case (.insert(let runContent, let runLocation), .insert(let content, let location)):
+            return content.count == 1 && runLocation + runContent.utf16.count == location
         case (.delete(let previousRange, _), .delete(let nextRange, _)):
             return nextRange.location + nextRange.length == previousRange.location
                 || nextRange.location == previousRange.location

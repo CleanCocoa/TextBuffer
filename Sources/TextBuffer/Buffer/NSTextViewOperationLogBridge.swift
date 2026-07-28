@@ -137,7 +137,8 @@ public final class NSTextViewOperationLogBridge {
     /// Records a finished marked-text composition as one edit: the pre-composition range the
     /// baseline staged, replaced by whatever the view holds there now. The committed length is
     /// the view's length delta since the baseline plus the baseline range's length; a cancelled
-    /// composition restores the baseline content and records nothing.
+    /// composition restores the baseline content and records nothing. A commit is its own undo
+    /// group, macOS per-clause style: it neither joins a preceding typing run nor opens one.
     private func commitComposition(from baseline: PendingChange) {
         let length = textView.nsMutableString.length
         let committedLength = length - baseline.textLengthBefore + baseline.affectedRange.length
@@ -150,7 +151,9 @@ public final class NSTextViewOperationLogBridge {
             with: NSRange(location: baseline.affectedRange.location, length: committedLength)
         )
         guard committed.replacement != baseline.oldContent else { return }
+        log.breakCoalescing()
         commit(committed)
+        log.breakCoalescing()
     }
 }
 

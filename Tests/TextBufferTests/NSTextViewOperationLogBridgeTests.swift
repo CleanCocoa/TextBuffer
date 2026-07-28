@@ -322,6 +322,37 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             #expect(textView.string == "")
         }
 
+        @Test func `a pasted multi-character insert does not join the typing run`() {
+            let (textView, bridge) = makeBridgedTextView()
+            typeEachCharacter(of: "hello", startingAt: 0, in: textView, forwardingTo: bridge)
+
+            type("XY", replacing: NSRange(location: 5, length: 0), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "helloXY")
+            #expect(bridge.log.history.count == 2)
+
+            bridge.undo()
+            #expect(textView.string == "hello")
+        }
+
+        @Test func `a multi-character insert closes the run so later typing starts a new group`() {
+            let (textView, bridge) = makeBridgedTextView()
+            typeEachCharacter(of: "hello", startingAt: 0, in: textView, forwardingTo: bridge)
+
+            type("XY", replacing: NSRange(location: 5, length: 0), in: textView, forwardingTo: bridge)
+            typeEachCharacter(of: "z", startingAt: 7, in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "helloXYz")
+            #expect(bridge.log.history.count == 3)
+
+            bridge.undo()
+            #expect(textView.string == "helloXY")
+            bridge.undo()
+            #expect(textView.string == "hello")
+            bridge.undo()
+            #expect(textView.string == "")
+        }
+
         @Test func `an explicit break splits a backspace run into two groups`() {
             let (textView, bridge) = makeBridgedTextView("abcd")
             textView.setSelectedRange(NSRange(location: 4, length: 0))
@@ -512,6 +543,39 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
 
             #expect(textView.string == "hello")
             #expect(textView.selectedRange == NSRange(location: 0, length: 5))
+        }
+
+        @Test func `a committed composition does not join a preceding typing run`() {
+            let (textView, bridge) = makeBridgedTextView()
+            typeEachCharacter(of: "ab", startingAt: 0, in: textView, forwardingTo: bridge)
+            markText("に", replacing: NSRange(location: 2, length: 0), in: textView, forwardingTo: bridge)
+
+            type("日本", replacing: NSRange(location: 2, length: 1), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "ab日本")
+            #expect(bridge.log.history.count == 2)
+
+            bridge.undo()
+            #expect(textView.string == "ab")
+        }
+
+        @Test func `a committed single-character composition neither joins nor extends the typing run`() {
+            let (textView, bridge) = makeBridgedTextView()
+            typeEachCharacter(of: "ab", startingAt: 0, in: textView, forwardingTo: bridge)
+            markText("に", replacing: NSRange(location: 2, length: 0), in: textView, forwardingTo: bridge)
+
+            type("に", replacing: NSRange(location: 2, length: 1), in: textView, forwardingTo: bridge)
+            typeEachCharacter(of: "c", startingAt: 3, in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "abにc")
+            #expect(bridge.log.history.count == 3)
+
+            bridge.undo()
+            #expect(textView.string == "abに")
+            bridge.undo()
+            #expect(textView.string == "ab")
+            bridge.undo()
+            #expect(textView.string == "")
         }
 
         @Test func `cancelling a composition records nothing`() {
