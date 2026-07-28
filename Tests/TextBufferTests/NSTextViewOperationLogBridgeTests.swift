@@ -23,6 +23,26 @@ private func type(
     bridge.textDidChange()
 }
 
+@MainActor
+private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
+    let bridge: NSTextViewOperationLogBridge
+    private(set) var textDidChangeCount = 0
+
+    init(bridge: NSTextViewOperationLogBridge) {
+        self.bridge = bridge
+    }
+
+    func textView(_ textView: NSTextView, shouldChangeTextIn affectedCharRange: NSRange, replacementString: String?) -> Bool {
+        bridge.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
+        return true
+    }
+
+    func textDidChange(_ notification: Notification) {
+        textDidChangeCount += 1
+        bridge.textDidChange()
+    }
+}
+
 @Suite struct NSTextViewOperationLogBridgeTests {
     @MainActor
     @Suite struct EditMirroring {
@@ -149,6 +169,47 @@ private func type(
             let (_, bridge) = makeBridgedTextView()
 
             #expect(bridge.enableSystemUndoIntegration() === bridge.enableSystemUndoIntegration())
+        }
+    }
+
+    @MainActor
+    @Suite struct ReentrancyGuard {
+        @Test func `replay-driven view mutation records no forward entry`() {
+            let (textView, bridge) = makeBridgedTextView()
+            let delegate = ForwardingDelegate(bridge: bridge)
+            textView.delegate = delegate
+            defer { withExtendedLifetime(delegate) {} }
+
+            textView.insertText("a", replacementRange: NSRange(location: 0, length: 0))
+            textView.insertText("b", replacementRange: NSRange(location: 1, length: 0))
+            let historyAfterTyping = bridge.log.history
+            #expect(historyAfterTyping.count == 2)
+
+            bridge.undo()
+
+            #expect(textView.string == "a")
+            #expect(bridge.log.history == historyAfterTyping)
+            #expect(bridge.log.canRedo)
+
+            bridge.redo()
+
+            #expect(textView.string == "ab")
+            #expect(bridge.log.history == historyAfterTyping)
+            #expect(bridge.log.canRedo == false)
+        }
+
+        @Test func `replay re-emits the view's content-change callbacks for downstream consumers`() {
+            let (textView, bridge) = makeBridgedTextView()
+            let delegate = ForwardingDelegate(bridge: bridge)
+            textView.delegate = delegate
+            defer { withExtendedLifetime(delegate) {} }
+
+            textView.insertText("a", replacementRange: NSRange(location: 0, length: 0))
+            #expect(delegate.textDidChangeCount == 1)
+
+            bridge.undo()
+
+            #expect(delegate.textDidChangeCount == 2)
         }
     }
 }

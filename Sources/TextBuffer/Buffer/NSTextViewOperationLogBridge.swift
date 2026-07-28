@@ -18,6 +18,7 @@ public final class NSTextViewOperationLogBridge {
     let textView: NSTextView
     public private(set) var log: OperationLog
     private var pendingChange: PendingChange?
+    private var isReplaying = false
     private let replayBuffer: ReplayingNSTextViewBuffer
     private var puppetUndoManager: PuppetUndoManager?
 
@@ -28,6 +29,7 @@ public final class NSTextViewOperationLogBridge {
     }
 
     public func shouldChangeText(in affectedRange: NSRange, replacementString: String?) {
+        guard !isReplaying else { return }
         guard let replacementString else { return }
         pendingChange = PendingChange(
             affectedRange: affectedRange,
@@ -38,6 +40,7 @@ public final class NSTextViewOperationLogBridge {
     }
 
     public func textDidChange() {
+        guard !isReplaying else { return }
         guard let pending = pendingChange else { return }
         pendingChange = nil
         guard let operation = mirroredOperation(for: pending) else { return }
@@ -62,10 +65,14 @@ public final class NSTextViewOperationLogBridge {
 
 extension NSTextViewOperationLogBridge {
     public func undo() {
+        isReplaying = true
+        defer { isReplaying = false }
         _ = log.undo(on: replayBuffer)
     }
 
     public func redo() {
+        isReplaying = true
+        defer { isReplaying = false }
         _ = log.redo(on: replayBuffer)
     }
 }
