@@ -261,6 +261,53 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
     }
 
     @MainActor
+    @Suite struct ProgrammaticReplacement {
+        @Test func `a programmatic full replace records exactly one undo group`() {
+            let (textView, bridge) = makeBridgedTextView("hello world")
+            textView.setSelectedRange(NSRange(location: 2, length: 3))
+
+            type("greetings, planet", replacing: NSRange(location: 0, length: 11), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "greetings, planet")
+            #expect(bridge.log.history.count == 1)
+
+            bridge.undo()
+
+            #expect(textView.string == "hello world")
+            #expect(textView.selectedRange == NSRange(location: 2, length: 3))
+        }
+
+        @Test func `a full replace does not join the preceding typing run`() {
+            let (textView, bridge) = makeBridgedTextView()
+            typeEachCharacter(of: "abc", startingAt: 0, in: textView, forwardingTo: bridge)
+
+            type("xyz", replacing: NSRange(location: 0, length: 3), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "xyz")
+            #expect(bridge.log.history.count == 2)
+
+            bridge.undo()
+            #expect(textView.string == "abc")
+
+            bridge.redo()
+            #expect(textView.string == "xyz")
+        }
+
+        @Test func `typing after a full replace starts a new group`() {
+            let (textView, bridge) = makeBridgedTextView("old")
+            type("new", replacing: NSRange(location: 0, length: 3), in: textView, forwardingTo: bridge)
+
+            typeEachCharacter(of: "er", startingAt: 3, in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "newer")
+            #expect(bridge.log.history.count == 2)
+
+            bridge.undo()
+            #expect(textView.string == "new")
+        }
+    }
+
+    @MainActor
     @Suite struct AttributeOnlyEdits {
         @Test func `a bold-style attribute pass through the view's change callbacks records nothing`() {
             let (textView, bridge) = makeBridgedTextView()
