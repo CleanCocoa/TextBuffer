@@ -148,6 +148,10 @@ public final class NSTextViewOperationLogBridge {
     /// the view's length delta since the baseline plus the baseline range's length; a cancelled
     /// composition restores the baseline content and records nothing. A commit is its own undo
     /// group, macOS per-clause style: it neither joins a preceding typing run nor opens one.
+    ///
+    /// The committed operation is built from the view's own content, so the staged edit is
+    /// consistent by construction and always passes `commit(_:)`'s divergence check — the
+    /// divergence-reset guarantee does not hold while marked text is active.
     private func commitComposition(from baseline: PendingChange) {
         let length = textView.nsMutableString.length
         let committedLength = length - baseline.textLengthBefore + baseline.affectedRange.length
