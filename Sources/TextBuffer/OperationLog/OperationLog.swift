@@ -166,6 +166,12 @@ extension OperationLog {
     /// ``breakCoalescing()``, undo/redo, an explicit group, a replace, a multi-character insert
     /// (paste), or a kind or position mismatch — records a fresh group; a single-character insert
     /// or a delete opens a new run, a multi-character insert or a replace never does.
+    ///
+    /// A group that opens a run is named "Typing" (unlocalized — the package ships no
+    /// localization tables), so `undoMenuItemTitle` on a system undo manager yields
+    /// "Undo Typing", matching native `NSTextView` undo. Multi-character inserts and replaces
+    /// stay unnamed: the log cannot tell a paste from a drop, and a wrong name is worse than a
+    /// bare "Undo".
     mutating func coalesce(_ operation: BufferOperation, selectionBefore: NSRange, selectionAfter: NSRange) {
         if isCoalescing,
            cursor == history.count,
@@ -174,7 +180,16 @@ extension OperationLog {
             history[cursor - 1].operations.append(operation)
             history[cursor - 1].selectionAfter = selectionAfter
         } else {
-            beginUndoGroup(selectionBefore: selectionBefore)
+            let opensRun: Bool
+            switch operation.kind {
+            case .insert(let content, _):
+                opensRun = content.count == 1
+            case .delete:
+                opensRun = true
+            case .replace:
+                opensRun = false
+            }
+            beginUndoGroup(selectionBefore: selectionBefore, actionName: opensRun ? "Typing" : nil)
             record(operation)
             endUndoGroup(selectionAfter: selectionAfter)
             switch operation.kind {

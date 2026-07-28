@@ -431,6 +431,57 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
     }
 
     @MainActor
+    @Suite struct ActionNames {
+        @Test func `a typing run is named Typing so the Edit menu shows Undo Typing`() {
+            let (textView, bridge) = makeBridgedTextView()
+
+            typeEachCharacter(of: "ab", startingAt: 0, in: textView, forwardingTo: bridge)
+
+            #expect(bridge.log.undoActionName == "Typing")
+            let puppet = bridge.enableSystemUndoIntegration()
+            #expect(puppet.undoMenuItemTitle == "Undo Typing")
+
+            bridge.undo()
+            #expect(bridge.log.redoActionName == "Typing")
+            #expect(puppet.redoMenuItemTitle == "Redo Typing")
+        }
+
+        @Test func `a single keystroke group is named Typing before any coalescing happens`() {
+            let (textView, bridge) = makeBridgedTextView()
+
+            type("a", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+
+            #expect(bridge.log.undoActionName == "Typing")
+        }
+
+        @Test func `a backspace run is named Typing like native deletion undo`() {
+            let (textView, bridge) = makeBridgedTextView("abc")
+
+            type("", replacing: NSRange(location: 2, length: 1), in: textView, forwardingTo: bridge)
+            type("", replacing: NSRange(location: 1, length: 1), in: textView, forwardingTo: bridge)
+
+            #expect(bridge.log.history.count == 1)
+            #expect(bridge.log.undoActionName == "Typing")
+        }
+
+        @Test func `a paste records an unnamed group because the bridge cannot tell paste from drop`() {
+            let (textView, bridge) = makeBridgedTextView()
+
+            type("pasted", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+
+            #expect(bridge.log.undoActionName == nil)
+        }
+
+        @Test func `a selection replacement records an unnamed group`() {
+            let (textView, bridge) = makeBridgedTextView("old")
+
+            type("new", replacing: NSRange(location: 0, length: 3), in: textView, forwardingTo: bridge)
+
+            #expect(bridge.log.undoActionName == nil)
+        }
+    }
+
+    @MainActor
     @Suite struct MultiRangeEdits {
         @Test func `a two-range edit resets the history at commit instead of leaving a stale log`() {
             let (textView, bridge) = makeBridgedTextView("aa bb aa")
