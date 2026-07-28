@@ -91,6 +91,118 @@ final class RopeTransferIntegrationTests: XCTestCase {
         XCTAssertEqual(rope.content, "original!?")
     }
 
+    func testUndoRedoWithMultiByteContentOnRopeBuffer() {
+        let buffer = TransferableUndoable(RopeBuffer("😀你好"))
+
+        try! buffer.insert("𝄞", at: 2)
+        XCTAssertEqual(buffer.content, "😀𝄞你好")
+
+        try! buffer.insert("e\u{0301}", at: 6)
+        XCTAssertEqual(buffer.content, "😀𝄞你好e\u{0301}")
+
+        try! buffer.delete(in: NSRange(location: 0, length: 2))
+        XCTAssertEqual(buffer.content, "𝄞你好e\u{0301}")
+
+        try! buffer.replace(range: NSRange(location: 2, length: 2), with: "🎉")
+        XCTAssertEqual(buffer.content, "𝄞🎉e\u{0301}")
+
+        buffer.undo()
+        XCTAssertEqual(buffer.content, "𝄞你好e\u{0301}")
+        buffer.undo()
+        XCTAssertEqual(buffer.content, "😀𝄞你好e\u{0301}")
+        buffer.undo()
+        XCTAssertEqual(buffer.content, "😀𝄞你好")
+        buffer.undo()
+        XCTAssertEqual(buffer.content, "😀你好")
+
+        buffer.redo()
+        XCTAssertEqual(buffer.content, "😀𝄞你好")
+        buffer.redo()
+        XCTAssertEqual(buffer.content, "😀𝄞你好e\u{0301}")
+        buffer.redo()
+        XCTAssertEqual(buffer.content, "𝄞你好e\u{0301}")
+        buffer.redo()
+        XCTAssertEqual(buffer.content, "𝄞🎉e\u{0301}")
+    }
+
+    func testSnapshotWithMultiByteContent() {
+        let rope = TransferableUndoable(RopeBuffer("a😀你e\u{0301}b"))
+        try! rope.insert("🎉", at: 3)
+        XCTAssertEqual(rope.content, "a😀🎉你e\u{0301}b")
+        rope.select(NSRange(location: 1, length: 4))
+
+        let snap = rope.snapshot()
+        XCTAssertEqual(snap.content, rope.content)
+        XCTAssertEqual(Array(snap.content.utf8), Array(rope.content.utf8))
+        XCTAssertEqual(snap.selectedRange, NSRange(location: 1, length: 4))
+
+        snap.undo()
+        XCTAssertEqual(snap.content, "a😀你e\u{0301}b")
+        XCTAssertEqual(Array(snap.content.utf8), Array("a😀你e\u{0301}b".utf8))
+        XCTAssertEqual(rope.content, "a😀🎉你e\u{0301}b")
+    }
+
+    func testRepresentWithMultiByteContent() {
+        let source = TransferableUndoable(MutableStringBuffer("你好"))
+        try! source.insert("😀", at: 2)
+        try! source.insert("e\u{0301}", at: 4)
+        XCTAssertEqual(source.content, "你好😀e\u{0301}")
+        source.select(NSRange(location: 2, length: 2))
+
+        let receiver = TransferableUndoable(RopeBuffer(""))
+        receiver.represent(source)
+        XCTAssertEqual(receiver.content, "你好😀e\u{0301}")
+        XCTAssertEqual(Array(receiver.content.utf8), Array(source.content.utf8))
+        XCTAssertEqual(receiver.selectedRange, NSRange(location: 2, length: 2))
+
+        receiver.undo()
+        XCTAssertEqual(receiver.content, "你好😀")
+        receiver.undo()
+        XCTAssertEqual(receiver.content, "你好")
+    }
+
+    func testMultiByteUndoEquivalenceAcrossBufferTypes() {
+        let msb = TransferableUndoable(MutableStringBuffer("a你b"))
+        let rb = TransferableUndoable(RopeBuffer("a你b"))
+
+        try! msb.insert("😀", at: 1)
+        try! rb.insert("😀", at: 1)
+        XCTAssertEqual(msb.content, rb.content, "after emoji insert")
+        XCTAssertEqual(msb.selectedRange, rb.selectedRange, "selection after emoji insert")
+
+        try! msb.insert("e\u{0301}", at: 5)
+        try! rb.insert("e\u{0301}", at: 5)
+        XCTAssertEqual(msb.content, rb.content, "after combining-mark insert")
+        XCTAssertEqual(msb.selectedRange, rb.selectedRange, "selection after combining-mark insert")
+
+        try! msb.delete(in: NSRange(location: 1, length: 2))
+        try! rb.delete(in: NSRange(location: 1, length: 2))
+        XCTAssertEqual(msb.content, rb.content, "after surrogate-pair delete")
+        XCTAssertEqual(msb.selectedRange, rb.selectedRange, "selection after surrogate-pair delete")
+
+        try! msb.replace(range: NSRange(location: 1, length: 1), with: "𝕳")
+        try! rb.replace(range: NSRange(location: 1, length: 1), with: "𝕳")
+        XCTAssertEqual(msb.content, rb.content, "after CJK-to-emoji replace")
+        XCTAssertEqual(msb.selectedRange, rb.selectedRange, "selection after CJK-to-emoji replace")
+
+        msb.undo()
+        rb.undo()
+        XCTAssertEqual(msb.content, rb.content, "after undo")
+        XCTAssertEqual(msb.selectedRange, rb.selectedRange, "selection after undo")
+
+        msb.undo()
+        rb.undo()
+        XCTAssertEqual(msb.content, rb.content, "after second undo")
+        XCTAssertEqual(msb.selectedRange, rb.selectedRange, "selection after second undo")
+
+        msb.redo()
+        rb.redo()
+        XCTAssertEqual(msb.content, rb.content, "after redo")
+        XCTAssertEqual(msb.selectedRange, rb.selectedRange, "selection after redo")
+
+        XCTAssertEqual(Array(msb.content.utf8), Array(rb.content.utf8), "byte-identical after redo")
+    }
+
     func testUndoEquivalenceAcrossBufferTypes() {
         let msb = TransferableUndoable(MutableStringBuffer("abc"))
         let rb = TransferableUndoable(RopeBuffer("abc"))
