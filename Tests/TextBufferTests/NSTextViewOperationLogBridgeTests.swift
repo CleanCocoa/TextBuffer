@@ -573,6 +573,52 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
     }
 
     @MainActor
+    @Suite struct TransferPath {
+        @Test func `a bridge-recorded multi-group log replays onto a fresh view through init(textView:log:)`() {
+            let (textViewA, bridgeA) = makeBridgedTextView()
+            let delegate = ForwardingDelegate(bridge: bridgeA)
+            textViewA.delegate = delegate
+            defer { withExtendedLifetime(delegate) {} }
+            for (offset, character) in "hello".enumerated() {
+                textViewA.insertText(String(character), replacementRange: NSRange(location: offset, length: 0))
+            }
+            bridgeA.breakUndoCoalescing()
+            for (offset, character) in " world".enumerated() {
+                textViewA.insertText(String(character), replacementRange: NSRange(location: 5 + offset, length: 0))
+            }
+            #expect(bridgeA.log.history.count == 2)
+
+            let stored: InMemoryBuffer = bridgeA.sendableSnapshot()
+            #expect(stored.content == "hello world")
+            #expect(stored.selectedRange == textViewA.selectedRange)
+
+            let editingBuffer = TransferableUndoable(RopeBuffer(""))
+            editingBuffer.represent(stored)
+            let roundTripped = editingBuffer.sendableSnapshot()
+
+            let textViewB = NSTextView(usingTextLayoutManager: false)
+            textViewB.string = roundTripped.content
+            textViewB.setSelectedRange(roundTripped.selectedRange)
+            let bridgeB = NSTextViewOperationLogBridge(textView: textViewB, log: roundTripped.log)
+
+            #expect(textViewB.string == "hello world")
+
+            bridgeB.undo()
+            #expect(textViewB.string == "hello")
+
+            bridgeB.undo()
+            #expect(textViewB.string == "")
+
+            bridgeB.redo()
+            #expect(textViewB.string == "hello")
+
+            bridgeB.redo()
+            #expect(textViewB.string == "hello world")
+            #expect(textViewB.selectedRange == NSRange(location: 11, length: 0))
+        }
+    }
+
+    @MainActor
     @Suite struct ReentrancyGuard {
         @Test func `replay-driven view mutation records no forward entry`() {
             let (textView, bridge) = makeBridgedTextView()

@@ -166,6 +166,21 @@ extension NSTextViewOperationLogBridge {
 }
 
 extension NSTextViewOperationLogBridge {
+    /// Captures the view's content, selection, and the mirrored ``log`` as a ``SendableRopeBuffer``
+    /// for storage or transfer across actor boundaries, mirroring
+    /// ``TransferableUndoable/sendableSnapshot()``.
+    ///
+    /// To restore, configure a fresh view from the snapshot's content and selection, then hand the
+    /// snapshot's log to ``init(textView:log:)``.
+    public func sendableSnapshot() -> SendableRopeBuffer {
+        var snapshot = SendableRopeBuffer(textView.string)
+        snapshot.selectedRange = textView.selectedRange
+        snapshot.log = log
+        return snapshot
+    }
+}
+
+extension NSTextViewOperationLogBridge {
     /// Replays the most recent undo group back onto the text view, restoring content and selection.
     ///
     /// Replay makes the view emit its regular change callbacks for downstream consumers; the
