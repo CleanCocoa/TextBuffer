@@ -32,11 +32,7 @@ final class TextRopeConstructionTests: XCTestCase {
         let input = prefix + "\r\n" + "b"
         let rope = TextRope(input)
         XCTAssertEqual(rope.content, input)
-        expectKnownStructuralDebt("m2-rope-foundation 5.3 construction grouping leaves an undersized tail leaf", matching: "UTF-8 bytes, min is") {
-            expectKnownStructuralDebt("m2-rope-foundation 5.3 construction chunk sizing overflows max by one byte to keep the CRLF pair together", matching: "UTF-8 bytes, max is") {
-                verifyTreeInvariants(rope)
-            }
-        }
+        verifyTreeInvariants(rope)
 
         var chunks: [String] = []
         func collectChunks(_ node: TextRope.Node) {
@@ -63,8 +59,16 @@ final class TextRopeConstructionTests: XCTestCase {
         let rope = TextRope(input)
         XCTAssertEqual(rope.content, input)
         XCTAssertEqual(rope.utf16Count, input.utf16.count)
-        expectKnownStructuralDebt("m2-rope-foundation 5.3 construction grouping leaves an undersized tail leaf", matching: "UTF-8 bytes, min is") {
-            verifyTreeInvariants(rope)
+        verifyTreeInvariants(rope)
+    }
+
+    func testGroupingNeverEmitsUndersizedTailGroup() {
+        for leafCount in [9, 10, 11, 17] {
+            let input = String(repeating: "x", count: leafCount * TextRope.Node.maxChunkUTF8)
+            let rope = TextRope(input)
+            XCTAssertEqual(rope.content, input)
+            XCTAssertEqual(rope.utf8Count, input.utf8.count)
+            verifyTreeInvariants(rope, context: "\(leafCount) leaves")
         }
     }
 

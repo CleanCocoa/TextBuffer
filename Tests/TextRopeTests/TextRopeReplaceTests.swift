@@ -15,7 +15,17 @@ final class TextRopeReplaceTests: XCTestCase {
         var rope = TextRope(input)
         rope.replace(range: NSRange(location: chunk.utf16.count, length: 6), with: "XX")
         XCTAssertEqual(rope.content, chunk + "XX" + chunk)
-        expectKnownStructuralDebt("m2-rope-delete 1.3 leaf redistribution — merge on the replace path leaves an undersized leaf behind", matching: "UTF-8 bytes, min is") {
+        verifyTreeInvariants(rope)
+    }
+
+    func testReplaceLeavingUnabsorbableUndersizedLeaf() {
+        let a = String(repeating: "a", count: 2048)
+        let b = String(repeating: "b", count: 2000)
+        var rope = TextRope(a + b)
+        rope.replace(range: NSRange(location: 2047, length: 1000), with: "XX")
+        let expected = String(a.prefix(2047)) + "XX" + String(b.suffix(1001))
+        XCTAssertEqual(rope.content, expected)
+        expectKnownStructuralDebt("m2-rope-delete 1.3 leaf redistribution — merge on the replace path leaves an undersized leaf behind when absorbing it would overflow the neighbor", matching: "UTF-8 bytes, min is") {
             verifyTreeInvariants(rope)
         }
     }

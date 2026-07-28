@@ -53,6 +53,22 @@ final class TextRopeDeleteTests: XCTestCase {
         let input = a + b
         var rope = TextRope(input)
 
+        rope.delete(in: NSRange(location: 900, length: 300))
+
+        let expected = String(a.prefix(900)) + b
+        XCTAssertEqual(rope.content, expected)
+        XCTAssertEqual(rope.utf16Count, expected.utf16.count)
+        expectKnownStructuralDebt("m2-rope-delete 1.3 leaf redistribution — merge leaves an undersized leaf behind when absorbing it would overflow the neighbor", matching: "UTF-8 bytes, min is") {
+            verifyTreeInvariants(rope)
+        }
+    }
+
+    func testDeleteMergingAdjacentUndersizedLeaves() {
+        let a = String(repeating: "a", count: 1200)
+        let b = String(repeating: "b", count: 1200)
+        let input = a + b
+        var rope = TextRope(input)
+
         let deleteLen = 800
         rope.delete(in: NSRange(location: a.utf16.count - deleteLen / 2, length: deleteLen))
 
@@ -61,9 +77,7 @@ final class TextRopeDeleteTests: XCTestCase {
         let expected = expectedA + expectedB
         XCTAssertEqual(rope.content, expected)
         XCTAssertEqual(rope.utf16Count, expected.utf16.count)
-        expectKnownStructuralDebt("m2-rope-delete 1.3 leaf redistribution — merge leaves an undersized leaf behind", matching: "UTF-8 bytes, min is") {
-            verifyTreeInvariants(rope)
-        }
+        verifyTreeInvariants(rope)
     }
 
     func testDeletePreservesCOW() {
@@ -126,8 +140,6 @@ final class TextRopeDeleteTests: XCTestCase {
             )
         }
 
-        expectKnownStructuralDebt("m2-rope-delete 1.3 leaf redistribution — re-split overflows max by one byte to keep the CRLF pair together", matching: "UTF-8 bytes, max is") {
-            verifyTreeInvariants(rope)
-        }
+        verifyTreeInvariants(rope)
     }
 }

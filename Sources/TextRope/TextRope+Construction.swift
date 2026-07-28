@@ -9,13 +9,36 @@ extension TextRope {
         var remaining = string[...]
 
         while !remaining.isEmpty {
-            let chunkEnd = Node.leafSplitPoint(in: remaining)
+            let chunkEnd = Self.chunkEnd(in: remaining)
             leaves.append(Node.leaf(String(remaining[remaining.startIndex..<chunkEnd])))
             remaining = remaining[chunkEnd...]
         }
 
         self.init()
         self.root = Self.buildTree(from: leaves)
+    }
+
+    private static func chunkEnd(in slice: Substring) -> String.Index {
+        let utf8 = slice.utf8
+        let count = utf8.count
+
+        if count <= Node.maxChunkUTF8 {
+            return slice.endIndex
+        }
+
+        let target: Int
+        if count < Node.maxChunkUTF8 + Node.minChunkUTF8 {
+            target = (count + 1) / 2
+        } else {
+            target = Node.maxChunkUTF8
+        }
+
+        let candidate = utf8.index(utf8.startIndex, offsetBy: target)
+        let prev = utf8.index(before: candidate)
+        if utf8[prev] == UInt8(ascii: "\r") && utf8[candidate] == UInt8(ascii: "\n") {
+            return prev
+        }
+        return candidate
     }
 
     private static func buildTree(from nodes: [Node]) -> Node {
@@ -25,10 +48,16 @@ extension TextRope {
             var nextLevel: [Node] = []
             var i = 0
             while i < level.count {
-                let end = min(i + Node.maxChildren, level.count)
-                let group = ContiguousArray(level[i..<end])
+                let remaining = level.count - i
+                let take: Int
+                if remaining > Node.maxChildren && remaining < Node.maxChildren + Node.minChildren {
+                    take = (remaining + 1) / 2
+                } else {
+                    take = min(Node.maxChildren, remaining)
+                }
+                let group = ContiguousArray(level[i..<(i + take)])
                 nextLevel.append(Node.inner(group))
-                i = end
+                i += take
             }
             level = nextLevel
         }
