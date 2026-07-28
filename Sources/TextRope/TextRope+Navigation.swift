@@ -11,17 +11,12 @@ extension TextRope {
         var current = root
 
         while !current.isLeaf {
-            var found = false
-            for child in current.children {
-                if remaining < child.summary.utf16 {
+            for (index, child) in current.children.enumerated() {
+                if remaining < child.summary.utf16 || index == current.children.count - 1 {
                     current = child
-                    found = true
                     break
                 }
                 remaining -= child.summary.utf16
-            }
-            if !found {
-                current = current.children[current.children.count - 1]
             }
         }
 

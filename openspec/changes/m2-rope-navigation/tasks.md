@@ -1,7 +1,7 @@
 ## 1. findLeaf — Tree Descent
 
-- [ ] 1.1 Write tests for `findLeaf(utf16Offset:)` on a single-leaf rope: offset 0, mid-chunk, end-of-chunk
-- [ ] 1.2 Write tests for `findLeaf(utf16Offset:)` on a multi-leaf rope: first leaf, interior leaf, last leaf, end-of-document offset
+- [x] 1.1 Write tests for `findLeaf(utf16Offset:)` on a single-leaf rope: offset 0, mid-chunk, end-of-chunk
+- [x] 1.2 Write tests for `findLeaf(utf16Offset:)` on a multi-leaf rope: first leaf, interior leaf, last leaf, end-of-document offset
 - [ ] 1.3 Write test for `findLeaf(utf16Offset:)` with offset beyond bounds (precondition failure)
 - [x] 1.4 Implement `findLeaf(utf16Offset:)` in `TextRope+Navigation.swift` — inner-node descent using cumulative `summary.utf16`, return leaf + remaining offset
 
