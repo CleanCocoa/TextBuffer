@@ -340,6 +340,47 @@ final class TextRopeDeleteTests: XCTestCase {
         verifyTreeInvariants(rope)
     }
 
+    private func assertSummaryMatchesContent(_ rope: TextRope, _ step: String, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(rope.root.summary, TextRope.Summary.of(rope.content), step, file: file, line: line)
+        verifyTreeInvariants(rope, context: step, file: file, line: line)
+    }
+
+    func testSummaryStaysCorrectAfterSimpleDelete() {
+        var rope = TextRope("hello wonderful world")
+        rope.delete(in: NSRange(location: 5, length: 10))
+        XCTAssertEqual(rope.content, "hello world")
+        assertSummaryMatchesContent(rope, "simple ASCII delete")
+    }
+
+    func testSummaryStaysCorrectAfterDeletingMultiByteCharacters() {
+        var rope = TextRope("aé你😀𝄞b")
+        rope.delete(in: NSRange(location: 2, length: 5))
+        XCTAssertEqual(rope.content, "aéb")
+        assertSummaryMatchesContent(rope, "multi-byte delete")
+    }
+
+    func testSummaryStaysCorrectAfterDeletingNewlines() {
+        var rope = TextRope("one\ntwo\r\nthree\nfour")
+        XCTAssertEqual(rope.root.summary.lines, 3)
+
+        rope.delete(in: NSRange(location: 3, length: 6))
+        XCTAssertEqual(rope.content, "onethree\nfour")
+        XCTAssertEqual(rope.root.summary.lines, 1)
+        assertSummaryMatchesContent(rope, "newline delete")
+    }
+
+    func testSummaryStaysCorrectAfterMultiLevelCascadingMerges() {
+        let blocks = (0..<72).map { String(repeating: Character(UnicodeScalar(97 + $0 % 26)!), count: 2047) + "\n" }
+        var rope = TextRope(blocks.joined())
+        XCTAssertEqual(Int(rope.root.height), 3)
+
+        rope.delete(in: NSRange(location: 2048, length: 38 * 2048))
+
+        XCTAssertEqual(rope.content, blocks[0] + blocks[39...].joined())
+        XCTAssertEqual(Int(rope.root.height), 2)
+        assertSummaryMatchesContent(rope, "cascading merges")
+    }
+
     func testDeleteLeavingCRAndLFOnAdjacentWellSizedLeavesRejoinsThePair() {
         let a = String(repeating: "a", count: 1500)
         let middle = String(repeating: "m", count: 600)

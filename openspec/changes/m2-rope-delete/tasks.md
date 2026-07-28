@@ -25,7 +25,7 @@
 
 ## 5. Summary Correctness
 
-- [ ] 5.1 Write tests verifying summary correctness: after simple delete (utf8, utf16, lines), after delete removing multi-byte characters, after delete removing newlines, after multi-level cascading merges — validate every node's summary via full tree traversal
+- [x] 5.1 Write tests verifying summary correctness: after simple delete (utf8, utf16, lines), after delete removing multi-byte characters, after delete removing newlines, after multi-level cascading merges — validate every node's summary via full tree traversal
 - [x] 5.2 Implement bottom-up summary updates on the delete unwind path — recompute leaf summary from chunk after removal, recompute inner node summary from children after child removal/merge
 
 ## 6. COW Independence
