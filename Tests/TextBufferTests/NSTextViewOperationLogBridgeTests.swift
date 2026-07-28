@@ -431,6 +431,77 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
     }
 
     @MainActor
+    @Suite struct MultiRangeEdits {
+        @Test func `a two-range edit resets the history at commit instead of leaving a stale log`() {
+            let (textView, bridge) = makeBridgedTextView("aa bb aa")
+            typeEachCharacter(of: "x", startingAt: 0, in: textView, forwardingTo: bridge)
+            #expect(bridge.log.canUndo)
+
+            let ranges = [NSRange(location: 1, length: 2), NSRange(location: 7, length: 2)]
+            bridge.shouldChangeText(inRanges: ranges.map { NSValue(range: $0) }, replacementStrings: ["cc", "cc"])
+            textView.insertText("cc", replacementRange: ranges[1])
+            textView.insertText("cc", replacementRange: ranges[0])
+            bridge.textDidChange()
+
+            #expect(textView.string == "xcc bb cc")
+            #expect(bridge.log.history.isEmpty)
+            #expect(!bridge.log.canUndo)
+        }
+
+        @Test func `typing after a multi-range reset records fresh groups`() {
+            let (textView, bridge) = makeBridgedTextView("aa aa")
+            let ranges = [NSRange(location: 0, length: 2), NSRange(location: 3, length: 2)]
+            bridge.shouldChangeText(inRanges: ranges.map { NSValue(range: $0) }, replacementStrings: ["b", "b"])
+            textView.insertText("b", replacementRange: ranges[1])
+            textView.insertText("b", replacementRange: ranges[0])
+            bridge.textDidChange()
+
+            typeEachCharacter(of: "yz", startingAt: 0, in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "yzb b")
+            #expect(bridge.log.history.map(\.operations) == [
+                [
+                    BufferOperation(kind: .insert(content: "y", at: 0)),
+                    BufferOperation(kind: .insert(content: "z", at: 1)),
+                ],
+            ])
+
+            bridge.undo()
+            #expect(textView.string == "b b")
+        }
+
+        @Test func `a single-range edit forwarded through the plural funnel records like the singular funnel`() {
+            let (textView, bridge) = makeBridgedTextView()
+
+            bridge.shouldChangeText(inRanges: [NSValue(range: NSRange(location: 0, length: 0))], replacementStrings: ["a"])
+            textView.insertText("a", replacementRange: NSRange(location: 0, length: 0))
+            bridge.textDidChange()
+
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .insert(content: "a", at: 0))],
+            ])
+        }
+
+        @Test func `a plural attribute-only pass records nothing and keeps the log replayable`() {
+            let (textView, bridge) = makeBridgedTextView()
+            typeEachCharacter(of: "ab", startingAt: 0, in: textView, forwardingTo: bridge)
+            let historyAfterTyping = bridge.log.history
+
+            let ranges = [NSRange(location: 0, length: 1), NSRange(location: 1, length: 1)]
+            bridge.shouldChangeText(inRanges: ranges.map { NSValue(range: $0) }, replacementStrings: nil)
+            for range in ranges {
+                textView.textStorage!.addAttribute(.font, value: NSFont.boldSystemFont(ofSize: 12), range: range)
+            }
+            bridge.textDidChange()
+
+            #expect(bridge.log.history == historyAfterTyping)
+
+            bridge.undo()
+            #expect(textView.string == "")
+        }
+    }
+
+    @MainActor
     @Suite struct AttributeOnlyEdits {
         @Test func `a bold-style attribute pass through the view's change callbacks records nothing`() {
             let (textView, bridge) = makeBridgedTextView()

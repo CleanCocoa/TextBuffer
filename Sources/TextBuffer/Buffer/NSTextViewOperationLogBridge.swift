@@ -12,6 +12,11 @@ import AppKit
 ///     return true
 /// }
 ///
+/// func textView(_ textView: NSTextView, shouldChangeTextInRanges affectedRanges: [NSValue], replacementStrings: [String]?) -> Bool {
+///     bridge.shouldChangeText(inRanges: affectedRanges, replacementStrings: replacementStrings)
+///     return true
+/// }
+///
 /// func textDidChange(_ notification: Notification) {
 ///     bridge.textDidChange()
 /// }
@@ -56,6 +61,7 @@ public final class NSTextViewOperationLogBridge {
     public private(set) var log: OperationLog
     private var pendingChange: PendingChange?
     private var compositionBaseline: PendingChange?
+    private var discardsHistoryAtCommit = false
     private var isReplaying = false
     private let replayBuffer: ReplayingNSTextViewBuffer
     private var puppetUndoManager: PuppetUndoManager?
@@ -106,6 +112,30 @@ public final class NSTextViewOperationLogBridge {
         )
     }
 
+    /// Stages a multi-range edit. Forward from
+    /// `NSTextViewDelegate.textView(_:shouldChangeTextInRanges:replacementStrings:)`.
+    ///
+    /// A single-range edit funnels into ``shouldChangeText(in:replacementString:)`` and records
+    /// normally; `nil` `replacementStrings` (attribute-only change) behaves like the singular
+    /// `nil` replacement string. An edit spanning more than one range (e.g. typing with multiple
+    /// insertion points, or find-and-replace-all) cannot be recorded as one replayable delta, so
+    /// the bridge discards the log at the next ``textDidChange()`` instead of recording an
+    /// operation that would not replay — the same drop-history-rather-than-lie policy as the
+    /// divergence check in the singular commit path.
+    public func shouldChangeText(inRanges affectedRanges: [NSValue], replacementStrings: [String]?) {
+        guard !isReplaying else { return }
+        guard let replacementStrings else {
+            shouldChangeText(in: .notFound, replacementString: nil)
+            return
+        }
+        if affectedRanges.count == 1, replacementStrings.count == 1 {
+            shouldChangeText(in: affectedRanges[0].rangeValue, replacementString: replacementStrings[0])
+        } else {
+            pendingChange = nil
+            discardsHistoryAtCommit = true
+        }
+    }
+
     /// Commits the staged edit to the log as one undo group. Forward from
     /// `NSTextDelegate.textDidChange(_:)`. Without a staged edit, this is a no-op.
     ///
@@ -113,9 +143,19 @@ public final class NSTextViewOperationLogBridge {
     /// like find-and-replace-all funneled more than one range through
     /// ``shouldChangeText(in:replacementString:)`` — the bridge discards the log instead of
     /// recording an operation that would not replay: stale history replayed against diverged
-    /// content would corrupt it.
+    /// content would corrupt it. That protection only fires while an edit is staged: a host
+    /// that forwards nothing but the singular method lets a multi-range edit slip past with the
+    /// log silently stale. Forward ``shouldChangeText(inRanges:replacementStrings:)`` as well,
+    /// which marks the log for discard here whenever an edit spans more than one range.
     public func textDidChange() {
         guard !isReplaying else { return }
+        if discardsHistoryAtCommit {
+            discardsHistoryAtCommit = false
+            pendingChange = nil
+            compositionBaseline = nil
+            log = OperationLog()
+            return
+        }
         if textView.hasMarkedText() {
             if compositionBaseline == nil {
                 compositionBaseline = pendingChange
