@@ -24,6 +24,21 @@ private func type(
 }
 
 @MainActor
+private func typeEachCharacter(
+    of string: String,
+    startingAt location: Int,
+    in textView: NSTextView,
+    forwardingTo bridge: NSTextViewOperationLogBridge
+) {
+    var location = location
+    for character in string {
+        let keystroke = String(character)
+        type(keystroke, replacing: NSRange(location: location, length: 0), in: textView, forwardingTo: bridge)
+        location += keystroke.utf16.count
+    }
+}
+
+@MainActor
 private func markText(
     _ markedText: String,
     replacing affectedRange: NSRange,
@@ -68,6 +83,7 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             let (textView, bridge) = makeBridgedTextView()
 
             type("a", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            bridge.breakUndoCoalescing()
             type("b", replacing: NSRange(location: 1, length: 0), in: textView, forwardingTo: bridge)
 
             #expect(textView.string == "ab")
@@ -161,6 +177,90 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
     }
 
     @MainActor
+    @Suite struct UndoCoalescing {
+        @Test func `a continuous typing run coalesces into one undo group`() {
+            let (textView, bridge) = makeBridgedTextView()
+
+            typeEachCharacter(of: "hello", startingAt: 0, in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "hello")
+            #expect(bridge.log.history.count == 1)
+            #expect(bridge.log.history.map(\.selectionBefore) == [NSRange(location: 0, length: 0)])
+            #expect(bridge.log.history.map(\.selectionAfter) == [NSRange(location: 5, length: 0)])
+
+            bridge.undo()
+
+            #expect(textView.string == "")
+            #expect(textView.selectedRange == NSRange(location: 0, length: 0))
+        }
+
+        @Test func `an explicit break starts a new group so undo removes the last run only`() {
+            let (textView, bridge) = makeBridgedTextView()
+            typeEachCharacter(of: "hello", startingAt: 0, in: textView, forwardingTo: bridge)
+
+            bridge.breakUndoCoalescing()
+            typeEachCharacter(of: "world", startingAt: 5, in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "helloworld")
+            #expect(bridge.log.history.count == 2)
+
+            bridge.undo()
+            #expect(textView.string == "hello")
+            #expect(textView.selectedRange == NSRange(location: 5, length: 0))
+
+            bridge.redo()
+            #expect(textView.string == "helloworld")
+            #expect(textView.selectedRange == NSRange(location: 10, length: 0))
+        }
+
+        @Test func `undo ends the current typing run`() {
+            let (textView, bridge) = makeBridgedTextView()
+            typeEachCharacter(of: "ab", startingAt: 0, in: textView, forwardingTo: bridge)
+            bridge.undo()
+            #expect(textView.string == "")
+
+            typeEachCharacter(of: "cd", startingAt: 0, in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "cd")
+            #expect(bridge.log.history.count == 1)
+
+            bridge.undo()
+            #expect(textView.string == "")
+        }
+
+        @Test func `typing at a moved caret without a break starts a new group`() {
+            let (textView, bridge) = makeBridgedTextView()
+            typeEachCharacter(of: "ab", startingAt: 0, in: textView, forwardingTo: bridge)
+
+            type("x", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "xab")
+            #expect(bridge.log.history.count == 2)
+
+            bridge.undo()
+            #expect(textView.string == "ab")
+        }
+
+        @Test func `a backspace does not extend a typing run and typing after it starts a new run`() {
+            let (textView, bridge) = makeBridgedTextView()
+            typeEachCharacter(of: "ab", startingAt: 0, in: textView, forwardingTo: bridge)
+
+            type("", replacing: NSRange(location: 1, length: 1), in: textView, forwardingTo: bridge)
+            typeEachCharacter(of: "c", startingAt: 1, in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "ac")
+            #expect(bridge.log.history.count == 3)
+
+            bridge.undo()
+            #expect(textView.string == "a")
+            bridge.undo()
+            #expect(textView.string == "ab")
+            bridge.undo()
+            #expect(textView.string == "")
+        }
+    }
+
+    @MainActor
     @Suite struct AttributeOnlyEdits {
         @Test func `a bold-style attribute pass through the view's change callbacks records nothing`() {
             let (textView, bridge) = makeBridgedTextView()
@@ -213,6 +313,7 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
                 textView.textStorage!.addAttribute(.font, value: NSFont.boldSystemFont(ofSize: 12), range: range)
                 textView.didChangeText()
             }
+            bridge.breakUndoCoalescing()
             textView.insertText("b", replacementRange: NSRange(location: 1, length: 0))
 
             #expect(textView.string == "ab")
@@ -304,6 +405,7 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
         @Test func `undo replays the last group onto the view restoring content and selection`() {
             let (textView, bridge) = makeBridgedTextView()
             type("a", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            bridge.breakUndoCoalescing()
             type("b", replacing: NSRange(location: 1, length: 0), in: textView, forwardingTo: bridge)
 
             bridge.undo()
@@ -362,6 +464,7 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
         @Test func `redo reapplies an undone group restoring content and selection`() {
             let (textView, bridge) = makeBridgedTextView()
             type("a", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            bridge.breakUndoCoalescing()
             type("b", replacing: NSRange(location: 1, length: 0), in: textView, forwardingTo: bridge)
             bridge.undo()
 
@@ -414,6 +517,7 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             defer { withExtendedLifetime(delegate) {} }
 
             textView.insertText("a", replacementRange: NSRange(location: 0, length: 0))
+            bridge.breakUndoCoalescing()
             textView.insertText("b", replacementRange: NSRange(location: 1, length: 0))
             let historyAfterTyping = bridge.log.history
             #expect(historyAfterTyping.count == 2)

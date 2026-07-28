@@ -129,9 +129,7 @@ public final class NSTextViewOperationLogBridge {
             return
         }
         guard let operation = pending.bufferOperation else { return }
-        log.beginUndoGroup(selectionBefore: pending.selectionBefore)
-        log.record(operation)
-        log.endUndoGroup(selectionAfter: textView.selectedRange)
+        log.coalesce(operation, selectionBefore: pending.selectionBefore, selectionAfter: textView.selectedRange)
     }
 
     /// Records a finished marked-text composition as one edit: the pre-composition range the
@@ -151,6 +149,17 @@ public final class NSTextViewOperationLogBridge {
         )
         guard committed.replacement != baseline.oldContent else { return }
         commit(committed)
+    }
+}
+
+extension NSTextViewOperationLogBridge {
+    /// Ends the current typing run so the next edit starts a new undo group.
+    ///
+    /// Continuous typing coalesces into one undo group, macOS-style — never one group per
+    /// keystroke. The bridge cannot observe interaction breaks itself, so forward them from the
+    /// host app: mouse-down in the view, cursor repositioning, focus changes.
+    public func breakUndoCoalescing() {
+        log.breakCoalescing()
     }
 }
 

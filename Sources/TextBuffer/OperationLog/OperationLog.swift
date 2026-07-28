@@ -20,6 +20,7 @@ public struct OperationLog: Sendable, Equatable {
     public private(set) var cursor: Int
     @usableFromInline
     var groupingStack: [UndoGroup]
+    var isCoalescing: Bool
 
     @inlinable @inline(__always)
     public var isGrouping: Bool { !groupingStack.isEmpty }
@@ -28,6 +29,7 @@ public struct OperationLog: Sendable, Equatable {
         self.history = []
         self.cursor = 0
         self.groupingStack = []
+        self.isCoalescing = false
     }
 
     public mutating func beginUndoGroup(selectionBefore: NSRange, actionName: String? = nil) {
@@ -43,6 +45,7 @@ public struct OperationLog: Sendable, Equatable {
             history.removeSubrange(cursor...)
             history.append(group)
             cursor = history.count
+            isCoalescing = false
         } else {
             groupingStack[groupingStack.count - 1].operations.append(contentsOf: group.operations)
             if groupingStack[groupingStack.count - 1].actionName == nil, let name = group.actionName {
@@ -78,12 +81,14 @@ public struct OperationLog: Sendable, Equatable {
 
     public mutating func popUndo() -> UndoGroup? {
         guard canUndo else { return nil }
+        isCoalescing = false
         cursor -= 1
         return history[cursor]
     }
 
     public mutating func popRedo() -> UndoGroup? {
         guard canRedo else { return nil }
+        isCoalescing = false
         let group = history[cursor]
         cursor += 1
         return group
@@ -91,6 +96,7 @@ public struct OperationLog: Sendable, Equatable {
 
     public mutating func undo<B: Buffer>(on buffer: B) -> NSRange? where B.Range == NSRange, B.Content == String {
         guard canUndo else { return nil }
+        isCoalescing = false
         cursor -= 1
         let group = history[cursor]
         for operation in group.operations.reversed() {
@@ -113,6 +119,7 @@ public struct OperationLog: Sendable, Equatable {
 
     public mutating func redo<B: Buffer>(on buffer: B) -> NSRange? where B.Range == NSRange, B.Content == String {
         guard canRedo else { return nil }
+        isCoalescing = false
         let group = history[cursor]
         cursor += 1
         for operation in group.operations {
@@ -134,5 +141,36 @@ public struct OperationLog: Sendable, Equatable {
         }
         buffer.selectedRange = selectionAfter
         return group.selectionAfter
+    }
+}
+
+extension OperationLog {
+    /// Records `operation` as part of the current typing run, or starts a new group.
+    ///
+    /// An insert extends the run only while coalescing is active, the cursor sits at the end of
+    /// history, and the insert continues exactly where the run's last insert ended; the extended
+    /// group keeps its original `selectionBefore` and adopts `selectionAfter`. Anything else —
+    /// a break via ``breakCoalescing()``, undo/redo, an explicit group, a non-insert operation,
+    /// or a non-contiguous insert — records a fresh group, and only an insert opens a new run.
+    mutating func coalesce(_ operation: BufferOperation, selectionBefore: NSRange, selectionAfter: NSRange) {
+        if isCoalescing,
+           cursor == history.count,
+           case .insert(_, let location) = operation.kind,
+           case .insert(let runContent, let runLocation)? = history.last?.operations.last?.kind,
+           runLocation + runContent.utf16.count == location {
+            history[cursor - 1].operations.append(operation)
+            history[cursor - 1].selectionAfter = selectionAfter
+        } else {
+            beginUndoGroup(selectionBefore: selectionBefore)
+            record(operation)
+            endUndoGroup(selectionAfter: selectionAfter)
+            if case .insert = operation.kind {
+                isCoalescing = true
+            }
+        }
+    }
+
+    mutating func breakCoalescing() {
+        isCoalescing = false
     }
 }
