@@ -22,10 +22,10 @@
 
 ## 5. COW Independence
 
-- [ ] 5.1 Write tests for COW: copy rope then insert on copy — original unchanged; insert on single-owner rope mutates in place; verify unaffected subtrees remain reference-identical after path-copying insert on a shared rope
+- [x] 5.1 Write tests for COW: copy rope then insert on copy — original unchanged; insert on single-owner rope mutates in place; verify unaffected subtrees remain reference-identical after path-copying insert on a shared rope
 
 ## 6. Edge Cases and Integration
 
-- [ ] 6.1 Write tests for insert at UTF-16 offset that falls between surrogate pair halves (offset points to low surrogate of an emoji) — verify correct placement
-- [ ] 6.2 Write tests for `\r\n` preservation across insert: insert between `\r` and `\n`, insert text containing `\r\n` that triggers a split at the `\r\n` boundary
-- [ ] 6.3 Write test for repeated insertions that grow the tree from a single leaf to 3+ levels, verify final `content` matches expected string and root summary matches `Summary.of(content)`
+- [x] 6.1 Write tests for insert at UTF-16 offset that falls between surrogate pair halves (offset points to low surrogate of an emoji) — verify correct placement
+- [x] 6.2 Write tests for `\r\n` preservation across insert: insert between `\r` and `\n`, insert text containing `\r\n` that triggers a split at the `\r\n` boundary
+- [x] 6.3 Write test for repeated insertions that grow the tree from a single leaf to 3+ levels, verify final `content` matches expected string and root summary matches `Summary.of(content)`

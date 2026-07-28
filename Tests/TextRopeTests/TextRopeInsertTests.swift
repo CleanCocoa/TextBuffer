@@ -104,6 +104,110 @@ final class TextRopeInsertTests: XCTestCase {
         XCTAssertEqual(rope.utf16Count, 7)
     }
 
+    func testInsertOnSingleOwnerRopeMutatesInPlace() {
+        let blocks = (0..<21).map { _ in String(repeating: "x", count: 2000) }
+        var rope = TextRope(blocks.joined())
+        XCTAssertEqual(rope.root.children.map(\.children.count), [8, 8, 5])
+        let rootBefore = ObjectIdentifier(rope.root)
+        let untouchedBefore = ObjectIdentifier(rope.root.children[1])
+
+        rope.insert("Y", at: 41_060)
+
+        XCTAssertEqual(ObjectIdentifier(rope.root), rootBefore)
+        XCTAssertEqual(ObjectIdentifier(rope.root.children[1]), untouchedBefore)
+    }
+
+    func testInsertOnSharedRopeSharesUnaffectedSubtrees() {
+        let blocks = (0..<21).map { _ in String(repeating: "x", count: 2000) }
+        let original = TextRope(blocks.joined())
+        XCTAssertEqual(original.root.children.map(\.children.count), [8, 8, 5])
+
+        var copy = original
+        copy.insert("Y", at: 41_060)
+
+        XCTAssertTrue(copy.root !== original.root, "root must be path-copied")
+        XCTAssertTrue(copy.root.children[2] !== original.root.children[2], "subtree on the insert path must be path-copied")
+
+        XCTAssertTrue(copy.root.children[0] === original.root.children[0], "untouched subtree must stay shared")
+        XCTAssertTrue(copy.root.children[1] === original.root.children[1], "untouched subtree must stay shared")
+        for i in 0..<4 {
+            XCTAssertTrue(
+                copy.root.children[2].children[i] === original.root.children[2].children[i],
+                "untouched sibling leaf \(i) must stay shared"
+            )
+        }
+
+        XCTAssertEqual(original.content, blocks.joined())
+        XCTAssertEqual(copy.utf16Count, original.utf16Count + 1)
+    }
+
+    func testInsertAtOffsetInsideSurrogatePairLandsAtScalarBoundary() {
+        var rope = TextRope("a😀b")
+        rope.insert("X", at: 2)
+
+        XCTAssertEqual(rope.content, "aX😀b")
+        XCTAssertEqual(rope.utf16Count, 5)
+        XCTAssertEqual(rope.utf8Count, "aX😀b".utf8.count)
+    }
+
+    func testInsertBetweenCRAndLFKeepsContentAndLineCountConsistent() {
+        var rope = TextRope("first\r\nsecond")
+        XCTAssertEqual(rope.root.summary.lines, 1)
+
+        rope.insert("X", at: 6)
+
+        XCTAssertEqual(rope.content, "first\rX\nsecond")
+        XCTAssertEqual(rope.root.summary.lines, 1)
+        XCTAssertEqual(rope.root.summary, TextRope.Summary.of(rope.content))
+    }
+
+    func testInsertedCRLFIsNotSplitByTheResultingLeafSplit() {
+        let base = String(repeating: "a", count: 2000)
+        var rope = TextRope(base)
+        XCTAssertTrue(rope.root.isLeaf)
+
+        let inserted = String(repeating: "y", count: 49) + "\r\n" + String(repeating: "z", count: 49)
+        rope.insert(inserted, at: 1000)
+
+        var expected = base
+        expected.insert(contentsOf: inserted, at: expected.index(expected.startIndex, offsetBy: 1000))
+        XCTAssertEqual(rope.content, expected)
+        XCTAssertFalse(rope.root.isLeaf, "insert must have grown the rope past one leaf")
+        verifyTreeInvariants(rope)
+    }
+
+    func testRepeatedInsertionsGrowSingleLeafToThreePlusLevels() {
+        var rope = TextRope()
+        var oracle = ""
+        XCTAssertTrue(rope.root.isLeaf)
+
+        let fragments = ["aé你😀\n", String(repeating: "b", count: 400), "line\r\n你好𝄞"]
+        var step = 0
+        while Int(rope.root.height) < 3 {
+            let fragment = fragments[step % fragments.count]
+            let position: Int
+            switch step % 3 {
+            case 0: position = 0
+            case 1: position = TextRopeStressTests.validUTF16Offset(oracle.utf16.count / 2, in: oracle)
+            default: position = oracle.utf16.count
+            }
+            rope.insert(fragment, at: position)
+            let idx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: position)
+            oracle.insert(contentsOf: fragment, at: idx)
+            step += 1
+
+            if step % 100 == 0 {
+                XCTAssertEqual(rope.content, oracle, "diverged at step \(step)")
+                verifyTreeInvariants(rope, context: "step \(step)")
+            }
+        }
+
+        XCTAssertGreaterThanOrEqual(Int(rope.root.height), 3)
+        XCTAssertEqual(rope.content, oracle)
+        XCTAssertEqual(rope.root.summary, TextRope.Summary.of(oracle))
+        verifyTreeInvariants(rope, context: "final")
+    }
+
     func testMultipleInserts() {
         var rope = TextRope("ac")
         rope.insert("b", at: 1)
