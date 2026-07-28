@@ -84,6 +84,176 @@ final class RopeTransferIntegrationTests: XCTestCase {
         XCTAssertFalse(receiver.canUndo)
     }
 
+    func testRopeToStringToRopeRoundTripPreservesState() {
+        let original = TransferableUndoable(RopeBuffer("émigré"))
+        try! original.insert(" 你好", at: 6)
+        original.select(NSRange(location: 7, length: 2))
+
+        let intermediate: TransferableUndoable<MutableStringBuffer> = original.snapshot()
+        let roundTripped = TransferableUndoable(RopeBuffer(""))
+        roundTripped.represent(intermediate)
+
+        XCTAssertEqual(roundTripped.content, "émigré 你好")
+        XCTAssertEqual(roundTripped.selectedRange, NSRange(location: 7, length: 2))
+
+        original.undo()
+        roundTripped.undo()
+        XCTAssertEqual(roundTripped.content, original.content)
+        XCTAssertEqual(roundTripped.selectedRange, original.selectedRange)
+    }
+
+    func testUndoRedoAfterRoundTripTransfer() {
+        let original = TransferableUndoable(RopeBuffer("abc"))
+        try! original.insert("X", at: 0)
+        try! original.insert("Y", at: 4)
+
+        let roundTripped = TransferableUndoable(RopeBuffer(""))
+        roundTripped.represent(original.snapshot())
+
+        roundTripped.undo()
+        XCTAssertEqual(roundTripped.content, "Xabc")
+        roundTripped.undo()
+        XCTAssertEqual(roundTripped.content, "abc")
+        XCTAssertFalse(roundTripped.canUndo)
+
+        roundTripped.redo()
+        XCTAssertEqual(roundTripped.content, "Xabc")
+        roundTripped.redo()
+        XCTAssertEqual(roundTripped.content, "XabcY")
+        XCTAssertFalse(roundTripped.canRedo)
+    }
+
+    func testConsecutiveRoundTripsAreIdempotent() {
+        let buffer = TransferableUndoable(RopeBuffer("stable état"))
+        try! buffer.insert("!", at: 11)
+        buffer.select(NSRange(location: 0, length: 6))
+        buffer.undo()
+
+        for iteration in 1...3 {
+            let before = (buffer.content, buffer.selectedRange, buffer.canUndo, buffer.canRedo)
+
+            let receiver = TransferableUndoable(RopeBuffer(""))
+            receiver.represent(buffer.snapshot())
+
+            XCTAssertEqual(receiver.content, before.0, "content changed on round-trip \(iteration)")
+            XCTAssertEqual(receiver.selectedRange, before.1, "selection changed on round-trip \(iteration)")
+            XCTAssertEqual(receiver.canUndo, before.2, "canUndo changed on round-trip \(iteration)")
+            XCTAssertEqual(receiver.canRedo, before.3, "canRedo changed on round-trip \(iteration)")
+        }
+    }
+
+    func testInterleavedEditsAndUndoRedoMatchAcrossBufferTypes() {
+        let pair = makeBufferPair("départ")
+
+        try! pair.rope.insert("A", at: 0)
+        try! pair.msb.insert("A", at: 0)
+        assertPairMatch(pair, "insert A")
+
+        pair.rope.undo()
+        pair.msb.undo()
+        assertPairMatch(pair, "undo insert A")
+
+        try! pair.rope.insert("B", at: 6)
+        try! pair.msb.insert("B", at: 6)
+        assertPairMatch(pair, "insert B after undo")
+
+        try! pair.rope.delete(in: NSRange(location: 1, length: 2))
+        try! pair.msb.delete(in: NSRange(location: 1, length: 2))
+        assertPairMatch(pair, "delete")
+
+        pair.rope.undo()
+        pair.msb.undo()
+        assertPairMatch(pair, "undo delete")
+
+        pair.rope.redo()
+        pair.msb.redo()
+        assertPairMatch(pair, "redo delete")
+
+        try! pair.rope.replace(range: NSRange(location: 0, length: 1), with: "ç")
+        try! pair.msb.replace(range: NSRange(location: 0, length: 1), with: "ç")
+        assertPairMatch(pair, "replace after redo")
+
+        pair.rope.undo()
+        pair.msb.undo()
+        assertPairMatch(pair, "final undo")
+    }
+
+    func testGroupedOperationsMatchAcrossBufferTypesWithAtomicUndo() {
+        let pair = makeBufferPair("naïve")
+
+        pair.rope.undoGrouping {
+            try! pair.rope.insert("«", at: 0)
+            try! pair.rope.insert("»", at: 6)
+        }
+        pair.msb.undoGrouping {
+            try! pair.msb.insert("«", at: 0)
+            try! pair.msb.insert("»", at: 6)
+        }
+        assertPairMatch(pair, "grouped inserts")
+        XCTAssertEqual(pair.rope.log.undoableCount, pair.msb.log.undoableCount)
+
+        pair.rope.undo()
+        pair.msb.undo()
+        assertPairMatch(pair, "atomic undo of group")
+        XCTAssertEqual(pair.rope.content, "naïve")
+    }
+
+    func testRopeSnapshotConsumedByStringBufferRepresent() {
+        let rope = TransferableUndoable(RopeBuffer("løg"))
+        try! rope.insert("bog", at: 3)
+        rope.select(NSRange(location: 0, length: 3))
+
+        let receiver = TransferableUndoable(MutableStringBuffer(""))
+        receiver.represent(rope.snapshot())
+
+        XCTAssertEqual(receiver.content, "løgbog")
+        XCTAssertEqual(receiver.selectedRange, NSRange(location: 0, length: 3))
+
+        receiver.undo()
+        XCTAssertEqual(receiver.content, "løg")
+        XCTAssertFalse(receiver.canUndo)
+    }
+
+    func testStringBufferSnapshotConsumedByRopeBufferRepresent() {
+        let msb = TransferableUndoable(MutableStringBuffer("løg"))
+        try! msb.insert("bog", at: 3)
+        msb.select(NSRange(location: 3, length: 3))
+
+        let receiver = TransferableUndoable(RopeBuffer(""))
+        receiver.represent(msb.snapshot())
+
+        XCTAssertEqual(receiver.content, "løgbog")
+        XCTAssertEqual(receiver.selectedRange, NSRange(location: 3, length: 3))
+
+        receiver.undo()
+        XCTAssertEqual(receiver.content, "løg")
+        XCTAssertFalse(receiver.canUndo)
+    }
+
+    func testThreeWayExchangeReflectsAllMutationsWithFullHistory() {
+        let rope = TransferableUndoable(RopeBuffer("start"))
+        try! rope.insert(" 一", at: 5)
+
+        let string = TransferableUndoable(MutableStringBuffer(""))
+        string.represent(rope.snapshot())
+        try! string.insert(" 二", at: 7)
+
+        let finalRope = TransferableUndoable(RopeBuffer(""))
+        finalRope.represent(string.snapshot())
+
+        XCTAssertEqual(finalRope.content, "start 一 二")
+
+        finalRope.undo()
+        XCTAssertEqual(finalRope.content, "start 一")
+        finalRope.undo()
+        XCTAssertEqual(finalRope.content, "start")
+        XCTAssertFalse(finalRope.canUndo)
+
+        finalRope.redo()
+        finalRope.redo()
+        XCTAssertEqual(finalRope.content, "start 一 二")
+    }
+
     func testUndoRedoOnRopeBuffer() {
         let buffer = TransferableUndoable(RopeBuffer("hello"))
         try! buffer.insert(" world", at: 5)

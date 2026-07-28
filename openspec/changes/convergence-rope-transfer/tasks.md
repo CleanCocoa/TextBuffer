@@ -26,19 +26,19 @@
 
 ## 5. Cross-Type Transfer Round-Trip
 
-- [ ] 5.1 Test Rope → String → Rope round-trip preserves content, selection, and undo behavior
-- [ ] 5.2 Test undo/redo works correctly after round-trip transfer
-- [ ] 5.3 Test multiple consecutive round-trips are idempotent with respect to observable state
+- [x] 5.1 Test Rope → String → Rope round-trip preserves content, selection, and undo behavior
+- [x] 5.2 Test undo/redo works correctly after round-trip transfer
+- [x] 5.3 Test multiple consecutive round-trips are idempotent with respect to observable state
 
 ## 6. Undo Equivalence Across Buffer Types
 
 - [x] 6.1 Test simple edit sequence (insert, delete, replace) produces identical content and selectedRange on both `TransferableUndoable<RopeBuffer>` and `TransferableUndoable<MutableStringBuffer>` after every step
-- [ ] 6.2 Test undo/redo interleaved with edits produces identical state on both buffer types after every step
-- [ ] 6.3 Test grouped operations produce identical state on both buffer types, with atomic undo
+- [x] 6.2 Test undo/redo interleaved with edits produces identical state on both buffer types after every step
+- [x] 6.3 Test grouped operations produce identical state on both buffer types, with atomic undo
 - [x] 6.4 Test multi-byte Unicode edit sequences produce identical state on both buffer types — confirms UTF-8/UTF-16 consistency
 
 ## 7. Three Buffer Types Interchangeable
 
-- [ ] 7.1 Test RopeBuffer snapshot consumed by MutableStringBuffer represent — identical content, selection, undo history
-- [ ] 7.2 Test MutableStringBuffer snapshot consumed by RopeBuffer represent — identical content, selection, undo history
-- [ ] 7.3 Test three-way exchange: Rope → snapshot → String (mutate) → snapshot → Rope — final state reflects all mutations with full undo history
+- [x] 7.1 Test RopeBuffer snapshot consumed by MutableStringBuffer represent — identical content, selection, undo history
+- [x] 7.2 Test MutableStringBuffer snapshot consumed by RopeBuffer represent — identical content, selection, undo history
+- [x] 7.3 Test three-way exchange: Rope → snapshot → String (mutate) → snapshot → Rope — final state reflects all mutations with full undo history
