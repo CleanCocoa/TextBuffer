@@ -62,6 +62,8 @@ public final class NSTextViewOperationLogBridge {
 
     public init(textView: NSTextView, log: OperationLog = OperationLog()) {
         self.textView = textView
+        var log = log
+        log.breakCoalescing()
         self.log = log
         self.replayBuffer = ReplayingNSTextViewBuffer(textView: textView)
     }

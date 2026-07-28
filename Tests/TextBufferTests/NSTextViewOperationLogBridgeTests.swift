@@ -241,6 +241,23 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             #expect(textView.string == "ab")
         }
 
+        @Test func `a log with an open typing run handed to a new bridge starts a fresh group`() {
+            let (textViewA, bridgeA) = makeBridgedTextView()
+            typeEachCharacter(of: "hel", startingAt: 0, in: textViewA, forwardingTo: bridgeA)
+            #expect(bridgeA.log.history.count == 1)
+
+            let textViewB = NSTextView(usingTextLayoutManager: false)
+            textViewB.string = "hel"
+            let bridgeB = NSTextViewOperationLogBridge(textView: textViewB, log: bridgeA.log)
+            type("l", replacing: NSRange(location: 3, length: 0), in: textViewB, forwardingTo: bridgeB)
+
+            #expect(textViewB.string == "hell")
+            #expect(bridgeB.log.history.count == 2)
+
+            bridgeB.undo()
+            #expect(textViewB.string == "hel")
+        }
+
         @Test func `a backspace does not extend a typing run and typing after it starts a new run`() {
             let (textView, bridge) = makeBridgedTextView()
             typeEachCharacter(of: "ab", startingAt: 0, in: textView, forwardingTo: bridge)
