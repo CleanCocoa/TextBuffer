@@ -228,7 +228,25 @@ extension NSTextViewOperationLogBridge {
     ///
     /// To restore, configure a fresh view from the snapshot's content and selection, then hand the
     /// snapshot's log to ``init(textView:log:)``.
+    ///
+    /// Snapshotting requires quiescence. During ``undo()``/``redo()`` replay the view already
+    /// holds the post-replay content while ``log`` still holds the pre-replay cursor, and while
+    /// the view `hasMarkedText()` the uncommitted composition is in the view but gated out of
+    /// the log — a snapshot taken in either state would restore to a buffer that repeats an
+    /// operation or traps on an out-of-range undo, so this method traps instead of capturing
+    /// torn state. Do not snapshot from a change callback fired by replay, and do not snapshot
+    /// mid-composition; wait until ``undo()``/``redo()`` returns and the composition commits or
+    /// cancels. Resolving an active composition here is not an option because the user may still
+    /// cancel it, which would fabricate a commit that never happened. A stale baseline left by
+    /// an unmark without a character change is resolved first — committed or discarded against
+    /// the view's current content — exactly as the next staging call would resolve it.
     public func sendableSnapshot() -> SendableRopeBuffer {
+        precondition(!isReplaying, "sendableSnapshot() called during undo/redo replay: the view holds post-replay content while the log cursor is pre-replay; snapshot only after undo()/redo() returns")
+        precondition(!textView.hasMarkedText(), "sendableSnapshot() called during marked-text composition: the uncommitted composition is in the view but not in the log; snapshot only after the composition commits or cancels")
+        if let baseline = compositionBaseline {
+            compositionBaseline = nil
+            commitComposition(from: baseline)
+        }
         var snapshot = SendableRopeBuffer(textView.string)
         snapshot.selectedRange = textView.selectedRange
         snapshot.log = log

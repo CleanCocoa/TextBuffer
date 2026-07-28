@@ -913,6 +913,115 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
         }
     }
 
+    @Suite struct SnapshotQuiescence {
+        @MainActor
+        @Test func `a snapshot taken after undo returns restores onto a fresh view and redoes cleanly`() {
+            let (textView, bridge) = makeBridgedTextView()
+            typeEachCharacter(of: "hello", startingAt: 0, in: textView, forwardingTo: bridge)
+            bridge.breakUndoCoalescing()
+            typeEachCharacter(of: "world", startingAt: 5, in: textView, forwardingTo: bridge)
+            bridge.undo()
+
+            let snapshot = bridge.sendableSnapshot()
+
+            #expect(snapshot.content == "hello")
+            #expect(snapshot.log == bridge.log)
+
+            let textViewB = NSTextView(usingTextLayoutManager: false)
+            textViewB.string = snapshot.content
+            textViewB.setSelectedRange(snapshot.selectedRange)
+            let bridgeB = NSTextViewOperationLogBridge(textView: textViewB, log: snapshot.log)
+
+            bridgeB.redo()
+            #expect(textViewB.string == "helloworld")
+
+            bridgeB.undo()
+            #expect(textViewB.string == "hello")
+
+            bridgeB.undo()
+            #expect(textViewB.string == "")
+        }
+
+        @MainActor
+        @Test func `a snapshot taken after a composition commits restores onto a fresh view consistently`() {
+            let (textView, bridge) = makeBridgedTextView()
+            markText("に", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            markText("にほ", replacing: NSRange(location: 0, length: 1), in: textView, forwardingTo: bridge)
+            type("日本", replacing: NSRange(location: 0, length: 2), in: textView, forwardingTo: bridge)
+
+            let snapshot = bridge.sendableSnapshot()
+
+            #expect(snapshot.content == "日本")
+
+            let textViewB = NSTextView(usingTextLayoutManager: false)
+            textViewB.string = snapshot.content
+            textViewB.setSelectedRange(snapshot.selectedRange)
+            let bridgeB = NSTextViewOperationLogBridge(textView: textViewB, log: snapshot.log)
+
+            bridgeB.undo()
+            #expect(textViewB.string == "")
+
+            bridgeB.redo()
+            #expect(textViewB.string == "日本")
+        }
+
+        @MainActor
+        @Test func `a snapshot after an unmark without a character change resolves the stale composition baseline`() {
+            let (textView, bridge) = makeBridgedTextView()
+            markText("に", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            textView.unmarkText()
+            #expect(textView.hasMarkedText() == false)
+
+            let snapshot = bridge.sendableSnapshot()
+
+            #expect(snapshot.content == "に")
+            #expect(snapshot.log.history.map(\.operations) == [
+                [BufferOperation(kind: .insert(content: "に", at: 0))],
+            ])
+            #expect(snapshot.log == bridge.log)
+
+            let textViewB = NSTextView(usingTextLayoutManager: false)
+            textViewB.string = snapshot.content
+            textViewB.setSelectedRange(snapshot.selectedRange)
+            let bridgeB = NSTextViewOperationLogBridge(textView: textViewB, log: snapshot.log)
+
+            bridgeB.undo()
+            #expect(textViewB.string == "")
+        }
+
+        @Test func `snapshotting from a change callback during undo replay traps`() async {
+            await #expect(processExitsWith: .failure) {
+                await MainActor.run {
+                    let textView = NSTextView(usingTextLayoutManager: false)
+                    let bridge = NSTextViewOperationLogBridge(textView: textView)
+                    let delegate = ForwardingDelegate(bridge: bridge)
+                    textView.delegate = delegate
+                    textView.insertText("a", replacementRange: NSRange(location: 0, length: 0))
+                    delegate.onTextDidChange = { _ = bridge.sendableSnapshot() }
+                    bridge.undo()
+                    withExtendedLifetime(delegate) {}
+                }
+            }
+        }
+
+        @Test func `snapshotting while marked text is active traps`() async {
+            await #expect(processExitsWith: .failure) {
+                await MainActor.run {
+                    let textView = NSTextView(usingTextLayoutManager: false)
+                    let bridge = NSTextViewOperationLogBridge(textView: textView)
+                    bridge.shouldChangeText(in: NSRange(location: 0, length: 0), replacementString: "に")
+                    textView.setMarkedText(
+                        "に",
+                        selectedRange: NSRange(location: 1, length: 0),
+                        replacementRange: NSRange(location: 0, length: 0)
+                    )
+                    bridge.textDidChange()
+                    _ = bridge.sendableSnapshot()
+                }
+            }
+        }
+    }
+
     @MainActor
     @Suite struct ReentrancyGuard {
         @Test func `replay-driven view mutation records no forward entry`() {
