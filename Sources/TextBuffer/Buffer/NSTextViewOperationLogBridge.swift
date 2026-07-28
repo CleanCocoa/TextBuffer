@@ -55,6 +55,7 @@ public final class NSTextViewOperationLogBridge {
     /// The mirrored undo history. A value type: copy it to snapshot or transfer undo state.
     public private(set) var log: OperationLog
     private var pendingChange: PendingChange?
+    private var compositionBaseline: PendingChange?
     private var isReplaying = false
     private let replayBuffer: ReplayingNSTextViewBuffer
     private var puppetUndoManager: PuppetUndoManager?
@@ -72,8 +73,15 @@ public final class NSTextViewOperationLogBridge {
     /// previously staged edit that never committed — e.g. one whose delegate callback the host
     /// vetoed after forwarding it here. The bridge never vetoes an edit; the delegate's return
     /// value remains the caller's decision.
+    ///
+    /// While the view `hasMarkedText()`, composition intermediates stage nothing; the finished
+    /// composition is recorded once, from the baseline staged when composition began.
     public func shouldChangeText(in affectedRange: NSRange, replacementString: String?) {
         guard !isReplaying else { return }
+        guard !textView.hasMarkedText() else {
+            pendingChange = nil
+            return
+        }
         guard let replacementString else {
             pendingChange = nil
             return
@@ -97,8 +105,25 @@ public final class NSTextViewOperationLogBridge {
     /// content would corrupt it.
     public func textDidChange() {
         guard !isReplaying else { return }
+        if textView.hasMarkedText() {
+            if compositionBaseline == nil {
+                compositionBaseline = pendingChange
+            }
+            pendingChange = nil
+            return
+        }
+        if let baseline = compositionBaseline {
+            compositionBaseline = nil
+            pendingChange = nil
+            commitComposition(from: baseline)
+            return
+        }
         guard let pending = pendingChange else { return }
         pendingChange = nil
+        commit(pending)
+    }
+
+    private func commit(_ pending: PendingChange) {
         guard pending.isConsistent(with: textView.nsMutableString) else {
             log = OperationLog()
             return
@@ -107,6 +132,25 @@ public final class NSTextViewOperationLogBridge {
         log.beginUndoGroup(selectionBefore: pending.selectionBefore)
         log.record(operation)
         log.endUndoGroup(selectionAfter: textView.selectedRange)
+    }
+
+    /// Records a finished marked-text composition as one edit: the pre-composition range the
+    /// baseline staged, replaced by whatever the view holds there now. The committed length is
+    /// the view's length delta since the baseline plus the baseline range's length; a cancelled
+    /// composition restores the baseline content and records nothing.
+    private func commitComposition(from baseline: PendingChange) {
+        let length = textView.nsMutableString.length
+        let committedLength = length - baseline.textLengthBefore + baseline.affectedRange.length
+        guard committedLength >= 0, baseline.affectedRange.location + committedLength <= length else {
+            log = OperationLog()
+            return
+        }
+        var committed = baseline
+        committed.replacement = textView.nsMutableString.substring(
+            with: NSRange(location: baseline.affectedRange.location, length: committedLength)
+        )
+        guard committed.replacement != baseline.oldContent else { return }
+        commit(committed)
     }
 }
 

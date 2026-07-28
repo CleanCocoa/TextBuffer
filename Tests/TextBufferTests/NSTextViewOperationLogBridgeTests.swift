@@ -24,6 +24,22 @@ private func type(
 }
 
 @MainActor
+private func markText(
+    _ markedText: String,
+    replacing affectedRange: NSRange,
+    in textView: NSTextView,
+    forwardingTo bridge: NSTextViewOperationLogBridge
+) {
+    bridge.shouldChangeText(in: affectedRange, replacementString: markedText)
+    textView.setMarkedText(
+        markedText,
+        selectedRange: NSRange(location: markedText.utf16.count, length: 0),
+        replacementRange: affectedRange
+    )
+    bridge.textDidChange()
+}
+
+@MainActor
 private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
     let bridge: NSTextViewOperationLogBridge
     private(set) var textDidChangeCount = 0
@@ -141,6 +157,80 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
 
             #expect(textView.string == "a")
             #expect(bridge.log.history.count == 1)
+        }
+    }
+
+    @MainActor
+    @Suite struct MarkedTextComposition {
+        @Test func `composition intermediates record nothing while marked text is active`() {
+            let (textView, bridge) = makeBridgedTextView()
+
+            markText("に", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            markText("にほ", replacing: NSRange(location: 0, length: 1), in: textView, forwardingTo: bridge)
+            markText("にほん", replacing: NSRange(location: 0, length: 2), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "にほん")
+            #expect(textView.hasMarkedText())
+            #expect(bridge.log.history.isEmpty)
+        }
+
+        @Test func `committing a composition records exactly one insert group`() {
+            let (textView, bridge) = makeBridgedTextView()
+            markText("に", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            markText("にほ", replacing: NSRange(location: 0, length: 1), in: textView, forwardingTo: bridge)
+
+            type("日本", replacing: NSRange(location: 0, length: 2), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "日本")
+            #expect(textView.hasMarkedText() == false)
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .insert(content: "日本", at: 0))],
+            ])
+            #expect(bridge.log.history.map(\.selectionBefore) == [NSRange(location: 0, length: 0)])
+            #expect(bridge.log.history.map(\.selectionAfter) == [NSRange(location: 2, length: 0)])
+        }
+
+        @Test func `undo after a committed composition removes the whole composition`() {
+            let (textView, bridge) = makeBridgedTextView("ab")
+            textView.setSelectedRange(NSRange(location: 1, length: 0))
+            markText("に", replacing: NSRange(location: 1, length: 0), in: textView, forwardingTo: bridge)
+            type("日", replacing: NSRange(location: 1, length: 1), in: textView, forwardingTo: bridge)
+            #expect(textView.string == "a日b")
+
+            bridge.undo()
+
+            #expect(textView.string == "ab")
+            #expect(textView.selectedRange == NSRange(location: 1, length: 0))
+        }
+
+        @Test func `committing a composition over a selection records one replace group`() {
+            let (textView, bridge) = makeBridgedTextView("hello")
+            textView.setSelectedRange(NSRange(location: 0, length: 5))
+            markText("に", replacing: NSRange(location: 0, length: 5), in: textView, forwardingTo: bridge)
+
+            type("日本", replacing: NSRange(location: 0, length: 1), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "日本")
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .replace(range: NSRange(location: 0, length: 5), oldContent: "hello", newContent: "日本"))],
+            ])
+
+            bridge.undo()
+
+            #expect(textView.string == "hello")
+            #expect(textView.selectedRange == NSRange(location: 0, length: 5))
+        }
+
+        @Test func `cancelling a composition records nothing`() {
+            let (textView, bridge) = makeBridgedTextView()
+            markText("に", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            markText("にほ", replacing: NSRange(location: 0, length: 1), in: textView, forwardingTo: bridge)
+
+            markText("", replacing: NSRange(location: 0, length: 2), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "")
+            #expect(textView.hasMarkedText() == false)
+            #expect(bridge.log.history.isEmpty)
         }
     }
 
