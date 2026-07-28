@@ -381,6 +381,54 @@ final class TextRopeDeleteTests: XCTestCase {
         assertSummaryMatchesContent(rope, "cascading merges")
     }
 
+    func testDeleteOnCopyLeavesOriginalUnchanged() {
+        let blocks = (0..<4).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
+        let original = TextRope(blocks.joined())
+        let originalContent = original.content
+
+        var copy = original
+        copy.delete(in: NSRange(location: 1000, length: 3000))
+
+        XCTAssertEqual(original.content, originalContent)
+        XCTAssertNotEqual(copy.content, originalContent)
+    }
+
+    func testDeleteOnSingleOwnerRopeMutatesInPlace() {
+        let blocks = (0..<4).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
+        var rope = TextRope(blocks.joined())
+        let rootBefore = ObjectIdentifier(rope.root)
+        let untouchedLeafBefore = ObjectIdentifier(rope.root.children[2])
+
+        rope.delete(in: NSRange(location: 100, length: 10))
+
+        XCTAssertEqual(ObjectIdentifier(rope.root), rootBefore)
+        XCTAssertEqual(ObjectIdentifier(rope.root.children[2]), untouchedLeafBefore)
+    }
+
+    func testDeleteOnSharedRopeSharesUnaffectedSubtrees() {
+        let blocks = (0..<20).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
+        let original = TextRope(blocks.joined())
+        XCTAssertEqual(original.root.children.map(\.children.count), [8, 8, 4])
+
+        var copy = original
+        copy.delete(in: NSRange(location: 100, length: 10))
+
+        XCTAssertTrue(copy.root !== original.root, "root must be path-copied")
+        XCTAssertTrue(copy.root.children[0] !== original.root.children[0], "subtree on the delete path must be path-copied")
+        XCTAssertTrue(copy.root.children[0].children[0] !== original.root.children[0].children[0], "edited leaf must be path-copied")
+
+        XCTAssertTrue(copy.root.children[1] === original.root.children[1], "untouched subtree must stay shared")
+        XCTAssertTrue(copy.root.children[2] === original.root.children[2], "untouched subtree must stay shared")
+        for i in 1..<8 {
+            XCTAssertTrue(
+                copy.root.children[0].children[i] === original.root.children[0].children[i],
+                "untouched sibling leaf \(i) must stay shared"
+            )
+        }
+
+        XCTAssertEqual(original.content, blocks.joined())
+    }
+
     func testDeleteLeavingCRAndLFOnAdjacentWellSizedLeavesRejoinsThePair() {
         let a = String(repeating: "a", count: 1500)
         let middle = String(repeating: "m", count: 600)

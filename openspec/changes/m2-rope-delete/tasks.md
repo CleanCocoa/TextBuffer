@@ -30,7 +30,7 @@
 
 ## 6. COW Independence
 
-- [ ] 6.1 Write tests for COW: copy rope then delete on copy — original unchanged; delete on single-owner rope mutates in place; verify unaffected subtrees remain reference-identical after path-copying delete on a shared rope
+- [x] 6.1 Write tests for COW: copy rope then delete on copy — original unchanged; delete on single-owner rope mutates in place; verify unaffected subtrees remain reference-identical after path-copying delete on a shared rope
 
 ## 7. Edge Cases and Integration
 
