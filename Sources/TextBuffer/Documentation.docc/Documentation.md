@@ -44,6 +44,7 @@ analysis to either.
 
 - ``Undoable``
 - ``TransferableUndoable``
+- ``NSTextViewOperationLogBridge``
 - ``OperationLog``
 - ``UndoGroup``
 - ``BufferOperation``

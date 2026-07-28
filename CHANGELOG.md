@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `NSTextViewOperationLogBridge` — mirrors `NSTextView` edits into an `OperationLog` while the text view stays the live content authority. Feed it by forwarding `shouldChangeText(in:replacementString:)` and `textDidChange()` from the view's delegate; `undo()`/`redo()` replay log groups back onto the view (content and selection) through `insertText(_:replacementRange:)` so the view re-emits its regular change callbacks; `enableSystemUndoIntegration()` returns a `PuppetUndoManager` for AppKit's Edit menu and Cmd+Z. Replay-driven view mutations are guarded against re-recording. IME/marked-text gating, attribute-only-edit filtering, coalescing/break events, and programmatic-replace grouping are not implemented yet.
+
 ## 0.6.0
 
 ### Added
