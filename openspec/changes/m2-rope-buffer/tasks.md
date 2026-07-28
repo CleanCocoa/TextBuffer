@@ -19,7 +19,7 @@
 ## 4. RopeBuffer Finishing Touches
 
 - [x] 4.1 Add `@available(*, unavailable) extension RopeBuffer: @unchecked Sendable {}` to match MutableStringBuffer's Sendable opt-out pattern.
-- [ ] 4.2 Add `CustomStringConvertible` conformance with guillemet/caret notation matching `MutableStringBuffer.description`.
+- [x] 4.2 Add `CustomStringConvertible` conformance with guillemet/caret notation matching `MutableStringBuffer.description`.
 - [ ] 4.3 Verify `wordRange(for:)` works via the `TextAnalysisCapable` protocol extension default — write a test exercising word range expansion.
 
 ## 5. RopeBuffer Drift Tests — Insert Scenarios

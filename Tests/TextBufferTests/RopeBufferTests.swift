@@ -98,6 +98,20 @@ final class RopeBufferTests: XCTestCase {
         XCTAssertEqual(buffer.selectedRange, NSRange(location: 4, length: 0))
     }
 
+    func testDescriptionShowsInsertionPointWithCaretNotation() {
+        let buffer = RopeBuffer("Hello, world!")
+        XCTAssertEqual(String(describing: buffer), "ˇHello, world!")
+
+        buffer.setInsertionLocation(5)
+        XCTAssertEqual(String(describing: buffer), "Helloˇ, world!")
+    }
+
+    func testDescriptionShowsSelectionWithGuillemetNotation() {
+        let buffer = RopeBuffer("Hello, world!")
+        buffer.select(NSRange(location: 7, length: 5))
+        XCTAssertEqual(String(describing: buffer), "Hello, «world»!")
+    }
+
     func testInitCopyingFromMutableStringBuffer() {
         let source = MutableStringBuffer("hello world")
         source.selectedRange = NSRange(location: 6, length: 5)

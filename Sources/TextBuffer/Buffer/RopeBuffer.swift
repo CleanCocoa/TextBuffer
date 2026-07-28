@@ -138,5 +138,22 @@ extension RopeBuffer: Equatable {
     }
 }
 
+extension RopeBuffer: CustomStringConvertible {
+    /// A textual representation of this buffer that includes its selection in the output.
+    ///
+    /// - Selected ranges will be wrapped in guillemets (`«...»`), while
+    /// - insertion point locations will show as `ˇ`.
+    public var description: String {
+        let result = NSMutableString(string: content)
+        if isSelectingText {
+            result.insert("»", at: selectedRange.endLocation)
+            result.insert("«", at: selectedRange.location)
+        } else {
+            result.insert("ˇ", at: selectedRange.location)
+        }
+        return result as String
+    }
+}
+
 @available(*, unavailable)
 extension RopeBuffer: @unchecked Sendable {}
