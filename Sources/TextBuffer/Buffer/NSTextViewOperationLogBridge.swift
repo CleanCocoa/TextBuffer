@@ -265,7 +265,13 @@ extension NSTextViewOperationLogBridge {
     /// Replay makes the view emit its regular change callbacks for downstream consumers; the
     /// bridge suppresses re-recording. Callbacks observe ``log`` as it was before the replay;
     /// the replayed log is written back afterwards.
+    ///
+    /// A stale baseline left by an unmark without a character change is resolved first —
+    /// committed or discarded against the view's current content, exactly as the next staging
+    /// call would resolve it — so replay operates on a log that accounts for the unmarked
+    /// composition instead of folding a later edit into stale composition math.
     public func undo() {
+        resolveStaleCompositionBaseline()
         isReplaying = true
         defer { isReplaying = false }
         // Replay on a copy: mutating `log` directly would hold exclusive access on it while the view re-emits change callbacks, trapping any consumer that reads `log` from those callbacks.
@@ -275,12 +281,23 @@ extension NSTextViewOperationLogBridge {
     }
 
     /// Reapplies the most recently undone group onto the text view, restoring content and selection.
+    ///
+    /// A stale baseline left by an unmark without a character change is resolved first, as in
+    /// ``undo()``; a resolution that commits truncates the redo tail, so this call then reapplies
+    /// nothing — the unmarked composition was the newer edit.
     public func redo() {
+        resolveStaleCompositionBaseline()
         isReplaying = true
         defer { isReplaying = false }
         var replayed = log
         _ = replayed.redo(on: replayBuffer)
         log = replayed
+    }
+
+    private func resolveStaleCompositionBaseline() {
+        guard !textView.hasMarkedText(), let baseline = compositionBaseline else { return }
+        compositionBaseline = nil
+        commitComposition(from: baseline)
     }
 }
 

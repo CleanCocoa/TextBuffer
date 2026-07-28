@@ -806,6 +806,54 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             ])
         }
 
+        @Test func `undo after an unmark without a character change resolves the stale baseline instead of fabricating an operation`() {
+            let (textView, bridge) = makeBridgedTextView("abcd")
+            type("", replacing: NSRange(location: 0, length: 2), in: textView, forwardingTo: bridge)
+            markText("に", replacing: NSRange(location: 2, length: 0), in: textView, forwardingTo: bridge)
+            textView.unmarkText()
+            #expect(textView.hasMarkedText() == false)
+
+            bridge.undo()
+
+            #expect(textView.string == "cd")
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .delete(range: NSRange(location: 0, length: 2), deletedContent: "ab"))],
+                [BufferOperation(kind: .insert(content: "に", at: 2))],
+            ])
+
+            type("x", replacing: NSRange(location: 2, length: 0), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "cdx")
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .delete(range: NSRange(location: 0, length: 2), deletedContent: "ab"))],
+                [BufferOperation(kind: .insert(content: "x", at: 2))],
+            ])
+        }
+
+        @Test func `redo after an unmark without a character change resolves the stale baseline instead of fabricating an operation`() {
+            let (textView, bridge) = makeBridgedTextView()
+            type("a", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            bridge.undo()
+            markText("に", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            textView.unmarkText()
+            #expect(textView.hasMarkedText() == false)
+
+            bridge.redo()
+
+            #expect(textView.string == "に")
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .insert(content: "に", at: 0))],
+            ])
+
+            type("x", replacing: NSRange(location: 1, length: 0), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "にx")
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .insert(content: "に", at: 0))],
+                [BufferOperation(kind: .insert(content: "x", at: 1))],
+            ])
+        }
+
         @Test func `cancelling a composition records nothing`() {
             let (textView, bridge) = makeBridgedTextView()
             markText("に", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
