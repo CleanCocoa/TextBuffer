@@ -158,20 +158,35 @@ extension NSTextViewOperationLogBridge: PuppetUndoManagerDelegate {
     var puppetRedoActionName: String { log.redoActionName ?? "" }
 }
 
-/// Replays log operations through `NSTextView.insertText(_:replacementRange:)` so the view
-/// re-emits its regular change callbacks for downstream consumers.
+/// Replays log operations onto the view wrapped in `shouldChangeText(in:replacementString:)`
+/// and `didChangeText()` so the view re-emits its regular change callbacks for downstream
+/// consumers, and a vetoed or non-editable replay surfaces as ``BufferAccessFailure`` instead
+/// of silently no-oping while the log cursor advances.
 @MainActor
 final class ReplayingNSTextViewBuffer: NSTextViewBuffer {
     override func insert(_ content: String, at location: Int) throws(BufferAccessFailure) {
-        textView.insertText(content, replacementRange: NSRange(location: location, length: 0))
+        let affectedRange = NSRange(location: location, length: 0)
+        guard textView.shouldChangeText(in: affectedRange, replacementString: content) else {
+            throw BufferAccessFailure.modificationForbidden(in: affectedRange)
+        }
+        try super.insert(content, at: location)
+        textView.didChangeText()
     }
 
     override func delete(in deletedRange: NSRange) throws(BufferAccessFailure) {
-        textView.insertText("", replacementRange: deletedRange)
+        guard textView.shouldChangeText(in: deletedRange, replacementString: "") else {
+            throw BufferAccessFailure.modificationForbidden(in: deletedRange)
+        }
+        try super.delete(in: deletedRange)
+        textView.didChangeText()
     }
 
     override func replace(range replacementRange: NSRange, with content: String) throws(BufferAccessFailure) {
-        textView.insertText(content, replacementRange: replacementRange)
+        guard textView.shouldChangeText(in: replacementRange, replacementString: content) else {
+            throw BufferAccessFailure.modificationForbidden(in: replacementRange)
+        }
+        try super.replace(range: replacementRange, with: content)
+        textView.didChangeText()
     }
 }
 #endif
