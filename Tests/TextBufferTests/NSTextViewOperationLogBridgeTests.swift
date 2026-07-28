@@ -110,6 +110,16 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             #expect(bridge.log.canRedo == false)
         }
 
+        @Test func `a zero-length edit with an empty replacement string records nothing`() {
+            let (textView, bridge) = makeBridgedTextView("abc")
+
+            bridge.shouldChangeText(in: NSRange(location: 1, length: 0), replacementString: "")
+            bridge.textDidChange()
+
+            #expect(textView.string == "abc")
+            #expect(bridge.log.history.isEmpty)
+        }
+
         @Test func `an attribute-only change with a nil replacement string records nothing`() {
             let (textView, bridge) = makeBridgedTextView("abc")
 
@@ -156,6 +166,42 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
 
             #expect(textView.string == "hello world")
             #expect(textView.selectedRange == NSRange(location: 0, length: 5))
+        }
+
+        @Test func `undo of a deletion restores the deleted content and the preceding selection`() {
+            let (textView, bridge) = makeBridgedTextView("abc")
+            textView.setSelectedRange(NSRange(location: 3, length: 0))
+            type("", replacing: NSRange(location: 2, length: 1), in: textView, forwardingTo: bridge)
+            #expect(textView.string == "ab")
+
+            bridge.undo()
+
+            #expect(textView.string == "abc")
+            #expect(textView.selectedRange == NSRange(location: 3, length: 0))
+        }
+
+        @Test func `redo of a deletion removes the content again and restores the post-deletion selection`() {
+            let (textView, bridge) = makeBridgedTextView("abc")
+            textView.setSelectedRange(NSRange(location: 3, length: 0))
+            type("", replacing: NSRange(location: 2, length: 1), in: textView, forwardingTo: bridge)
+            bridge.undo()
+
+            bridge.redo()
+
+            #expect(textView.string == "ab")
+            #expect(textView.selectedRange == NSRange(location: 2, length: 0))
+        }
+
+        @Test func `undo of a selected-range deletion restores the deleted content as the selection`() {
+            let (textView, bridge) = makeBridgedTextView("hello world")
+            textView.setSelectedRange(NSRange(location: 5, length: 6))
+            type("", replacing: NSRange(location: 5, length: 6), in: textView, forwardingTo: bridge)
+            #expect(textView.string == "hello")
+
+            bridge.undo()
+
+            #expect(textView.string == "hello world")
+            #expect(textView.selectedRange == NSRange(location: 5, length: 6))
         }
 
         @Test func `redo reapplies an undone group restoring content and selection`() {
