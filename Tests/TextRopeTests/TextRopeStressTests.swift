@@ -226,6 +226,44 @@ final class TextRopeStressTests: XCTestCase {
         "\r\n",
     ]
 
+    static func randomString(using rng: inout SeededRNG, maxLength: Int = 12) -> String {
+        let count = Int.random(in: 0...maxLength, using: &rng)
+        var result = ""
+        for _ in 0..<count {
+            result += stressCharset.randomElement(using: &rng)!
+        }
+        return result
+    }
+
+    static func validUTF16Offset(_ offset: Int, in string: String) -> Int {
+        if offset == 0 || offset >= string.utf16.count { return offset }
+        let idx = string.utf16.index(string.utf16.startIndex, offsetBy: offset)
+        if UTF16.isTrailSurrogate(string.utf16[idx]) {
+            return offset - 1
+        }
+        return offset
+    }
+
+    static func randomValidRange(in string: String, maxLength: Int = 10, using rng: inout SeededRNG) -> NSRange? {
+        let len = string.utf16.count
+        guard len > 0 else { return nil }
+        let start = validUTF16Offset(Int.random(in: 0..<len, using: &rng), in: string)
+        let maxLen = min(len - start, maxLength)
+        guard maxLen > 0 else { return nil }
+        let rawLength = Int.random(in: 1...maxLen, using: &rng)
+        let length = validUTF16Offset(start + rawLength, in: string) - start
+        guard length > 0 else { return nil }
+        return NSRange(location: start, length: length)
+    }
+
+    static func newlineCount(in string: String) -> Int {
+        var count = 0
+        for byte in string.utf8 where byte == UInt8(ascii: "\n") {
+            count += 1
+        }
+        return count
+    }
+
     func testRandomOperationsMatchString() {
         for seed in [UInt64(0), 42, 12345, UInt64.max] {
             runStressTest(seed: seed, operations: 10_000)
@@ -247,24 +285,6 @@ final class TextRopeStressTests: XCTestCase {
         var replaceCount = 0
         var sawInnerNodeChildren = false
 
-        func randomString(using rng: inout SeededRNG) -> String {
-            let count = Int.random(in: 0...12, using: &rng)
-            var result = ""
-            for _ in 0..<count {
-                result += Self.stressCharset.randomElement(using: &rng)!
-            }
-            return result
-        }
-
-        func validUTF16Offset(_ offset: Int, in str: String) -> Int {
-            if offset == 0 || offset >= str.utf16.count { return offset }
-            let idx = str.utf16.index(str.utf16.startIndex, offsetBy: offset)
-            if UTF16.isTrailSurrogate(str.utf16[idx]) {
-                return offset - 1
-            }
-            return offset
-        }
-
         for i in 0..<operations {
             let context = "seed \(seed), iteration \(i)"
             let len = rope.utf16Count
@@ -273,50 +293,29 @@ final class TextRopeStressTests: XCTestCase {
             switch op {
             case 0:
                 insertCount += 1
-                let rawPos = Int.random(in: 0...len, using: &rng)
-                let pos = validUTF16Offset(rawPos, in: string)
-                let text = randomString(using: &rng)
+                let pos = Self.validUTF16Offset(Int.random(in: 0...len, using: &rng), in: string)
+                let text = Self.randomString(using: &rng)
                 rope.insert(text, at: pos)
                 let idx = string.utf16.index(string.utf16.startIndex, offsetBy: pos)
                 string.insert(contentsOf: text, at: idx)
 
             case 1:
                 deleteCount += 1
-                if len > 0 {
-                    var start = Int.random(in: 0..<len, using: &rng)
-                    start = validUTF16Offset(start, in: string)
-                    let maxLen = min(len - start, 10)
-                    if maxLen > 0 {
-                        var delLen = Int.random(in: 1...maxLen, using: &rng)
-                        let endOff = validUTF16Offset(start + delLen, in: string)
-                        delLen = endOff - start
-                        if delLen > 0 {
-                            rope.delete(in: NSRange(location: start, length: delLen))
-                            let startIdx = string.utf16.index(string.utf16.startIndex, offsetBy: start)
-                            let endIdx = string.utf16.index(startIdx, offsetBy: delLen)
-                            string.removeSubrange(startIdx..<endIdx)
-                        }
-                    }
+                if let range = Self.randomValidRange(in: string, using: &rng) {
+                    rope.delete(in: range)
+                    let startIdx = string.utf16.index(string.utf16.startIndex, offsetBy: range.location)
+                    let endIdx = string.utf16.index(startIdx, offsetBy: range.length)
+                    string.removeSubrange(startIdx..<endIdx)
                 }
 
             case 2:
                 replaceCount += 1
-                if len > 0 {
-                    var start = Int.random(in: 0..<len, using: &rng)
-                    start = validUTF16Offset(start, in: string)
-                    let maxLen = min(len - start, 10)
-                    if maxLen > 0 {
-                        var repLen = Int.random(in: 1...maxLen, using: &rng)
-                        let endOff = validUTF16Offset(start + repLen, in: string)
-                        repLen = endOff - start
-                        if repLen > 0 {
-                            let text = randomString(using: &rng)
-                            rope.replace(range: NSRange(location: start, length: repLen), with: text)
-                            let startIdx = string.utf16.index(string.utf16.startIndex, offsetBy: start)
-                            let endIdx = string.utf16.index(startIdx, offsetBy: repLen)
-                            string.replaceSubrange(startIdx..<endIdx, with: text)
-                        }
-                    }
+                if let range = Self.randomValidRange(in: string, using: &rng) {
+                    let text = Self.randomString(using: &rng)
+                    rope.replace(range: range, with: text)
+                    let startIdx = string.utf16.index(string.utf16.startIndex, offsetBy: range.location)
+                    let endIdx = string.utf16.index(startIdx, offsetBy: range.length)
+                    string.replaceSubrange(startIdx..<endIdx, with: text)
                 }
 
             default:
@@ -334,6 +333,10 @@ final class TextRopeStressTests: XCTestCase {
             XCTAssertEqual(
                 rope.utf8Count, string.utf8.count,
                 "UTF-8 count mismatch at \(context), op=\(op)"
+            )
+            XCTAssertEqual(
+                rope.root.summary.lines, Self.newlineCount(in: string),
+                "Line count mismatch at \(context), op=\(op)"
             )
 
             if i % 100 == 0 {
