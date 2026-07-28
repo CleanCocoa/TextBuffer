@@ -68,11 +68,16 @@ public final class NSTextViewOperationLogBridge {
     /// Stages the edit the text view is about to perform. Forward from
     /// `NSTextViewDelegate.textView(_:shouldChangeTextIn:replacementString:)`.
     ///
-    /// A `nil` `replacementString` (attribute-only change) stages nothing. The bridge never
-    /// vetoes an edit; the delegate's return value remains the caller's decision.
+    /// A `nil` `replacementString` (attribute-only change) stages nothing and invalidates any
+    /// previously staged edit that never committed — e.g. one whose delegate callback the host
+    /// vetoed after forwarding it here. The bridge never vetoes an edit; the delegate's return
+    /// value remains the caller's decision.
     public func shouldChangeText(in affectedRange: NSRange, replacementString: String?) {
         guard !isReplaying else { return }
-        guard let replacementString else { return }
+        guard let replacementString else {
+            pendingChange = nil
+            return
+        }
         pendingChange = PendingChange(
             affectedRange: affectedRange,
             oldContent: textView.nsMutableString.substring(with: affectedRange),

@@ -119,6 +119,19 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             #expect(textView.string == "abc")
             #expect(bridge.log.history.isEmpty)
         }
+
+        @Test func `an attribute-only change after a vetoed edit invalidates the stale staged change`() {
+            let (textView, bridge) = makeBridgedTextView()
+            type("a", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
+            #expect(bridge.log.history.count == 1)
+
+            bridge.shouldChangeText(in: NSRange(location: 1, length: 0), replacementString: "x")
+            bridge.shouldChangeText(in: NSRange(location: 0, length: 1), replacementString: nil)
+            bridge.textDidChange()
+
+            #expect(textView.string == "a")
+            #expect(bridge.log.history.count == 1)
+        }
     }
 
     @MainActor
