@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `NSTextViewOperationLogBridge.undo()`/`redo()` now resolve a stale composition baseline — one left by an unmark without a character-changing `textDidChange()` — before replaying, exactly as the next staging call and `sendableSnapshot()` already did. Previously nothing resolved it across a replay (the replay's own change callbacks are suppressed), so after the replay changed the view's length, the next staging call ran the composition commit against post-replay content: the committed length became the replay's delta and the replacement was grabbed from text that was never composed, appending a fabricated undo group that passed the consistency check by construction, truncated the redo tail, and on a later undo deleted pre-existing text. A resolution that commits truncates the redo tail, so a `redo()` right after it reapplies nothing — the unmarked composition was the newer edit.
+
 ## 0.8.1
 
 ### Fixed
