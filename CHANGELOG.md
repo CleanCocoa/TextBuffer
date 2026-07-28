@@ -5,9 +5,16 @@
 ### Added
 
 - `NSTextViewOperationLogBridge` — mirrors `NSTextView` edits into an `OperationLog` while the text view stays the live content authority. Feed it by forwarding `shouldChangeText(in:replacementString:)` and `textDidChange()` from the view's delegate; `undo()`/`redo()` replay log groups back onto the view (content and selection) through `insertText(_:replacementRange:)` so the view re-emits its regular change callbacks; `enableSystemUndoIntegration()` returns a `PuppetUndoManager` for AppKit's Edit menu and Cmd+Z. Replay-driven view mutations are guarded against re-recording.
-- macOS-style undo coalescing in `NSTextViewOperationLogBridge`: a continuous typing run records as one undo group, never one per keystroke; `breakUndoCoalescing()` is the public seam for forwarding interaction breaks (mouse-down, cursor repositioning, focus changes). Coalescing lives log-side as an extension of `OperationLog`'s per-edit auto-grouping, so it travels with snapshots; a run also ends on undo/redo, a non-insert edit, a non-contiguous insert, or an explicit group.
-- IME/marked-text gating in `NSTextViewOperationLogBridge`: composition intermediates record nothing while the view `hasMarkedText()`; the committed composition records exactly once, as one edit against the pre-composition baseline; a cancelled composition records nothing.
+- macOS-style undo coalescing in `NSTextViewOperationLogBridge`: a continuous typing run records as one undo group, never one per keystroke; `breakUndoCoalescing()` is the public seam for forwarding interaction breaks (mouse-down, cursor repositioning, focus changes). Coalescing lives log-side as an extension of `OperationLog`'s per-edit auto-grouping, so it travels with snapshots; a run also ends on undo/redo, a kind or position mismatch, or an explicit group.
+- Delete-run coalescing, matching native deletion undo: a backspace run extends while each delete ends where the previous one started; a forward-delete run extends at a constant location. Runs are same-kind only — a delete never joins an insert run and vice versa — and replace never coalesces.
+- Multi-character inserts (paste) record their own undo group and close the typing run instead of joining it; a committed IME composition likewise never joins a preceding run nor opens one. An attribute-only change (`nil` replacement string) breaks the typing run, matching native formatting-during-typing behavior.
+- `NSTextViewOperationLogBridge.sendableSnapshot()` — captures the view's content, selection, and the mirrored log as a `SendableRopeBuffer` for storage or transfer, mirroring `TransferableUndoable.sendableSnapshot()`. Restore by configuring a fresh view from the snapshot and handing its log to `init(textView:log:)`; the initializer closes any open typing run in the adopted log, so a re-presented buffer never resumes an old run.
+- IME/marked-text gating in `NSTextViewOperationLogBridge`: composition intermediates record nothing while the view `hasMarkedText()`; the committed composition records exactly once, as one edit against the pre-composition baseline; a cancelled composition records nothing. A baseline left over by an unmark without a character-changing `textDidChange` is resolved (committed or discarded) before the next ordinary edit stages, so it cannot fold into stale composition math.
 - Attribute-only edits (`nil` replacement string, no character changes) record nothing and leave the log replayable; a programmatic full replace records as exactly one undo group.
+
+### Changed
+
+- `OperationLog` equality compares recorded history only (history, cursor, grouping stack) and ignores whether a typing run is open, so a coalescing break never reads as a history change in snapshot comparisons.
 
 ## 0.6.0
 
