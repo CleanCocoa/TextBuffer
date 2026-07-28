@@ -533,6 +533,66 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             ])
         }
 
+        @Test func `a vetoed multi-range edit does not discard history at the next singular edit`() {
+            let (textView, bridge) = makeBridgedTextView("aa bb")
+            typeEachCharacter(of: "x", startingAt: 0, in: textView, forwardingTo: bridge)
+            bridge.breakUndoCoalescing()
+            #expect(bridge.log.canUndo)
+
+            let ranges = [NSRange(location: 1, length: 2), NSRange(location: 4, length: 2)]
+            bridge.shouldChangeText(inRanges: ranges.map { NSValue(range: $0) }, replacementStrings: ["cc", "cc"])
+
+            type("y", replacing: NSRange(location: 1, length: 0), in: textView, forwardingTo: bridge)
+
+            #expect(textView.string == "xyaa bb")
+            #expect(bridge.log.history.count == 2)
+            #expect(bridge.log.canUndo)
+
+            bridge.undo()
+            #expect(textView.string == "xaa bb")
+            bridge.undo()
+            #expect(textView.string == "aa bb")
+        }
+
+        @Test func `a vetoed multi-range edit does not discard history at a later attribute-only pass`() {
+            let (textView, bridge) = makeBridgedTextView()
+            typeEachCharacter(of: "ab", startingAt: 0, in: textView, forwardingTo: bridge)
+            let historyAfterTyping = bridge.log.history
+
+            let vetoedRanges = [NSRange(location: 0, length: 1), NSRange(location: 1, length: 1)]
+            bridge.shouldChangeText(inRanges: vetoedRanges.map { NSValue(range: $0) }, replacementStrings: ["c", "c"])
+
+            bridge.shouldChangeText(inRanges: vetoedRanges.map { NSValue(range: $0) }, replacementStrings: nil)
+            for range in vetoedRanges {
+                textView.textStorage!.addAttribute(.font, value: NSFont.boldSystemFont(ofSize: 12), range: range)
+            }
+            bridge.textDidChange()
+
+            #expect(bridge.log.history == historyAfterTyping)
+
+            bridge.undo()
+            #expect(textView.string == "")
+        }
+
+        @Test func `a vetoed multi-range edit followed by a committed multi-range edit still discards history`() {
+            let (textView, bridge) = makeBridgedTextView("aa aa")
+            typeEachCharacter(of: "x", startingAt: 0, in: textView, forwardingTo: bridge)
+            #expect(bridge.log.canUndo)
+
+            let vetoedRanges = [NSRange(location: 1, length: 2), NSRange(location: 4, length: 2)]
+            bridge.shouldChangeText(inRanges: vetoedRanges.map { NSValue(range: $0) }, replacementStrings: ["b", "b"])
+
+            let ranges = [NSRange(location: 1, length: 2), NSRange(location: 4, length: 2)]
+            bridge.shouldChangeText(inRanges: ranges.map { NSValue(range: $0) }, replacementStrings: ["c", "c"])
+            textView.insertText("c", replacementRange: ranges[1])
+            textView.insertText("c", replacementRange: ranges[0])
+            bridge.textDidChange()
+
+            #expect(textView.string == "xc c")
+            #expect(bridge.log.history.isEmpty)
+            #expect(!bridge.log.canUndo)
+        }
+
         @Test func `a plural attribute-only pass records nothing and keeps the log replayable`() {
             let (textView, bridge) = makeBridgedTextView()
             typeEachCharacter(of: "ab", startingAt: 0, in: textView, forwardingTo: bridge)

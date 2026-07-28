@@ -90,6 +90,7 @@ public final class NSTextViewOperationLogBridge {
     /// so the new edit cannot be folded into stale composition math.
     public func shouldChangeText(in affectedRange: NSRange, replacementString: String?) {
         guard !isReplaying else { return }
+        discardsHistoryAtCommit = false
         guard !textView.hasMarkedText() else {
             pendingChange = nil
             return
@@ -121,7 +122,11 @@ public final class NSTextViewOperationLogBridge {
     /// insertion points, or find-and-replace-all) cannot be recorded as one replayable delta, so
     /// the bridge discards the log at the next ``textDidChange()`` instead of recording an
     /// operation that would not replay — the same drop-history-rather-than-lie policy as the
-    /// divergence check in the singular commit path.
+    /// divergence check in the singular commit path. A staged discard whose edit the host
+    /// vetoes — so no ``textDidChange()`` ever consumes it — is disarmed at the next staging
+    /// call: every `shouldChangeText` forward, singular or plural, re-decides the discard for
+    /// its own edit, so a vetoed multi-range edit never erases history at a later unrelated
+    /// commit.
     public func shouldChangeText(inRanges affectedRanges: [NSValue], replacementStrings: [String]?) {
         guard !isReplaying else { return }
         guard let replacementStrings else {
