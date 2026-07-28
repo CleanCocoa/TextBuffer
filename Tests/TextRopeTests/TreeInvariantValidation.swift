@@ -1,13 +1,6 @@
 import XCTest
 @testable import TextRope
 
-func expectKnownStructuralDebt(_ reason: String, matching substring: String, strict: Bool = true, in block: () -> Void) {
-    let options = XCTExpectedFailure.Options()
-    options.issueMatcher = { $0.compactDescription.contains(substring) }
-    options.isStrict = strict
-    XCTExpectFailure(reason, options: options, failingBlock: block)
-}
-
 func verifyTreeInvariants(_ rope: TextRope, context: String = "", file: StaticString = #filePath, line: UInt = #line) {
     let prefix = context.isEmpty ? "" : "\(context): "
     let root = rope.root
