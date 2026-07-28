@@ -15,7 +15,11 @@ protocol PuppetUndoManagerDelegate: AnyObject {
 /// You don't create instances directly. Instead, call
 /// ``TransferableUndoable/enableSystemUndoIntegration()`` or
 /// ``NSTextViewOperationLogBridge/enableSystemUndoIntegration()`` to obtain one. Assign the
-/// returned undo manager to your window or document to enable AppKit's Edit menu undo/redo items.
+/// returned undo manager to your window or document to enable AppKit's Edit menu undo/redo
+/// items, or return it from `NSTextViewDelegate.undoManager(for:)` — the text view consults
+/// that delegate method only while `allowsUndo == true`, and the native typing-undo
+/// registrations that `allowsUndo` enables are swallowed here, so the owner's log stays the
+/// only undo authority.
 @MainActor
 public final class PuppetUndoManager: UndoManager {
     weak var owner: (any PuppetUndoManagerDelegate)?

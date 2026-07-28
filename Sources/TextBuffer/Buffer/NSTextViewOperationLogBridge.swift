@@ -267,6 +267,15 @@ extension NSTextViewOperationLogBridge {
     /// Assign it to your window or document (e.g. via
     /// `NSWindowDelegate.windowWillReturnUndoManager(_:)`) to enable AppKit's Edit menu items
     /// and Cmd+Z. Repeated calls return the same instance.
+    ///
+    /// Alternatively, return it from `NSTextViewDelegate.undoManager(for:)`. The text view
+    /// consults that delegate method only while `allowsUndo == true` (empirically verified;
+    /// with `allowsUndo == false` the view never asks and falls back to the window's undo
+    /// manager). Setting `allowsUndo = true` also makes the view register its native
+    /// typing-undo actions with whatever undo manager it obtains — the returned
+    /// ``PuppetUndoManager`` swallows those registrations (selector- and block-based
+    /// `registerUndo` and `prepare(withInvocationTarget:)`), so they stay inert and the log
+    /// remains the only undo authority.
     public func enableSystemUndoIntegration() -> UndoManager {
         if let existing = puppetUndoManager { return existing }
         let puppet = PuppetUndoManager(owner: self)
