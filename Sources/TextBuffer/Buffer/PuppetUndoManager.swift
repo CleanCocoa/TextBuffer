@@ -56,6 +56,23 @@ public final class PuppetUndoManager: UndoManager {
     public override func __registerUndoWithTarget(_ target: Any, handler: @escaping @MainActor (Any) -> Void) {}
 
     public override func prepare(withInvocationTarget target: Any) -> Any {
-        self
+        invocationSwallower
+    }
+
+    private let invocationSwallower = SwallowingInvocationTarget()
+}
+
+/// Absorbs invocation-based undo registration: any selector message no-ops and returns `nil`,
+/// so callers of `prepare(withInvocationTarget:)` can invoke their own selectors on the result
+/// without crashing and without recording anything.
+///
+/// An `NSObject` subclass resolving unknown selectors dynamically, not the classic `NSProxy`
+/// with `forwardInvocation:`, because `NSInvocation` and `NSMethodSignature` are unavailable
+/// in Swift.
+private final class SwallowingInvocationTarget: NSObject {
+    override class func resolveInstanceMethod(_ sel: Selector) -> Bool {
+        let swallow: @convention(block) (AnyObject) -> AnyObject? = { _ in nil }
+        class_addMethod(self, sel, imp_implementationWithBlock(swallow), "@@:")
+        return true
     }
 }

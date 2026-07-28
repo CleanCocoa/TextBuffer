@@ -80,6 +80,16 @@ final class PuppetUndoManagerTests: XCTestCase {
         XCTAssertFalse(puppet.canUndo)
     }
 
+    func testPrepareWithInvocationTargetSwallowsArbitrarySelectors() {
+        let buffer = TransferableUndoable(MutableStringBuffer(""))
+        let puppet = buffer.enableSystemUndoIntegration()
+        let proxy = puppet.prepare(withInvocationTarget: buffer) as AnyObject
+        _ = proxy.perform(NSSelectorFromString("someSelectorNoUndoTargetImplements:"), with: NSObject())
+        XCTAssertFalse(puppet.canUndo)
+        XCTAssertEqual(puppet.groupingLevel, 1)
+        XCTAssertEqual(puppet.undoActionName, "")
+    }
+
     func testGroupsByEventIsFalse() {
         let buffer = TransferableUndoable(MutableStringBuffer(""))
         let puppet = buffer.enableSystemUndoIntegration()
