@@ -48,6 +48,76 @@ final class RopeBufferDriftTests: XCTestCase {
 
     // MARK: - Delete
 
+    func testInsertBeforeSelection() throws {
+        let pair = try bufferPair("你好世界«编程真棒»加油笔记")
+        try pair.msb.insert("😀", at: 2)
+        try pair.rb.insert("😀", at: 2)
+        assertDriftMatch(pair)
+    }
+
+    func testInsertAtSelectionStart() throws {
+        let pair = try bufferPair("你好世界«编程真棒»加油笔记")
+        try pair.msb.insert("éü", at: 4)
+        try pair.rb.insert("éü", at: 4)
+        assertDriftMatch(pair)
+    }
+
+    func testInsertWithinSelection() throws {
+        let pair = try bufferPair("你好世界«编程真棒»加油笔记")
+        try pair.msb.insert("🎉", at: 6)
+        try pair.rb.insert("🎉", at: 6)
+        assertDriftMatch(pair)
+    }
+
+    func testInsertAtSelectionEnd() throws {
+        let pair = try bufferPair("你好世界«编程真棒»加油笔记")
+        try pair.msb.insert("ñç", at: 8)
+        try pair.rb.insert("ñç", at: 8)
+        assertDriftMatch(pair)
+    }
+
+    func testInsertAfterSelection() throws {
+        let pair = try bufferPair("你好世界«编程真棒»加油笔记")
+        try pair.msb.insert("𝄞", at: 10)
+        try pair.rb.insert("𝄞", at: 10)
+        assertDriftMatch(pair)
+    }
+
+    func testDeleteBeforeInsertionPoint() throws {
+        let pair = try bufferPair("àbcdèˇfghíj")
+        try pair.msb.delete(in: .init(location: 1, length: 2))
+        try pair.rb.delete(in: .init(location: 1, length: 2))
+        assertDriftMatch(pair)
+    }
+
+    func testDeleteAfterInsertionPoint() throws {
+        let pair = try bufferPair("àbcdèˇfghíj")
+        try pair.msb.delete(in: .init(location: 7, length: 2))
+        try pair.rb.delete(in: .init(location: 7, length: 2))
+        assertDriftMatch(pair)
+    }
+
+    func testDeleteOverlappingSelectionStart() throws {
+        let pair = try bufferPair("àb«cdèfgh»íj")
+        try pair.msb.delete(in: .init(location: 1, length: 3))
+        try pair.rb.delete(in: .init(location: 1, length: 3))
+        assertDriftMatch(pair)
+    }
+
+    func testDeleteOverlappingSelectionEnd() throws {
+        let pair = try bufferPair("àb«cdèfgh»íj")
+        try pair.msb.delete(in: .init(location: 6, length: 4))
+        try pair.rb.delete(in: .init(location: 6, length: 4))
+        assertDriftMatch(pair)
+    }
+
+    func testDeleteEntireSelection() throws {
+        let pair = try bufferPair("àb«cdèfgh»íj")
+        try pair.msb.delete(in: .init(location: 2, length: 6))
+        try pair.rb.delete(in: .init(location: 2, length: 6))
+        assertDriftMatch(pair)
+    }
+
     func testDeleteBeforeSelection() throws {
         let pair = try bufferPair("01234«567»89")
         try pair.msb.delete(in: .init(location: 1, length: 2))
@@ -89,6 +159,20 @@ final class RopeBufferDriftTests: XCTestCase {
         let pair = try bufferPair("01234«567»89")
         try pair.msb.replace(range: .init(location: 1, length: 2), with: "ABCD")
         try pair.rb.replace(range: .init(location: 1, length: 2), with: "ABCD")
+        assertDriftMatch(pair)
+    }
+
+    func testReplaceOverlappingSelection() throws {
+        let pair = try bufferPair("àbcdè«fgh»íj")
+        try pair.msb.replace(range: .init(location: 4, length: 3), with: "χψ")
+        try pair.rb.replace(range: .init(location: 4, length: 3), with: "χψ")
+        assertDriftMatch(pair)
+    }
+
+    func testReplaceAfterSelection() throws {
+        let pair = try bufferPair("àbcdè«fgh»íj")
+        try pair.msb.replace(range: .init(location: 8, length: 2), with: "😀")
+        try pair.rb.replace(range: .init(location: 8, length: 2), with: "😀")
         assertDriftMatch(pair)
     }
 
