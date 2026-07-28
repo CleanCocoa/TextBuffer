@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `NSTextViewOperationLogBridge.sendableSnapshot()` now requires quiescence and traps otherwise, instead of capturing torn state. During `undo()`/`redo()` replay the view already holds post-replay content while the log cursor is still pre-replay, and while the view `hasMarkedText()` the uncommitted composition is in the view but gated out of the log — a snapshot taken in either state restored to a buffer that repeated an operation or trapped on out-of-range undo. Snapshot after `undo()`/`redo()` returns and after the composition commits or cancels; an active composition is not resolved because the user may still cancel it. A stale baseline left by an unmark without a character change is resolved first, exactly as the next staging call would resolve it, so that snapshot is consistent instead of silently missing the composition.
+- A vetoed multi-range edit no longer erases history at the next unrelated commit. `shouldChangeText(inRanges:replacementStrings:)` armed the discard for its own `textDidChange()`; when the host vetoed the edit, no `textDidChange()` arrived to consume it, and the flag fired on the next successful edit. Every staging call, singular or plural, now re-decides the discard for its own edit — a `nil`-replacement (attribute-only) forward clears it too, while a committed multi-range edit still discards.
+
 ## 0.8.0
 
 ### Added
