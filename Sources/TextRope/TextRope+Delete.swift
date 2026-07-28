@@ -82,12 +82,32 @@ extension TextRope {
             node.children.remove(at: i)
         }
 
-        if childBecameUndersized || !indicesToRemove.isEmpty {
+        if childBecameUndersized || !indicesToRemove.isEmpty || hasCRLFSeam(node) {
             mergeUndersizedChildren(node)
         }
         recalculateSummary(node)
 
         return node.children.count < Node.minChildren
+    }
+
+    private static func hasCRLFSeam(_ node: Node) -> Bool {
+        guard node.children.count > 1 else { return false }
+        for i in 0..<(node.children.count - 1) {
+            if crlfSeam(between: node.children[i], and: node.children[i + 1]) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func crlfSeam(between left: Node, and right: Node) -> Bool {
+        var last = left
+        while !last.isLeaf { last = last.children[last.children.count - 1] }
+        guard last.chunk.utf8.last == UInt8(ascii: "\r") else { return false }
+
+        var first = right
+        while !first.isLeaf { first = first.children[0] }
+        return first.chunk.utf8.first == UInt8(ascii: "\n")
     }
 
     private static func mergeUndersizedChildren(_ node: Node) {
@@ -108,7 +128,8 @@ extension TextRope {
             var current = node.children[i]
             i += 1
 
-            while current.chunk.utf8.count < Node.minChunkUTF8 {
+            while current.chunk.utf8.count < Node.minChunkUTF8
+                    || (i < node.children.count && crlfSeam(between: current, and: node.children[i])) {
                 if i < node.children.count {
                     current = combinedLeaf(current.chunk, node.children[i].chunk, redistributingInto: &merged)
                     i += 1
@@ -145,7 +166,8 @@ extension TextRope {
             var current = node.children[i]
             i += 1
 
-            while current.children.count < Node.minChildren {
+            while current.children.count < Node.minChildren
+                    || (i < node.children.count && crlfSeam(between: current, and: node.children[i])) {
                 if i < node.children.count {
                     current = combinedInner(current, node.children[i], redistributingInto: &merged)
                     i += 1

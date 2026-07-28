@@ -34,6 +34,6 @@
 
 ## 7. Edge Cases and Integration
 
-- [ ] 7.1 Write tests for delete with `\r\n` sequences: delete that leaves `\r` at end of one leaf and `\n` at start of next — verify merge or redistribution preserves the pair together
+- [x] 7.1 Write tests for delete with `\r\n` sequences: delete that leaves `\r` at end of one leaf and `\n` at start of next — verify merge or redistribution preserves the pair together
 - [ ] 7.2 Write test for repeated deletions that shrink the tree from 3+ levels down to a single leaf, verify final `content` matches expected string and root summary matches `Summary.of(content)`
 - [x] 7.3 Write test for alternating insert and delete operations to verify structural integrity is maintained across mixed mutations

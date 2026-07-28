@@ -339,4 +339,36 @@ final class TextRopeDeleteTests: XCTestCase {
 
         verifyTreeInvariants(rope)
     }
+
+    func testDeleteLeavingCRAndLFOnAdjacentWellSizedLeavesRejoinsThePair() {
+        let a = String(repeating: "a", count: 1500)
+        let middle = String(repeating: "m", count: 600)
+        let b = String(repeating: "b", count: 1500)
+        var rope = TextRope(a + "\r" + middle + "\n" + b)
+        XCTAssertEqual(leafChunkSizes(rope), [2048, 1554])
+
+        rope.delete(in: NSRange(location: 1501, length: 600))
+
+        XCTAssertEqual(rope.content, a + "\r\n" + b)
+        XCTAssertEqual(rope.root.summary.lines, 1)
+        verifyTreeInvariants(rope)
+    }
+
+    func testDeleteLeavingCRAndLFOnLeavesInDifferentSubtreesRejoinsThePair() {
+        var bytes = Array(repeating: Character("a"), count: 20 * 2048)
+        bytes[15883] = "\r"
+        bytes[16884] = "\n"
+        let input = String(bytes)
+        var rope = TextRope(input)
+        XCTAssertEqual(rope.root.children.map(\.children.count), [8, 8, 4])
+
+        rope.delete(in: NSRange(location: 15884, length: 1000))
+
+        let expected = (input as NSString).replacingCharacters(
+            in: NSRange(location: 15884, length: 1000), with: ""
+        )
+        XCTAssertEqual(rope.content, expected)
+        XCTAssertEqual(rope.root.summary.lines, 1)
+        verifyTreeInvariants(rope)
+    }
 }
