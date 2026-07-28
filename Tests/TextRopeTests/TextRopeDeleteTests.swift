@@ -174,6 +174,47 @@ final class TextRopeDeleteTests: XCTestCase {
         verifyTreeInvariants(rope)
     }
 
+    func testDeleteCollapsingInnerNodeRedistributesWithFullSibling() {
+        let blocks = (0..<24).map { String(repeating: Character(UnicodeScalar(97 + $0 % 26)!), count: 2048) }
+        var rope = TextRope(blocks.joined())
+        XCTAssertEqual(rope.root.children.map(\.children.count), [8, 8, 8])
+
+        rope.delete(in: NSRange(location: 10 * 2048, length: 6 * 2048))
+
+        let expected = blocks[0..<10].joined() + blocks[16...].joined()
+        XCTAssertEqual(rope.content, expected)
+        XCTAssertEqual(rope.root.children.map(\.children.count), [8, 5, 5])
+        verifyTreeInvariants(rope)
+    }
+
+    func testDeleteCollapsingLastInnerNodeAbsorbsLeftward() {
+        let blocks = (0..<9).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
+        var rope = TextRope(blocks.joined())
+        XCTAssertEqual(rope.root.children.map(\.children.count), [5, 4])
+
+        rope.delete(in: NSRange(location: 7 * 2048, length: 2 * 2048))
+
+        XCTAssertEqual(rope.content, blocks[0..<7].joined())
+        XCTAssertEqual(Int(rope.root.height), 1)
+        XCTAssertEqual(rope.root.children.count, 7)
+        verifyTreeInvariants(rope)
+    }
+
+    func testDeleteCascadesMergesAcrossMultipleLevels() {
+        let blocks = (0..<72).map { String(repeating: Character(UnicodeScalar(97 + $0 % 26)!), count: 2048) }
+        var rope = TextRope(blocks.joined())
+        XCTAssertEqual(Int(rope.root.height), 3)
+        XCTAssertEqual(rope.root.children.map(\.children.count), [5, 4])
+
+        rope.delete(in: NSRange(location: 2048, length: 38 * 2048))
+
+        let expected = blocks[0] + blocks[39] + blocks[40...].joined()
+        XCTAssertEqual(rope.content, expected)
+        XCTAssertEqual(Int(rope.root.height), 2)
+        XCTAssertEqual(rope.root.children.map(\.children.count), [5, 5, 8, 8, 8])
+        verifyTreeInvariants(rope)
+    }
+
     func testDeletePreservesCOW() {
         var original = TextRope("hello world")
         let copy = original

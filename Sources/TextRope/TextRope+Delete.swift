@@ -23,7 +23,6 @@ extension TextRope {
         }
     }
 
-    @discardableResult
     private static func deleteFromNode(_ node: Node, utf16Start: Int, utf16End: Int) -> Bool {
         if node.isLeaf {
             return deleteFromLeaf(node, utf16Start: utf16Start, utf16End: utf16End)
@@ -51,6 +50,7 @@ extension TextRope {
     private static func deleteFromInner(_ node: Node, utf16Start: Int, utf16End: Int) -> Bool {
         var utf16Pos = 0
         var indicesToRemove: [Int] = []
+        var childBecameUndersized = false
 
         for i in 0..<node.children.count {
             let child = node.children[i]
@@ -70,7 +70,9 @@ extension TextRope {
                 indicesToRemove.append(i)
             } else {
                 node.ensureUniqueChild(at: i)
-                deleteFromNode(node.children[i], utf16Start: localStart, utf16End: localEnd)
+                if deleteFromNode(node.children[i], utf16Start: localStart, utf16End: localEnd) {
+                    childBecameUndersized = true
+                }
             }
 
             utf16Pos = childEnd
@@ -80,7 +82,9 @@ extension TextRope {
             node.children.remove(at: i)
         }
 
-        mergeUndersizedChildren(node)
+        if childBecameUndersized || !indicesToRemove.isEmpty {
+            mergeUndersizedChildren(node)
+        }
         recalculateSummary(node)
 
         return node.children.count < Node.minChildren
@@ -141,31 +145,37 @@ extension TextRope {
             var current = node.children[i]
             i += 1
 
-            while i < node.children.count && current.children.count < Node.minChildren {
-                let next = node.children[i]
-                let combinedCount = current.children.count + next.children.count
-                if combinedCount <= Node.maxChildren {
-                    var combinedChildren = current.children
-                    combinedChildren.append(contentsOf: next.children)
-                    current = Node.inner(combinedChildren)
+            while current.children.count < Node.minChildren {
+                if i < node.children.count {
+                    current = combinedInner(current, node.children[i], redistributingInto: &merged)
                     i += 1
+                } else if let previous = merged.popLast() {
+                    current = combinedInner(previous, current, redistributingInto: &merged)
                 } else {
                     break
                 }
             }
 
-            if current.children.count > Node.maxChildren {
-                let mid = current.children.count / 2
-                let left = ContiguousArray(current.children[0..<mid])
-                let right = ContiguousArray(current.children[mid...])
-                merged.append(Node.inner(left))
-                merged.append(Node.inner(right))
-            } else {
-                merged.append(current)
-            }
+            merged.append(current)
         }
 
         node.children = merged
+    }
+
+    private static func combinedInner(_ left: Node, _ right: Node, redistributingInto merged: inout ContiguousArray<Node>) -> Node {
+        var children = left.children
+        children.append(contentsOf: right.children)
+        let combined = Node.inner(children)
+        mergeUndersizedChildren(combined)
+        recalculateSummary(combined)
+
+        if combined.children.count <= Node.maxChildren {
+            return combined
+        }
+
+        let mid = combined.children.count / 2
+        merged.append(Node.inner(ContiguousArray(combined.children[0..<mid])))
+        return Node.inner(ContiguousArray(combined.children[mid...]))
     }
 
     private static func recalculateSummary(_ node: Node) {

@@ -232,12 +232,6 @@ final class TextRopeStressTests: XCTestCase {
         }
     }
 
-    private func verifyTreeInvariantsWithKnownStructuralDebt(_ rope: TextRope, context: String, file: StaticString = #filePath, line: UInt = #line) {
-        expectKnownStructuralDebt("m2-rope-delete 3.4 merge handling in the delete return path leaves undersized inner nodes", matching: "children, min is", strict: false) {
-            verifyTreeInvariants(rope, context: context, file: file, line: line)
-        }
-    }
-
     private func runStressTest(seed: UInt64, operations: Int) {
         print("TextRope stress test: seed \(seed), \(operations) operations")
         var rng = SeededRNG(state: seed)
@@ -343,7 +337,7 @@ final class TextRopeStressTests: XCTestCase {
             )
 
             if i % 100 == 0 {
-                verifyTreeInvariantsWithKnownStructuralDebt(rope, context: context)
+                verifyTreeInvariants(rope, context: context)
             }
 
             if i == operations / 2 {
@@ -359,7 +353,7 @@ final class TextRopeStressTests: XCTestCase {
             }
         }
 
-        verifyTreeInvariantsWithKnownStructuralDebt(rope, context: "seed \(seed), final")
+        verifyTreeInvariants(rope, context: "seed \(seed), final")
         XCTAssertTrue(sawInnerNodeChildren, "seed \(seed): mid-run tree-depth check never executed")
         XCTAssertGreaterThanOrEqual(
             Int(rope.root.height), 2,

@@ -7,16 +7,16 @@
 ## 2. Inner Node Merge and Root Collapse
 
 - [x] 2.1 Write tests for inner node merge when child count falls below `minChildren`: correct child distribution after merge, summary recomputation
-- [ ] 2.2 Write tests for inner node redistribution when merging would exceed `maxChildren`: children are moved from the fuller sibling so both are above `minChildren`
+- [x] 2.2 Write tests for inner node redistribution when merging would exceed `maxChildren`: children are moved from the fuller sibling so both are above `minChildren`
 - [ ] 2.3 Write tests for root collapse: root with single child collapses to that child as new root, repeated collapse until root is a leaf or has ≥ 2 children
-- [ ] 2.4 Implement inner node merge, redistribution, and root collapse logic in `Sources/TextRope/Node+Merge.swift`
+- [x] 2.4 Implement inner node merge, redistribution, and root collapse logic in `Sources/TextRope/TextRope+Delete.swift`
 
 ## 3. Recursive Delete with COW Path-Copying
 
 - [x] 3.1 Write tests for basic delete operations: delete from single-leaf rope (beginning, middle, end), delete empty range (no-op), delete with multi-byte characters and emoji, delete spanning a surrogate pair
-- [ ] 3.2 Write tests for spanning deletes: delete across two leaves, delete removing entire intermediate leaves, delete spanning multiple levels of the tree
+- [x] 3.2 Write tests for spanning deletes: delete across two leaves, delete removing entire intermediate leaves, delete spanning multiple levels of the tree
 - [x] 3.3 Implement the recursive delete descent in `Sources/TextRope/TextRope+Delete.swift` — `ensureUnique()` at root, navigate to affected children using UTF-16 summary accumulation, `ensureUniqueChild(at:)` at each level, remove content from edge leaves, remove intermediate children entirely
-- [ ] 3.4 Implement merge handling in the delete return path — if a child becomes undersized, merge or redistribute with sibling; if an inner node becomes undersized, propagate upward; if root collapses, reduce tree height
+- [x] 3.4 Implement merge handling in the delete return path — if a child becomes undersized, merge or redistribute with sibling; if an inner node becomes undersized, propagate upward; if root collapses, reduce tree height
 
 ## 4. Always-Rooted Invariant
 
