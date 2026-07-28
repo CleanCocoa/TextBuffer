@@ -1,12 +1,12 @@
 ## 1. Undersized Leaf Merging Infrastructure
 
-- [ ] 1.1 Write tests for `Node` leaf merging: merge two undersized leaves into one when combined size ≤ `maxChunkUTF8`, verify merged chunk content and summary correctness
+- [x] 1.1 Write tests for `Node` leaf merging: merge two undersized leaves into one when combined size ≤ `maxChunkUTF8`, verify merged chunk content and summary correctness
 - [ ] 1.2 Write tests for `Node` leaf redistribution: when combined size > `maxChunkUTF8`, redistribute content between two leaves so both are above `minChunkUTF8`, verify `\r\n` split invariant and UTF-8 character boundaries are respected
 - [ ] 1.3 Implement `Node` leaf merge and redistribute logic in `Sources/TextRope/Node+Merge.swift` — concatenate chunks or find a valid split point, recompute summaries for resulting leaves
 
 ## 2. Inner Node Merge and Root Collapse
 
-- [ ] 2.1 Write tests for inner node merge when child count falls below `minChildren`: correct child distribution after merge, summary recomputation
+- [x] 2.1 Write tests for inner node merge when child count falls below `minChildren`: correct child distribution after merge, summary recomputation
 - [ ] 2.2 Write tests for inner node redistribution when merging would exceed `maxChildren`: children are moved from the fuller sibling so both are above `minChildren`
 - [ ] 2.3 Write tests for root collapse: root with single child collapses to that child as new root, repeated collapse until root is a leaf or has ≥ 2 children
 - [ ] 2.4 Implement inner node merge, redistribution, and root collapse logic in `Sources/TextRope/Node+Merge.swift`

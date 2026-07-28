@@ -3,6 +3,13 @@ import Foundation
 @testable import TextRope
 
 final class TextRopeDeleteTests: XCTestCase {
+    private func leafChunkSizes(_ rope: TextRope) -> [Int] {
+        func collect(_ node: TextRope.Node) -> [Int] {
+            node.isLeaf ? [node.chunk.utf8.count] : node.children.flatMap(collect)
+        }
+        return collect(rope.root)
+    }
+
     func testDeleteFromStart() {
         var rope = TextRope("hello world")
         rope.delete(in: NSRange(location: 0, length: 3))
@@ -58,6 +65,8 @@ final class TextRopeDeleteTests: XCTestCase {
         let expected = String(a.prefix(900)) + b
         XCTAssertEqual(rope.content, expected)
         XCTAssertEqual(rope.utf16Count, expected.utf16.count)
+        XCTAssertEqual(leafChunkSizes(rope).count, 2)
+        XCTAssertEqual(leafChunkSizes(rope).reduce(0, +), 2100)
         expectKnownStructuralDebt("m2-rope-delete 1.3 leaf redistribution — merge leaves an undersized leaf behind when absorbing it would overflow the neighbor", matching: "UTF-8 bytes, min is") {
             verifyTreeInvariants(rope)
         }
@@ -77,6 +86,67 @@ final class TextRopeDeleteTests: XCTestCase {
         let expected = expectedA + expectedB
         XCTAssertEqual(rope.content, expected)
         XCTAssertEqual(rope.utf16Count, expected.utf16.count)
+        XCTAssertTrue(rope.root.isLeaf)
+        XCTAssertEqual(rope.root.chunk.utf8.count, 1600)
+        verifyTreeInvariants(rope)
+    }
+
+    func testDeleteSpanningMiddleLeavesMergesBothUndersizedEdges() {
+        let blocks = ["a", "b", "c", "d"].map { String(repeating: $0, count: 2048) }
+        var rope = TextRope(blocks.joined())
+        XCTAssertEqual(leafChunkSizes(rope), [2048, 2048, 2048, 2048])
+
+        rope.delete(in: NSRange(location: 900, length: 6392))
+
+        let expected = String(blocks[0].prefix(900)) + String(blocks[3].suffix(900))
+        XCTAssertEqual(rope.content, expected)
+        XCTAssertTrue(rope.root.isLeaf)
+        XCTAssertEqual(rope.root.chunk.utf8.count, 1800)
+        verifyTreeInvariants(rope)
+    }
+
+    func testDeleteMakingLastLeafUndersizedAbsorbsLeftward() {
+        let a = String(repeating: "a", count: 1200)
+        let b = String(repeating: "b", count: 1200)
+        var rope = TextRope(a + b)
+        XCTAssertEqual(leafChunkSizes(rope), [1200, 1200])
+
+        rope.delete(in: NSRange(location: 1800, length: 600))
+
+        let expected = a + String(b.prefix(600))
+        XCTAssertEqual(rope.content, expected)
+        expectKnownStructuralDebt("m2-rope-delete 1.3 leaf redistribution — an undersized last leaf has no right sibling and the merge loop never absorbs leftward", matching: "UTF-8 bytes, min is") {
+            verifyTreeInvariants(rope)
+        }
+    }
+
+    func testDeleteMakingLastLeafUndersizedRedistributesLeftward() {
+        let a = String(repeating: "a", count: 2048)
+        let b = String(repeating: "b", count: 2000)
+        var rope = TextRope(a + b)
+        XCTAssertEqual(leafChunkSizes(rope), [2048, 2000])
+
+        rope.delete(in: NSRange(location: 2148, length: 1900))
+
+        let expected = a + String(b.prefix(100))
+        XCTAssertEqual(rope.content, expected)
+        expectKnownStructuralDebt("m2-rope-delete 1.3 leaf redistribution — an undersized last leaf cannot merge into a full left sibling without redistribution", matching: "UTF-8 bytes, min is") {
+            verifyTreeInvariants(rope)
+        }
+    }
+
+    func testDeleteCollapsingInnerNodeMergesWithSibling() {
+        let letters = "abcdefghijklmnopqrst"
+        let blocks = letters.map { String(repeating: $0, count: 2048) }
+        var rope = TextRope(blocks.joined())
+        XCTAssertEqual(leafChunkSizes(rope).count, 20)
+        XCTAssertEqual(rope.root.children.map(\.children.count), [8, 8, 4])
+
+        rope.delete(in: NSRange(location: 10 * 2048, length: 6 * 2048))
+
+        let expected = blocks[0..<10].joined() + blocks[16...].joined()
+        XCTAssertEqual(rope.content, expected)
+        XCTAssertEqual(rope.root.children.map(\.children.count), [8, 6])
         verifyTreeInvariants(rope)
     }
 
