@@ -42,6 +42,35 @@ extension TextRope.Node {
         return splitPoint(in: slice, targetUTF8: min((count + 1) / 2, maxChunkUTF8))
     }
 
+    static func balancedSplitPoint(in slice: Substring) -> String.Index {
+        let count = slice.utf8.count
+        let low = max(minChunkUTF8, count - maxChunkUTF8)
+        let high = min(maxChunkUTF8, count - minChunkUTF8)
+        let target = (count + 1) / 2
+        let utf8 = slice.utf8
+
+        var backward = min(target, high)
+        var forward = backward + 1
+        while backward >= low || forward <= high {
+            if backward >= low {
+                let candidate = utf8.index(utf8.startIndex, offsetBy: backward)
+                if String.Index(candidate, within: slice) != nil {
+                    return candidate
+                }
+                backward -= 1
+            }
+            if forward <= high {
+                let candidate = utf8.index(utf8.startIndex, offsetBy: forward)
+                if String.Index(candidate, within: slice) != nil {
+                    return candidate
+                }
+                forward += 1
+            }
+        }
+
+        return splitPoint(in: slice, targetUTF8: target)
+    }
+
     static func splitPoint(in slice: Substring, targetUTF8 target: Int) -> String.Index {
         let utf8 = slice.utf8
 

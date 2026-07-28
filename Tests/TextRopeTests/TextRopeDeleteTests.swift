@@ -67,9 +67,7 @@ final class TextRopeDeleteTests: XCTestCase {
         XCTAssertEqual(rope.utf16Count, expected.utf16.count)
         XCTAssertEqual(leafChunkSizes(rope).count, 2)
         XCTAssertEqual(leafChunkSizes(rope).reduce(0, +), 2100)
-        expectKnownStructuralDebt("m2-rope-delete 1.3 leaf redistribution — merge leaves an undersized leaf behind when absorbing it would overflow the neighbor", matching: "UTF-8 bytes, min is") {
-            verifyTreeInvariants(rope)
-        }
+        verifyTreeInvariants(rope)
     }
 
     func testDeleteMergingAdjacentUndersizedLeaves() {
@@ -115,9 +113,9 @@ final class TextRopeDeleteTests: XCTestCase {
 
         let expected = a + String(b.prefix(600))
         XCTAssertEqual(rope.content, expected)
-        expectKnownStructuralDebt("m2-rope-delete 1.3 leaf redistribution — an undersized last leaf has no right sibling and the merge loop never absorbs leftward", matching: "UTF-8 bytes, min is") {
-            verifyTreeInvariants(rope)
-        }
+        XCTAssertTrue(rope.root.isLeaf)
+        XCTAssertEqual(rope.root.chunk.utf8.count, 1800)
+        verifyTreeInvariants(rope)
     }
 
     func testDeleteMakingLastLeafUndersizedRedistributesLeftward() {
@@ -130,9 +128,35 @@ final class TextRopeDeleteTests: XCTestCase {
 
         let expected = a + String(b.prefix(100))
         XCTAssertEqual(rope.content, expected)
-        expectKnownStructuralDebt("m2-rope-delete 1.3 leaf redistribution — an undersized last leaf cannot merge into a full left sibling without redistribution", matching: "UTF-8 bytes, min is") {
-            verifyTreeInvariants(rope)
-        }
+        XCTAssertEqual(leafChunkSizes(rope), [1074, 1074])
+        verifyTreeInvariants(rope)
+    }
+
+    func testDeleteRedistributionDoesNotSplitCRLFAtTheBalancedSplitPoint() {
+        let a = String(repeating: "a", count: 1200)
+        let b = String(repeating: "b", count: 149) + "\r\n" + String(repeating: "c", count: 1049)
+        var rope = TextRope(a + b)
+        XCTAssertEqual(leafChunkSizes(rope), [1200, 1200])
+
+        rope.delete(in: NSRange(location: 900, length: 300))
+
+        XCTAssertEqual(rope.content, String(a.prefix(900)) + b)
+        XCTAssertEqual(leafChunkSizes(rope), [1051, 1049])
+        XCTAssertTrue(rope.root.children[0].chunk.hasSuffix("\r\n"))
+        verifyTreeInvariants(rope)
+    }
+
+    func testDeleteRedistributionRespectsMultiByteBoundariesAtTheBalancedSplitPoint() {
+        let a = String(repeating: "a", count: 1200)
+        let b = String(repeating: "b", count: 148) + "\u{1F600}" + String(repeating: "c", count: 1048)
+        var rope = TextRope(a + b)
+        XCTAssertEqual(leafChunkSizes(rope), [1200, 1200])
+
+        rope.delete(in: NSRange(location: 900, length: 300))
+
+        XCTAssertEqual(rope.content, String(a.prefix(900)) + b)
+        XCTAssertEqual(leafChunkSizes(rope).count, 2)
+        verifyTreeInvariants(rope)
     }
 
     func testDeleteCollapsingInnerNodeMergesWithSibling() {

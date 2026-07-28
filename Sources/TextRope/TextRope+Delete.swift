@@ -104,31 +104,33 @@ extension TextRope {
             var current = node.children[i]
             i += 1
 
-            while i < node.children.count && current.chunk.utf8.count < Node.minChunkUTF8 {
-                let next = node.children[i]
-                let combined = current.chunk + next.chunk
-                if combined.utf8.count <= Node.maxChunkUTF8 {
-                    current = Node.leaf(combined)
+            while current.chunk.utf8.count < Node.minChunkUTF8 {
+                if i < node.children.count {
+                    current = combinedLeaf(current.chunk, node.children[i].chunk, redistributingInto: &merged)
                     i += 1
+                } else if let previous = merged.popLast() {
+                    current = combinedLeaf(previous.chunk, current.chunk, redistributingInto: &merged)
                 } else {
                     break
                 }
             }
 
-            if current.chunk.utf8.count > Node.maxChunkUTF8 {
-                let sub = current.chunk[...]
-                var remaining = sub
-                while !remaining.isEmpty {
-                    let splitEnd = Node.leafSplitPoint(in: remaining)
-                    merged.append(Node.leaf(String(remaining[remaining.startIndex..<splitEnd])))
-                    remaining = remaining[splitEnd...]
-                }
-            } else {
-                merged.append(current)
-            }
+            merged.append(current)
         }
 
         node.children = merged
+    }
+
+    private static func combinedLeaf(_ left: String, _ right: String, redistributingInto merged: inout ContiguousArray<Node>) -> Node {
+        let combined = left + right
+        if combined.utf8.count <= Node.maxChunkUTF8 {
+            return Node.leaf(combined)
+        }
+
+        let slice = combined[...]
+        let splitEnd = Node.balancedSplitPoint(in: slice)
+        merged.append(Node.leaf(String(slice[slice.startIndex..<splitEnd])))
+        return Node.leaf(String(slice[splitEnd...]))
     }
 
     private static func mergeUndersizedInnerNodes(_ node: Node) {

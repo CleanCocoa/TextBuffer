@@ -25,9 +25,7 @@ final class TextRopeReplaceTests: XCTestCase {
         rope.replace(range: NSRange(location: 2047, length: 1000), with: "XX")
         let expected = String(a.prefix(2047)) + "XX" + String(b.suffix(1001))
         XCTAssertEqual(rope.content, expected)
-        expectKnownStructuralDebt("m2-rope-delete 1.3 leaf redistribution — merge on the replace path leaves an undersized leaf behind when absorbing it would overflow the neighbor", matching: "UTF-8 bytes, min is") {
-            verifyTreeInvariants(rope)
-        }
+        verifyTreeInvariants(rope)
     }
 
     func testReplaceShorterString() {
