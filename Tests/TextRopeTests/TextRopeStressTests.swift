@@ -241,7 +241,7 @@ final class TextRopeStressTests: XCTestCase {
         undersizedInnerNodes.issueMatcher = { $0.compactDescription.contains("children, min is") }
         undersizedInnerNodes.isStrict = false
 
-        XCTExpectFailure("m2-rope-foundation 5.3 construction chunk sizing / m2-rope-insert 1.2 midpoint split / m2-rope-delete 1.3 leaf redistribution leave undersized leaves", options: undersizedLeaves) {
+        XCTExpectFailure("m2-rope-foundation 5.3 construction chunk sizing / m2-rope-insert 1.1 midpoint split / m2-rope-delete 1.3 leaf redistribution leave undersized leaves", options: undersizedLeaves) {
             XCTExpectFailure("m2-rope-delete 3.4 merge handling in the delete return path leaves undersized inner nodes", options: undersizedInnerNodes) {
                 verifyTreeInvariants(rope, context: context, file: file, line: line)
             }

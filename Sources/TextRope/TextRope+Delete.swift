@@ -119,7 +119,7 @@ extension TextRope {
                 let sub = current.chunk[...]
                 var remaining = sub
                 while !remaining.isEmpty {
-                    let splitEnd = leafSplitPoint(in: remaining)
+                    let splitEnd = Node.leafSplitPoint(in: remaining)
                     merged.append(Node.leaf(String(remaining[remaining.startIndex..<splitEnd])))
                     remaining = remaining[splitEnd...]
                 }
@@ -172,25 +172,5 @@ extension TextRope {
             summary.add(child.summary)
         }
         node.summary = summary
-    }
-
-    private static func leafSplitPoint(in slice: Substring) -> String.Index {
-        let utf8 = slice.utf8
-        let maxBytes = Node.maxChunkUTF8
-
-        if utf8.count <= maxBytes {
-            return slice.endIndex
-        }
-
-        let candidate = utf8.index(utf8.startIndex, offsetBy: maxBytes)
-
-        if candidate > slice.startIndex {
-            let prev = utf8.index(before: candidate)
-            if utf8[prev] == UInt8(ascii: "\r") && candidate < slice.endIndex && utf8[candidate] == UInt8(ascii: "\n") {
-                return utf8.index(after: candidate)
-            }
-        }
-
-        return candidate
     }
 }

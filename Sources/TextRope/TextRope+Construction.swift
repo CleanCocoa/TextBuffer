@@ -9,7 +9,7 @@ extension TextRope {
         var remaining = string[...]
 
         while !remaining.isEmpty {
-            let chunkEnd = splitPoint(in: remaining)
+            let chunkEnd = Node.leafSplitPoint(in: remaining)
             leaves.append(Node.leaf(String(remaining[remaining.startIndex..<chunkEnd])))
             remaining = remaining[chunkEnd...]
         }
@@ -34,25 +34,4 @@ extension TextRope {
         }
         return level[0]
     }
-}
-
-private func splitPoint(in slice: Substring) -> String.Index {
-    let utf8 = slice.utf8
-    let maxBytes = TextRope.Node.maxChunkUTF8
-
-    if utf8.count <= maxBytes {
-        return slice.endIndex
-    }
-
-    let candidateIdx = utf8.index(utf8.startIndex, offsetBy: maxBytes)
-    let candidate = candidateIdx
-
-    if candidate > slice.startIndex {
-        let prev = utf8.index(before: candidate)
-        if utf8[prev] == UInt8(ascii: "\r") && candidate < slice.endIndex && utf8[candidate] == UInt8(ascii: "\n") {
-            return utf8.index(after: candidate)
-        }
-    }
-
-    return candidate
 }
