@@ -38,6 +38,7 @@ private func typeEachCharacter(
     }
 }
 
+// TODO: [T2 IME e2e] hand-simulated delegate sequence; real-IME XCUITest (Japanese input source: commit, Esc-cancel, click-away) pending in e2e/TextBufferXCUITests to retire this risk
 @MainActor
 private func markText(
     _ markedText: String,
