@@ -37,12 +37,7 @@ extension TextRope {
             target = Node.maxChunkUTF8
         }
 
-        let candidate = utf8.index(utf8.startIndex, offsetBy: target)
-        let prev = utf8.index(before: candidate)
-        if utf8[prev] == UInt8(ascii: "\r") && utf8[candidate] == UInt8(ascii: "\n") {
-            return prev
-        }
-        return candidate
+        return Node.splitPoint(in: slice, targetUTF8: target)
     }
 
     static func buildTree(from nodes: [Node]) -> Node {

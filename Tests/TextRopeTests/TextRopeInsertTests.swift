@@ -55,6 +55,18 @@ final class TextRopeInsertTests: XCTestCase {
         verifyTreeInvariants(rope)
     }
 
+    func testInsertIntoFullInteriorLeafSplitsWithBothHalvesAboveMinimum() {
+        let base = String(repeating: "A", count: 4 * 2048)
+        var rope = TextRope(base)
+        verifyTreeInvariants(rope)
+        rope.insert("X", at: 2500)
+        var expected = base
+        expected.insert("X", at: expected.index(expected.startIndex, offsetBy: 2500))
+        XCTAssertEqual(rope.content, expected)
+        XCTAssertEqual(rope.utf8Count, 4 * 2048 + 1)
+        verifyTreeInvariants(rope)
+    }
+
     func testInsertMultiByteCharacter() {
         var rope = TextRope("abc")
         rope.insert("\u{1F600}", at: 1)

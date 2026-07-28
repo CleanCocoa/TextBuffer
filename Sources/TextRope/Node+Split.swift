@@ -33,22 +33,27 @@ extension TextRope.Node {
     }
 
     static func leafSplitPoint(in slice: Substring) -> String.Index {
-        let utf8 = slice.utf8
-        let maxBytes = maxChunkUTF8
+        let count = slice.utf8.count
 
-        if utf8.count <= maxBytes {
+        if count <= maxChunkUTF8 {
             return slice.endIndex
         }
 
-        let candidate = utf8.index(utf8.startIndex, offsetBy: maxBytes)
+        return splitPoint(in: slice, targetUTF8: min((count + 1) / 2, maxChunkUTF8))
+    }
 
-        if candidate > slice.startIndex {
-            let prev = utf8.index(before: candidate)
-            if utf8[prev] == UInt8(ascii: "\r") && candidate < slice.endIndex && utf8[candidate] == UInt8(ascii: "\n") {
-                return utf8.index(after: candidate)
+    static func splitPoint(in slice: Substring, targetUTF8 target: Int) -> String.Index {
+        let utf8 = slice.utf8
+
+        var offset = target
+        while offset > 0 {
+            let candidate = utf8.index(utf8.startIndex, offsetBy: offset)
+            if String.Index(candidate, within: slice) != nil {
+                return candidate
             }
+            offset -= 1
         }
 
-        return candidate
+        return utf8.index(utf8.startIndex, offsetBy: target)
     }
 }

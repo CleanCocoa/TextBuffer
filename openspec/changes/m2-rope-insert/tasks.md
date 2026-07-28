@@ -1,6 +1,6 @@
 ## 1. Leaf Splitting Infrastructure
 
-- [ ] 1.1 Write tests for `Node` leaf splitting: split at midpoint, split respects UTF-8 character boundaries, split respects `\r\n` invariant, split of chunk with only multi-byte characters, split point adjustment when midpoint lands inside multi-byte sequence
+- [x] 1.1 Write tests for `Node` leaf splitting: split at midpoint, split respects UTF-8 character boundaries, split respects `\r\n` invariant, split of chunk with only multi-byte characters, split point adjustment when midpoint lands inside multi-byte sequence
 - [x] 1.2 Implement `Node.splitLeaf() -> Node` in `Sources/TextRope/Node+Split.swift` — find UTF-8 midpoint, adjust to character boundary, apply `\r\n` invariant, split chunk into two, recompute summaries for both halves, return the new right sibling (seam extracted; split point is still greedy `maxChunkUTF8`, midpoint lands with 1.1)
 - [x] 1.3 Write tests for oversized chunk producing multiple splits (inserted string > `maxChunkUTF8`), verify all resulting leaves are within size bounds and summaries are correct
 
