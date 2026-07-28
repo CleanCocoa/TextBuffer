@@ -89,19 +89,25 @@ public final class NSTextViewOperationLogBridge {
 extension NSTextViewOperationLogBridge {
     /// Replays the most recent undo group back onto the text view, restoring content and selection.
     ///
-    /// Replay goes through `NSTextView.insertText(_:replacementRange:)`, so the view emits its
-    /// regular change callbacks for downstream consumers; the bridge suppresses re-recording.
+    /// Replay makes the view emit its regular change callbacks for downstream consumers; the
+    /// bridge suppresses re-recording. Callbacks observe ``log`` as it was before the replay;
+    /// the replayed log is written back afterwards.
     public func undo() {
         isReplaying = true
         defer { isReplaying = false }
-        _ = log.undo(on: replayBuffer)
+        // Replay on a copy: mutating `log` directly would hold exclusive access on it while the view re-emits change callbacks, trapping any consumer that reads `log` from those callbacks.
+        var replayed = log
+        _ = replayed.undo(on: replayBuffer)
+        log = replayed
     }
 
     /// Reapplies the most recently undone group onto the text view, restoring content and selection.
     public func redo() {
         isReplaying = true
         defer { isReplaying = false }
-        _ = log.redo(on: replayBuffer)
+        var replayed = log
+        _ = replayed.redo(on: replayBuffer)
+        log = replayed
     }
 }
 

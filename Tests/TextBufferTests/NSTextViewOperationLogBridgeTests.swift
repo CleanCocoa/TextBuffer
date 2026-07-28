@@ -27,6 +27,7 @@ private func type(
 private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
     let bridge: NSTextViewOperationLogBridge
     private(set) var textDidChangeCount = 0
+    var onTextDidChange: (() -> Void)?
 
     init(bridge: NSTextViewOperationLogBridge) {
         self.bridge = bridge
@@ -40,6 +41,7 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
     func textDidChange(_ notification: Notification) {
         textDidChangeCount += 1
         bridge.textDidChange()
+        onTextDidChange?()
     }
 }
 
@@ -196,6 +198,24 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             #expect(textView.string == "ab")
             #expect(bridge.log.history == historyAfterTyping)
             #expect(bridge.log.canRedo == false)
+        }
+
+        @Test func `a consumer reading the log from a change callback during replay does not crash`() {
+            let (textView, bridge) = makeBridgedTextView()
+            let delegate = ForwardingDelegate(bridge: bridge)
+            textView.delegate = delegate
+            defer { withExtendedLifetime(delegate) {} }
+            textView.insertText("a", replacementRange: NSRange(location: 0, length: 0))
+
+            var observedCanUndo: [Bool] = []
+            delegate.onTextDidChange = { observedCanUndo.append(bridge.log.canUndo) }
+
+            bridge.undo()
+
+            #expect(textView.string == "")
+            #expect(observedCanUndo == [true])
+            #expect(bridge.log.canUndo == false)
+            #expect(bridge.log.canRedo)
         }
 
         @Test func `replay re-emits the view's content-change callbacks for downstream consumers`() {
