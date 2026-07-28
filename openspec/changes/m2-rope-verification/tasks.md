@@ -19,9 +19,9 @@
 ## 4. CRLF Invariant Edge-Case Tests
 
 - [x] 4.1 Write test for construction with `\r\n` at chunk boundary: build a string sized so `\r` would land at the last byte of a chunk, construct rope, verify no chunk ends with `\r` followed by a chunk starting with `\n`
-- [ ] 4.2 Write tests for insert near CRLF at chunk boundary: insert before `\r`, at `\r`, between `\r` and `\n`, and after `\n` — verify invariant holds and line counts are correct after each
-- [ ] 4.3 Write tests for delete/replace across CRLF pairs: delete just `\r`, delete just `\n`, replace spanning the pair — verify content correctness and line count consistency
-- [ ] 4.4 Write test verifying line count consistency: after multiple CRLF insert/delete operations, assert `root.summary.lines` equals the count of `\n` in `rope.content`
+- [x] 4.2 Write tests for insert near CRLF at chunk boundary: insert before `\r`, at `\r`, between `\r` and `\n`, and after `\n` — verify invariant holds and line counts are correct after each
+- [x] 4.3 Write tests for delete/replace across CRLF pairs: delete just `\r`, delete just `\n`, replace spanning the pair — verify content correctness and line count consistency
+- [x] 4.4 Write test verifying line count consistency: after multiple CRLF insert/delete operations, assert `root.summary.lines` equals the count of `\n` in `rope.content`
 
 ## 5. Surrogate Pair Edge-Case Tests
 

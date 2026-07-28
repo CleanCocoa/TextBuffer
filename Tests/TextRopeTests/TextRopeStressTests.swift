@@ -250,6 +250,86 @@ final class TextRopeStressTests: XCTestCase {
         }
     }
 
+    // MARK: - CRLF invariant edge cases
+
+    private func makeRopeWithCRLFAtChunkBoundary() -> (rope: TextRope, oracle: String) {
+        let oracle = String(repeating: "a", count: 2048) + "\r\n" + String(repeating: "b", count: 2048)
+        let rope = TextRope(oracle)
+        verifyTreeInvariants(rope, context: "construction")
+        return (rope, oracle)
+    }
+
+    func testInsertNearCRLFAtChunkBoundary() {
+        for offset in [2047, 2048, 2049, 2050] {
+            var (rope, oracle) = makeRopeWithCRLFAtChunkBoundary()
+            rope.insert("Xé", at: offset)
+            let idx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: offset)
+            oracle.insert(contentsOf: "Xé", at: idx)
+
+            XCTAssertEqual(rope.content, oracle, "content mismatch after insert at \(offset)")
+            XCTAssertEqual(rope.root.summary.lines, Self.newlineCount(in: oracle), "line count mismatch after insert at \(offset)")
+            verifyTreeInvariants(rope, context: "insert at \(offset)")
+        }
+    }
+
+    func testDeleteAndReplaceAcrossCRLFPair() {
+        let base = String(repeating: "a", count: 1000) + "\r\n" + String(repeating: "b", count: 1000)
+
+        var deleteCR = TextRope(base)
+        deleteCR.delete(in: NSRange(location: 1000, length: 1))
+        XCTAssertEqual(deleteCR.content, String(repeating: "a", count: 1000) + "\n" + String(repeating: "b", count: 1000))
+        XCTAssertEqual(deleteCR.root.summary.lines, 1)
+
+        var deleteLF = TextRope(base)
+        deleteLF.delete(in: NSRange(location: 1001, length: 1))
+        XCTAssertEqual(deleteLF.content, String(repeating: "a", count: 1000) + "\r" + String(repeating: "b", count: 1000))
+        XCTAssertEqual(deleteLF.root.summary.lines, 0)
+
+        var replacePair = TextRope(base)
+        replacePair.replace(range: NSRange(location: 999, length: 4), with: "X")
+        XCTAssertEqual(replacePair.content, String(repeating: "a", count: 999) + "X" + String(repeating: "b", count: 999))
+        XCTAssertEqual(replacePair.root.summary.lines, 0)
+
+        for rope in [deleteCR, deleteLF, replacePair] {
+            verifyTreeInvariants(rope)
+        }
+    }
+
+    func testLineCountStaysConsistentAcrossCRLFMutations() {
+        var rope = TextRope(String(repeating: "line\r\n", count: 500))
+        var oracle = String(repeating: "line\r\n", count: 500)
+
+        func assertLineCount(_ step: String) {
+            XCTAssertEqual(rope.root.summary.lines, Self.newlineCount(in: oracle), "line count diverged: \(step)")
+            XCTAssertEqual(rope.content, oracle, "content diverged: \(step)")
+        }
+
+        rope.insert("\r\n", at: 300)
+        let insertIdx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: 300)
+        oracle.insert(contentsOf: "\r\n", at: insertIdx)
+        assertLineCount("insert CRLF")
+
+        rope.delete(in: NSRange(location: 4, length: 2))
+        let delStart = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: 4)
+        let delEnd = oracle.utf16.index(delStart, offsetBy: 2)
+        oracle.removeSubrange(delStart..<delEnd)
+        assertLineCount("delete a CRLF pair")
+
+        rope.delete(in: NSRange(location: 100, length: 1))
+        let halfStart = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: 100)
+        let halfEnd = oracle.utf16.index(halfStart, offsetBy: 1)
+        oracle.removeSubrange(halfStart..<halfEnd)
+        assertLineCount("delete a single unit inside the text")
+
+        rope.replace(range: NSRange(location: 50, length: 20), with: "\n\r\n\n")
+        let repStart = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: 50)
+        let repEnd = oracle.utf16.index(repStart, offsetBy: 20)
+        oracle.replaceSubrange(repStart..<repEnd, with: "\n\r\n\n")
+        assertLineCount("replace with mixed newlines")
+
+        verifyTreeInvariants(rope, context: "after CRLF mutations")
+    }
+
     // MARK: - Summary correctness
 
     func testSummaryAfterMixedOperations() {
