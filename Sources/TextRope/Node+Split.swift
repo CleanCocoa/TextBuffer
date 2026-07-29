@@ -68,6 +68,7 @@ extension TextRope.Node {
             }
         }
 
+        // Constraint: reached only when no Character boundary exists in [low, high], i.e. a single grapheme cluster straddles the whole redistribution window (e.g. a degenerate ZWJ chain); the backward-only splitPoint walk can then undershoot `low` and produce an undersized left chunk.
         return splitPoint(in: slice, targetUTF8: target)
     }
 
@@ -83,6 +84,7 @@ extension TextRope.Node {
             offset -= 1
         }
 
+        // Constraint: reached only when no Character boundary exists in (0, target], i.e. the slice starts with a single grapheme cluster wider than `target` bytes (> maxChunkUTF8 in practice, e.g. a degenerate ZWJ chain); the returned index then falls mid-character, splitting that cluster across chunks.
         return utf8.index(utf8.startIndex, offsetBy: target)
     }
 }
