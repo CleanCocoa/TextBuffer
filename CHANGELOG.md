@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `TextRope`: inserting an LF-leading string at a chunk boundary after a CR-terminated chunk no longer splits a `\r\n` pair across adjacent leaves. The insert unwind now repairs the seam by redistributing the two boundary chunks through the grapheme-safe balanced split point, for sibling leaves and across subtree boundaries alike — the guarantee the delete path already enforced.
+- `RopeBuffer` and `SendableRopeBuffer`: `content(in:)` and `unsafeCharacter(at:)` now expand their ranges to composed character sequence boundaries, matching `MutableStringBuffer`'s `NSString`-backed semantics on partial surrogate pairs and combining marks. The expansion materializes only a small window around the range via the new `TextRope.composedCharacterSequences(in:)`/`composedCharacterSequence(at:)`, not the whole document.
+
+### Changed
+
+- M2 rope verification complete: structural invariants — chunk size bounds, children count bounds, `\r\n` never split across leaves — are enforced by the tree validator after any sequence of insert, delete, or replace, and verified under 4-seed 10k-operation randomized stress.
+
 ## 0.8.2
 
 ### Fixed
