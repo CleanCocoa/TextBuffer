@@ -12,7 +12,7 @@
 
 ## 3. Replace Implementation
 
-- [x] 3.1 Implement `mutating func replace(range:with:)` in `Sources/TextRope/TextRope+Replace.swift` — guard degenerate cases (empty string → delete only, empty range → insert only, both empty → return), then compose as `delete(in:)` followed by `insert(_:at:)` at the range's start location
+- [x] 3.1 Implement `mutating func replace(range:with:)` in `Sources/TextRope/TextRope+Replace.swift` — compose unconditionally as `delete(in:)` followed by `insert(_:at:)` at the range's start location; degenerate cases fall out of the early returns in `delete` (zero-length range) and `insert` (empty string) rather than dedicated guards (text corrected at review-fold; behavior pinned by `testReplaceEmptyStringIsDelete`, `testReplaceEmptyRangeIsInsert`, and `testReplaceEmptyRangeWithEmptyStringIsNoOp`)
 
 ## 4. Summary and COW Verification
 

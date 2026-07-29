@@ -7,7 +7,7 @@
 ## 2. Inner Node Split
 
 - [x] 2.1 Write tests for inner node split when children exceed `maxChildren`: correct child distribution, summary recomputation for both halves
-- [x] 2.2 Implement `Node.splitInner() -> Node` in `Sources/TextRope/Node+Split.swift` — split children array at midpoint, create new inner node with the right half, recompute summaries for both nodes, return the new right sibling
+- [x] 2.2 Implement `Node.splitInner() -> [Node]` in `Sources/TextRope/Node+Split.swift` — distribute the children n-way into balanced groups of at most `maxChildren`, keep the first group in place with a recomputed summary, return the remaining groups as new right siblings (text corrected at review-fold: shipped as an n-way split returning `[Node]`, not a midpoint split returning one sibling; behavior pinned by `testInsertHugeStringIntoFullInnerNode` and `testInsertCascadingSplits`)
 
 ## 3. Recursive Insert with COW Path-Copying
 

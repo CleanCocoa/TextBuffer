@@ -6,7 +6,7 @@
 ## 2. RopeBuffer Content Access
 
 - [x] 2.1 Implement `content(in:)` — validate range with `contains(range:)`, delegate to `rope.content(in:)`. Write test for valid subrange returning correct substring.
-- [x] 2.2 Implement `unsafeCharacter(at:)` — delegate to rope content extraction for a single character at UTF-16 offset.
+- [x] 2.2 Implement `unsafeCharacter(at:)` — delegate to `rope.composedCharacterSequence(at:)`, returning the full composed character sequence containing the UTF-16 offset to match `MutableStringBuffer` (text corrected at review-fold: shipped semantics are composed-sequence expansion, not a single-code-unit read; behavior pinned by `testUnsafeCharacterAtSurrogateHalvesAndCombiningMarksMatchesMutableStringBuffer`)
 - [x] 2.3 Implement `lineRange(for:)` — validate range, delegate to `(self.content as NSString).lineRange(for:)`. Write test for line range expansion.
 - [x] 2.4 Implement `modifying(affectedRange:_:)` — validate range, execute block. Write tests for valid and invalid ranges.
 
