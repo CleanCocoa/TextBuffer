@@ -41,6 +41,7 @@ public final class RopeBuffer: Buffer, TextAnalysisCapable {
                 available: self.range
             )
         }
+        // TODO: [M3 Rope Queries] lineRange materializes the full document per call via `self.content as NSString`; replace with summary-guided rope traversal before making large-document claims.
         return (self.content as NSString).lineRange(for: searchRange)
     }
 

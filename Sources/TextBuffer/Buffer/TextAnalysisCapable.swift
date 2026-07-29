@@ -43,6 +43,7 @@ extension TextAnalysisCapable where Range == NSRange, Content == String {
     public func wordRange(for baseRange: NSRange) throws(BufferAccessFailure) -> NSRange {
         guard contains(range: baseRange)
         else { throw BufferAccessFailure.outOfRange(requested: baseRange, available: self.range) }
+        // TODO: [M3 Rope Queries] the default wordRange materializes the full document per call via `self.content as NSString`, which rope-backed buffers inherit; replace with summary-guided rope traversal before making large-document claims.
         return computeWordRange(for: baseRange, in: (self.content as NSString), contentRange: self.range)
     }
 
