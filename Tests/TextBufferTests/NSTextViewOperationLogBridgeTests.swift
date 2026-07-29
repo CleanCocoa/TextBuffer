@@ -892,6 +892,83 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             #expect(textView.string == "")
         }
 
+        @Test func `a candidate-committed composition records one group with the committed hanzi`() {
+            let (textView, bridge) = makeBridgedTextView()
+            let delegate = ForwardingDelegate(bridge: bridge)
+            textView.delegate = delegate
+            defer { withExtendedLifetime(delegate) {} }
+
+            textView.setMarkedText("n", selectedRange: NSRange(location: 1, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+            textView.setMarkedText("ni hao", selectedRange: NSRange(location: 6, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+            textView.insertText("你好", replacementRange: NSRange(location: NSNotFound, length: 0))
+
+            #expect(textView.string == "你好")
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .insert(content: "你好", at: 0))],
+            ])
+
+            bridge.undo()
+            #expect(textView.string == "")
+        }
+
+        @Test func `a composition committed over a selection through the view's callbacks records one replace group`() {
+            let (textView, bridge) = makeBridgedTextView("hello")
+            let delegate = ForwardingDelegate(bridge: bridge)
+            textView.delegate = delegate
+            defer { withExtendedLifetime(delegate) {} }
+            textView.setSelectedRange(NSRange(location: 0, length: 5))
+
+            textView.setMarkedText("n", selectedRange: NSRange(location: 1, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+            textView.insertText("你", replacementRange: NSRange(location: NSNotFound, length: 0))
+
+            #expect(textView.string == "你")
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .replace(range: NSRange(location: 0, length: 5), oldContent: "hello", newContent: "你"))],
+            ])
+
+            bridge.undo()
+            #expect(textView.string == "hello")
+            #expect(textView.selectedRange == NSRange(location: 0, length: 5))
+        }
+
+        @Test func `a composition cancelled through the view's callbacks records nothing and later typing records normally`() {
+            let (textView, bridge) = makeBridgedTextView()
+            let delegate = ForwardingDelegate(bridge: bridge)
+            textView.delegate = delegate
+            defer { withExtendedLifetime(delegate) {} }
+
+            textView.setMarkedText("ni", selectedRange: NSRange(location: 2, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+            textView.setMarkedText("", selectedRange: NSRange(location: 0, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+            #expect(textView.string == "")
+            #expect(textView.hasMarkedText() == false)
+
+            textView.insertText("x", replacementRange: NSRange(location: 0, length: 0))
+
+            #expect(textView.string == "x")
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .insert(content: "x", at: 0))],
+            ])
+        }
+
+        @Test func `undo after a composition cancelled through the view's callbacks discards the baseline instead of fabricating an operation`() {
+            let (textView, bridge) = makeBridgedTextView()
+            let delegate = ForwardingDelegate(bridge: bridge)
+            textView.delegate = delegate
+            defer { withExtendedLifetime(delegate) {} }
+            textView.insertText("a", replacementRange: NSRange(location: 0, length: 0))
+
+            textView.setMarkedText("ni", selectedRange: NSRange(location: 2, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+            textView.setMarkedText("", selectedRange: NSRange(location: 0, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+            #expect(textView.hasMarkedText() == false)
+
+            bridge.undo()
+
+            #expect(textView.string == "")
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .insert(content: "a", at: 0))],
+            ])
+        }
+
         @Test func `cancelling a composition records nothing`() {
             let (textView, bridge) = makeBridgedTextView()
             markText("に", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
