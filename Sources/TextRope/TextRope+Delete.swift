@@ -100,7 +100,7 @@ extension TextRope {
         return false
     }
 
-    private static func crlfSeam(between left: Node, and right: Node) -> Bool {
+    static func crlfSeam(between left: Node, and right: Node) -> Bool {
         var last = left
         while !last.isLeaf { last = last.children[last.children.count - 1] }
         guard last.chunk.utf8.last == UInt8(ascii: "\r") else { return false }

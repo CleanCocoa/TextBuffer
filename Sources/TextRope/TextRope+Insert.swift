@@ -43,9 +43,13 @@ extension TextRope {
                         j += 1
                     }
                     updateSummary(node)
-                    if node.children.count > Node.maxChildren {
-                        return node.splitInner()
-                    }
+                }
+                if i > 0 && Self.crlfSeam(between: node.children[i - 1], and: node.children[i]) {
+                    node.ensureUniqueChild(at: i - 1)
+                    repairCRLFSeam(between: node.children[i - 1], and: node.children[i])
+                }
+                if node.children.count > Node.maxChildren {
+                    return node.splitInner()
                 }
                 return []
             }
@@ -61,6 +65,48 @@ extension TextRope {
             return node.splitLeaf()
         }
         return nil
+    }
+
+    private func repairCRLFSeam(between left: Node, and right: Node) {
+        let leftSpine = rightmostSpine(of: left)
+        let rightSpine = leftmostSpine(of: right)
+        let leftLeaf = leftSpine[leftSpine.count - 1]
+        let rightLeaf = rightSpine[rightSpine.count - 1]
+
+        let combined = leftLeaf.chunk + rightLeaf.chunk
+        let slice = combined[...]
+        let splitEnd = Node.balancedSplitPoint(in: slice)
+        leftLeaf.chunk = String(slice[slice.startIndex..<splitEnd])
+        rightLeaf.chunk = String(slice[splitEnd...])
+
+        for node in leftSpine.reversed() {
+            updateSummary(node)
+        }
+        for node in rightSpine.reversed() {
+            updateSummary(node)
+        }
+    }
+
+    private func rightmostSpine(of node: Node) -> [Node] {
+        var spine = [node]
+        var current = node
+        while !current.isLeaf {
+            current.ensureUniqueChild(at: current.children.count - 1)
+            current = current.children[current.children.count - 1]
+            spine.append(current)
+        }
+        return spine
+    }
+
+    private func leftmostSpine(of node: Node) -> [Node] {
+        var spine = [node]
+        var current = node
+        while !current.isLeaf {
+            current.ensureUniqueChild(at: 0)
+            current = current.children[0]
+            spine.append(current)
+        }
+        return spine
     }
 
     private func spliceIntoLeaf(_ node: Node, at utf16Offset: Int, content: String) {

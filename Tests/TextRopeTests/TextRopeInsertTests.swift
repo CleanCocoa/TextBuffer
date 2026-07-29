@@ -176,6 +176,45 @@ final class TextRopeInsertTests: XCTestCase {
         verifyTreeInvariants(rope)
     }
 
+    func testInsertPrependingLFToSiblingLeafAfterCRTerminatedLeafDoesNotSplitCRLF() {
+        let base = String(repeating: "a", count: 2047) + "\r" + String(repeating: "b", count: 2048)
+        var rope = TextRope(base)
+        XCTAssertEqual(leafChunks(rope).map(\.utf8.count), [2048, 2048])
+        XCTAssertTrue(leafChunks(rope)[0].hasSuffix("\r"))
+
+        rope.insert("\n", at: 2048)
+
+        var expected = base
+        expected.insert("\n", at: expected.utf16.index(expected.utf16.startIndex, offsetBy: 2048))
+        XCTAssertEqual(rope.content, expected)
+        XCTAssertEqual(rope.root.summary, TextRope.Summary.of(expected))
+        verifyTreeInvariants(rope, context: "after LF insert at the sibling-leaf boundary")
+    }
+
+    func testInsertPrependingLFAcrossSubtreeBoundaryAfterCRTerminatedLeafDoesNotSplitCRLF() {
+        let base = String(repeating: "a", count: 5 * 2048 - 1) + "\r" + String(repeating: "b", count: 4 * 2048)
+        var rope = TextRope(base)
+        XCTAssertEqual(rope.root.children.map(\.children.count), [5, 4])
+        XCTAssertTrue(leafChunks(rope)[4].hasSuffix("\r"))
+        let original = rope
+
+        rope.insert("\n", at: 5 * 2048)
+
+        var expected = base
+        expected.insert("\n", at: expected.utf16.index(expected.utf16.startIndex, offsetBy: 5 * 2048))
+        XCTAssertEqual(rope.content, expected)
+        XCTAssertEqual(rope.root.summary, TextRope.Summary.of(expected))
+        XCTAssertEqual(original.content, base, "seam repair across the subtree boundary must not mutate the shared original")
+        verifyTreeInvariants(rope, context: "after LF insert at the subtree boundary")
+    }
+
+    private func leafChunks(_ rope: TextRope) -> [String] {
+        func collect(_ node: TextRope.Node) -> [String] {
+            node.isLeaf ? [node.chunk] : node.children.flatMap(collect)
+        }
+        return collect(rope.root)
+    }
+
     func testRepeatedInsertionsGrowSingleLeafToThreePlusLevels() {
         var rope = TextRope()
         var oracle = ""
