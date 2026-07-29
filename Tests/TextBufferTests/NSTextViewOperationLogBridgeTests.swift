@@ -969,6 +969,29 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             ])
         }
 
+        @Test func `an unmark commit through the view's callbacks records the composition as one group`() {
+            let (textView, bridge) = makeBridgedTextView("ab")
+            let delegate = ForwardingDelegate(bridge: bridge)
+            textView.delegate = delegate
+            defer { withExtendedLifetime(delegate) {} }
+            textView.setSelectedRange(NSRange(location: 1, length: 0))
+
+            textView.setMarkedText("nihao", selectedRange: NSRange(location: 5, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+            textView.unmarkText()
+
+            #expect(textView.string == "anihaob")
+            #expect(textView.hasMarkedText() == false)
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .insert(content: "nihao", at: 1))],
+            ])
+
+            let snapshot = bridge.sendableSnapshot()
+            #expect(snapshot.log == bridge.log)
+
+            bridge.undo()
+            #expect(textView.string == "ab")
+        }
+
         @Test func `cancelling a composition records nothing`() {
             let (textView, bridge) = makeBridgedTextView()
             markText("に", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
