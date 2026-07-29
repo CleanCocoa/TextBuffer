@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `NSTextViewOperationLogBridge` now records compositions driven through the view's real delegate callbacks — a real IME commit (e.g. macOS Pinyin's Return, which commits the raw latin letters) was never entered into the log, so undoing everything unwound every other group and left the committed letters behind. `NSTextView` flips `hasMarkedText()` before consulting the delegate and fires no `textDidChange` for marked-only changes, so the baseline the bridge expected to stage from a pre-composition `shouldChangeText` forward never existed; the commit's own forward was gated as an intermediate and its `textDidChange` found nothing to record. The composition baseline is now captured at the first gated `shouldChangeText` forward, whose content and selection are still pre-composition. The hand-simulated sequence the tests previously drove (staging before `setMarkedText`, `textDidChange` per intermediate) still records identically.
+
 ## 0.9.0
 
 ### Fixed

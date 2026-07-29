@@ -90,15 +90,27 @@ public final class NSTextViewOperationLogBridge {
     /// delegate's return value remains the caller's decision.
     ///
     /// While the view `hasMarkedText()`, composition intermediates stage nothing; the finished
-    /// composition is recorded once, from the baseline staged when composition began. If
-    /// composition ended without a character-changing `textDidChange` (an unmark), the stale
-    /// baseline is resolved first — committed or discarded against the view's current content —
-    /// so the new edit cannot be folded into stale composition math.
+    /// composition is recorded once, from the baseline staged when composition began. The view
+    /// flips `hasMarkedText()` before consulting the delegate and fires no `textDidChange` for
+    /// marked-only changes, so the first gated forward — whose content and selection are still
+    /// pre-composition — is where the baseline is captured. If composition ended without a
+    /// character-changing `textDidChange` (an unmark), the stale baseline is resolved first —
+    /// committed or discarded against the view's current content — so the new edit cannot be
+    /// folded into stale composition math.
     public func shouldChangeText(in affectedRange: NSRange, replacementString: String?) {
         guard !isReplaying else { return }
         discardsHistoryAtCommit = false
         guard !textView.hasMarkedText() else {
             pendingChange = nil
+            if compositionBaseline == nil, replacementString != nil {
+                compositionBaseline = PendingChange(
+                    affectedRange: affectedRange,
+                    oldContent: textView.nsMutableString.substring(with: affectedRange),
+                    replacement: "",
+                    selectionBefore: textView.selectedRange,
+                    textLengthBefore: textView.nsMutableString.length
+                )
+            }
             return
         }
         resolveStaleCompositionBaseline()

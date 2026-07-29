@@ -854,6 +854,44 @@ private final class ForwardingDelegate: NSObject, NSTextViewDelegate {
             ])
         }
 
+        @Test func `a return-committed composition records the committed letters`() {
+            let (textView, bridge) = makeBridgedTextView()
+            let delegate = ForwardingDelegate(bridge: bridge)
+            textView.delegate = delegate
+            defer { withExtendedLifetime(delegate) {} }
+
+            textView.setMarkedText("n", selectedRange: NSRange(location: 1, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+            textView.setMarkedText("ni hao", selectedRange: NSRange(location: 6, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+            textView.insertText("nihao", replacementRange: NSRange(location: NSNotFound, length: 0))
+
+            #expect(textView.string == "nihao")
+            #expect(textView.hasMarkedText() == false)
+            #expect(bridge.log.history.map(\.operations) == [
+                [BufferOperation(kind: .insert(content: "nihao", at: 0))],
+            ])
+
+            bridge.undo()
+            #expect(textView.string == "")
+        }
+
+        @Test func `undoing past a return-committed composition restores the pre-composition content`() {
+            let (textView, bridge) = makeBridgedTextView()
+            let delegate = ForwardingDelegate(bridge: bridge)
+            textView.delegate = delegate
+            defer { withExtendedLifetime(delegate) {} }
+            textView.insertText("a", replacementRange: NSRange(location: 0, length: 0))
+            textView.insertText("b", replacementRange: NSRange(location: 1, length: 0))
+
+            textView.setMarkedText("ni", selectedRange: NSRange(location: 2, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+            textView.insertText("nihao", replacementRange: NSRange(location: NSNotFound, length: 0))
+            #expect(textView.string == "abnihao")
+
+            bridge.undo()
+            #expect(textView.string == "ab")
+            bridge.undo()
+            #expect(textView.string == "")
+        }
+
         @Test func `cancelling a composition records nothing`() {
             let (textView, bridge) = makeBridgedTextView()
             markText("に", replacing: NSRange(location: 0, length: 0), in: textView, forwardingTo: bridge)
