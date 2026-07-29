@@ -52,12 +52,12 @@ public final class RopeBuffer: Buffer, TextAnalysisCapable {
                 available: self.range
             )
         }
-        return rope.content(in: subrange)
+        return rope.composedCharacterSequences(in: subrange)
     }
 
     @inlinable
     public func unsafeCharacter(at location: Int) -> String {
-        return rope.content(in: NSRange(location: location, length: 1))
+        return rope.composedCharacterSequence(at: location)
     }
 
     @inlinable

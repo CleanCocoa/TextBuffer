@@ -56,11 +56,11 @@ public struct SendableRopeBuffer: TextBuffer, TextAnalysisCapable, Sendable {
                 available: self.range
             )
         }
-        return rope.content(in: subrange)
+        return rope.composedCharacterSequences(in: subrange)
     }
 
     public func unsafeCharacter(at location: Int) -> String {
-        return rope.content(in: NSRange(location: location, length: 1))
+        return rope.composedCharacterSequence(at: location)
     }
 
     public mutating func insert(_ content: String, at location: Int) throws(BufferAccessFailure) {

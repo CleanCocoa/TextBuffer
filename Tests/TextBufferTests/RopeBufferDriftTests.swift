@@ -176,6 +176,43 @@ final class RopeBufferDriftTests: XCTestCase {
         assertDriftMatch(pair)
     }
 
+    // MARK: - Composed Character Sequence Reads
+
+    private func assertContentInMatches(_ string: String, _ subrange: NSRange, file: StaticString = #filePath, line: UInt = #line) throws {
+        let expected = try MutableStringBuffer(string).content(in: subrange)
+        XCTAssertEqual(try RopeBuffer(string).content(in: subrange), expected, "RopeBuffer diverges for \(subrange) in \(string.debugDescription)", file: file, line: line)
+        XCTAssertEqual(try SendableRopeBuffer(string).content(in: subrange), expected, "SendableRopeBuffer diverges for \(subrange) in \(string.debugDescription)", file: file, line: line)
+    }
+
+    func testContentInRangeCoveringSurrogateHalvesMatchesMutableStringBuffer() throws {
+        for range in [NSRange(location: 1, length: 1), NSRange(location: 2, length: 1), NSRange(location: 2, length: 2), NSRange(location: 0, length: 2)] {
+            try assertContentInMatches("a😀b", range)
+        }
+    }
+
+    func testContentInRangeCuttingCombiningMarkMatchesMutableStringBuffer() throws {
+        for range in [NSRange(location: 0, length: 1), NSRange(location: 1, length: 1), NSRange(location: 2, length: 1), NSRange(location: 0, length: 2)] {
+            try assertContentInMatches("e\u{301}b", range)
+        }
+    }
+
+    func testContentInPartialGraphemeRangesOnMultiChunkRopeMatchesMutableStringBuffer() throws {
+        let string = String(repeating: "x", count: 2046) + "😀" + String(repeating: "y", count: 2046)
+        for range in [NSRange(location: 2046, length: 1), NSRange(location: 2047, length: 1), NSRange(location: 2046, length: 2), NSRange(location: 2045, length: 3)] {
+            try assertContentInMatches(string, range)
+        }
+    }
+
+    func testUnsafeCharacterAtSurrogateHalvesAndCombiningMarksMatchesMutableStringBuffer() {
+        for (string, locations) in [("a😀b", [0, 1, 2, 3]), ("e\u{301}b", [0, 1, 2])] {
+            for location in locations {
+                let expected = MutableStringBuffer(string).unsafeCharacter(at: location)
+                XCTAssertEqual(RopeBuffer(string).unsafeCharacter(at: location), expected, "RopeBuffer diverges at \(location) in \(string.debugDescription)")
+                XCTAssertEqual(SendableRopeBuffer(string).unsafeCharacter(at: location), expected, "SendableRopeBuffer diverges at \(location) in \(string.debugDescription)")
+            }
+        }
+    }
+
     // MARK: - Sequential Operations
 
     func testSequentialInsertsThenDelete() throws {
