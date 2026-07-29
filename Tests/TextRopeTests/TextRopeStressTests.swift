@@ -261,14 +261,36 @@ final class TextRopeStressTests: XCTestCase {
 
     func testInsertNearCRLFAtChunkBoundary() {
         for offset in [2047, 2048, 2049, 2050] {
-            var (rope, oracle) = makeRopeWithCRLFAtChunkBoundary()
-            rope.insert("Xé", at: offset)
-            let idx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: offset)
-            oracle.insert(contentsOf: "Xé", at: idx)
+            for inserted in ["Xé", "\n", "\nX", "X\r", "\r"] {
+                var (rope, oracle) = makeRopeWithCRLFAtChunkBoundary()
+                rope.insert(inserted, at: offset)
+                let idx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: offset)
+                oracle.insert(contentsOf: inserted, at: idx)
 
-            XCTAssertEqual(rope.content, oracle, "content mismatch after insert at \(offset)")
-            XCTAssertEqual(rope.root.summary.lines, Self.newlineCount(in: oracle), "line count mismatch after insert at \(offset)")
-            verifyTreeInvariants(rope, context: "insert at \(offset)")
+                XCTAssertEqual(rope.content, oracle, "content mismatch after inserting \(inserted.debugDescription) at \(offset)")
+                XCTAssertEqual(rope.root.summary.lines, Self.newlineCount(in: oracle), "line count mismatch after inserting \(inserted.debugDescription) at \(offset)")
+                verifyTreeInvariants(rope, context: "insert \(inserted.debugDescription) at \(offset)")
+            }
+        }
+    }
+
+    func testInsertAtChunkBoundaryAfterBareCRAtChunkEnd() {
+        let left = String(repeating: "a", count: 2047) + "\r"
+        let boundary = left.utf16.count
+        for offset in [boundary - 1, boundary, boundary + 1] {
+            for inserted in ["\n", "\nX", "X\r", "\r"] {
+                var oracle = left + String(repeating: "b", count: 2048)
+                var rope = TextRope(oracle)
+                verifyTreeInvariants(rope, context: "construction")
+
+                rope.insert(inserted, at: offset)
+                let idx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: offset)
+                oracle.insert(contentsOf: inserted, at: idx)
+
+                XCTAssertEqual(rope.content, oracle, "content mismatch after inserting \(inserted.debugDescription) at \(offset)")
+                XCTAssertEqual(rope.root.summary.lines, Self.newlineCount(in: oracle), "line count mismatch after inserting \(inserted.debugDescription) at \(offset)")
+                verifyTreeInvariants(rope, context: "insert \(inserted.debugDescription) at \(offset)")
+            }
         }
     }
 
