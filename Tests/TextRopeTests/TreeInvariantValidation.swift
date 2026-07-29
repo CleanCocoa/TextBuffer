@@ -50,12 +50,13 @@ private func collectLeaves(_ node: TextRope.Node) -> [TextRope.Node] {
 }
 
 private func verifyChunkSizes(_ root: TextRope.Node, prefix: String, file: StaticString, line: UInt) {
-    if root.isLeaf { return }
     let leaves = collectLeaves(root)
     for (index, leaf) in leaves.enumerated() {
         let size = leaf.chunk.utf8.count
         XCTAssertLessThanOrEqual(size, TextRope.Node.maxChunkUTF8, "\(prefix)Leaf \(index) has \(size) UTF-8 bytes, max is \(TextRope.Node.maxChunkUTF8)", file: file, line: line)
-        XCTAssertGreaterThanOrEqual(size, TextRope.Node.minChunkUTF8, "\(prefix)Leaf \(index) has \(size) UTF-8 bytes, min is \(TextRope.Node.minChunkUTF8)", file: file, line: line)
+        if !root.isLeaf {
+            XCTAssertGreaterThanOrEqual(size, TextRope.Node.minChunkUTF8, "\(prefix)Leaf \(index) has \(size) UTF-8 bytes, min is \(TextRope.Node.minChunkUTF8)", file: file, line: line)
+        }
     }
 }
 
