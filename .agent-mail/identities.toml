@@ -1,4 +1,4 @@
 project = "TextBuffer"
 # Optional: uncomment to set identity for this worktree
-# persona = "my-persona"
-# role = "worker"
+persona = "text-infra-lead"
+role = "lead"
