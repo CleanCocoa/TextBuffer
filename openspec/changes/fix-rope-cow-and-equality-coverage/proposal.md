@@ -6,7 +6,11 @@ Three defects from `DEFECTS.md` (open against 0.9.1, `5cf2638`) share one root t
 - **DEF-005 (Medium)** — `TextRope: Equatable` (`Sources/TextRope/TextRope.swift:39-43`) has zero tests. The archived task `2026-07-29-m2-rope-foundation/tasks.md:36` is ticked naming Equatable coverage in `TextRopeConstructionTests.swift`, but no rope-to-rope equality assertion exists anywhere in the suite. The behavior is specified at `openspec/specs/rope-core-types/spec.md:102-113`.
 - **DEF-008 (Medium)** — `SendableRopeBufferConcurrencyTests.testTaskGroupParallelReplace` fans 1000 parallel mutations out of a `"Hello, NAME!"` template, which is a single leaf. Every task's first mutation is absorbed by `TextRope.ensureUnique()` at the root; `Node.ensureUniqueChild(at:)` is never reached, so concurrent path-copying below the root is never exercised. `TextRope: Sendable` is declared over a `nonisolated(unsafe) var root: Node` where `Node` is not `Sendable` — the safety of that declaration rests entirely on the COW discipline this test is supposed to verify.
 
-DEF-003 is a live performance defect (every single-owner delete allocates a full path of nodes). DEF-005 and DEF-008 are coverage gaps that let DEF-003-class regressions ship unnoticed.
+One further item joins by the 2026-08-01 triage:
+
+- **DEF-014 (round-trip-chaining bullet only)** — `testConsecutiveRoundTripsAreIdempotent` (`Tests/TextBufferTests/RopeTransferIntegrationTests.swift:126-143`) round-trips the same unmutated source buffer three times instead of feeding each round-trip's receiver into the next pass, so `rope-transfer-convergence/spec.md:74-76` ("two consecutive snapshot → represent round-trips") is asserted in name only. The rest of DEF-014 is owned by `fix-rope-split-point`; this bullet was left unassigned there and is absorbed here as another coverage-shaped test fix.
+
+DEF-003 is a live performance defect (every single-owner delete allocates a full path of nodes). DEF-005, DEF-008, and the DEF-014 bullet are coverage gaps that let DEF-003-class regressions ship unnoticed.
 
 ## What Changes
 
@@ -23,8 +27,12 @@ DEF-003 is a live performance defect (every single-owner delete allocates a full
 
 **DEF-008 — no concurrent-COW test on multi-level ropes**
 
-- Add a concurrent value-semantics test driven from a **multi-leaf, height-2** template so every task's mutation descends through shared inner nodes and shared leaves, forcing concurrent `ensureUniqueChild(at:)` on genuinely shared children — at the `TextRope` level and at the `SendableRopeBuffer` level.
-- Record a ThreadSanitizer design note (invocation, task/tree sizing, why the copy must be taken inside the child task) in `design.md`. TSan is not wired into CI by this change.
+- Add a concurrent value-semantics test driven from a **multi-leaf, height-3** template (leaves under two levels of inner nodes, the shape `testSummaryStaysCorrectAfterMultiLevelCascadingMerges` already uses) so every task's mutation descends through two levels of shared inner nodes, forcing concurrent `ensureUniqueChild(at:)` at more than one depth on genuinely shared children — at the `TextRope` level and at the `SendableRopeBuffer` level.
+- Record a ThreadSanitizer design note (invocation, task/tree sizing, why the copy must be taken inside the child task) in `design.md`. The TSan run is a **documented developer-local verification step** recorded in the tests' doc comments; the repo has no CI configuration, so nothing is wired into CI.
+
+**DEF-014 (round-trip-chaining bullet) — non-chaining idempotence test**
+
+- Rework `testConsecutiveRoundTripsAreIdempotent` so each iteration's receiver becomes the source of the next snapshot → represent pass, actually exercising consecutive round-trips per `rope-transfer-convergence/spec.md:74-76`. The canonical spec already mandates this behavior, so no spec delta is needed — the test is brought into conformance with it.
 
 No production behavior other than the DEF-003 allocation fix changes; no public API changes.
 
@@ -45,8 +53,10 @@ No production behavior other than the DEF-003 allocation fix changes; no public 
 - **Tests/TextRopeTests/TextRopeEqualityTests.swift** — new file.
 - **Tests/TextRopeTests/TextRopeConcurrentCOWTests.swift** — new file.
 - **Tests/TextBufferTests/SendableRopeBufferConcurrencyTests.swift** — new multi-level parallel-mutation test.
-- **DEFECTS.md** — DEF-003, DEF-005, DEF-008 move to `fixed`.
-- **CHANGELOG.md** — one `Fixed` entry (DEF-003) and one `Changed` entry (coverage) under the upcoming patch release.
+- **Tests/TextBufferTests/RopeTransferIntegrationTests.swift** — `testConsecutiveRoundTripsAreIdempotent` reworked to chain each round-trip's receiver into the next pass (DEF-014 bullet).
+- **openspec/changes/archive/2026-07-29-m2-rope-foundation/tasks.md** — line 36 (task 5.5) gains a disclosed review-fold note correcting the false Equatable-coverage tick, matching the precedent set by that file's task 4.2.
+- **DEFECTS.md** — DEF-003, DEF-005, DEF-008 move to `fixed`; DEF-014's round-trip-chaining bullet is marked resolved (the rest of DEF-014 stays with `fix-rope-split-point`).
+- **CHANGELOG.md** — one `Fixed` entry (DEF-003) and one `Changed` entry (coverage, including the round-trip-chaining rework) under the upcoming release.
 - **No API changes, no new dependencies, no changes to `Package.swift`.**
-- **Explicitly out of scope:** DEF-001, DEF-002, DEF-004, DEF-006, DEF-007, DEF-009 through DEF-014. In particular this change does **not** implement DEF-010's summary-based `==` early-out; it only adds the equal-length/different-content test that such an optimization would have to keep green.
-- **Coordination:** the parallel change `perf-rope-equality-and-bulk-insert` (DEF-010/DEF-011) modifies the same `rope-core-types` requirement, "TextRope is Equatable via content comparison". The two deltas are behaviorally compatible but overlap textually — see `design.md` → Open Questions for the proposed merge resolution and the required archive ordering.
+- **Explicitly out of scope:** DEF-001, DEF-002, DEF-004, DEF-006, DEF-007, DEF-009 through DEF-013, and every DEF-014 bullet except round-trip chaining. In particular this change does **not** implement DEF-010's summary-based `==` early-out; it only adds the equal-length/different-content test that such an optimization would have to keep green.
+- **Ordering (resolved 2026-08-01):** this change lands and archives **before** `perf-rope-equality-and-bulk-insert` (DEF-010/DEF-011). This change owns `Tests/TextRopeTests/TextRopeEqualityTests.swift` and the `rope-core-types` "TextRope is Equatable via content comparison" requirement text as modified here; the perf change extends that file and rebases its Equatable spec delta on this change's archive. DEF-010's summary-based early-out stays in the sibling change. See `design.md` → Resolved open questions (2026-08-01).

@@ -4,25 +4,25 @@
 
 `TextRope` is `Sendable` over a `nonisolated(unsafe) var root: Node` whose element type is not `Sendable`. The safety of that declaration rests entirely on copy-on-write path-copying, so the guarantee SHALL be verified concurrently and not only single-threaded.
 
-When a single `TextRope` value is shared with many concurrently executing tasks and each task takes its own copy and mutates it, every task SHALL observe only the effect of its own mutation, and the shared original SHALL be unchanged after all tasks complete. The verification MUST use a template whose tree has more than one level, so that `Node.ensureUniqueChild(at:)` is exercised concurrently on genuinely shared children — a single-leaf template only exercises `TextRope.ensureUnique()` at the root and proves nothing about path-copying below it.
+When a single `TextRope` value is shared with many concurrently executing tasks and each task takes its own copy and mutates it, every task SHALL observe only the effect of its own mutation, and the shared original SHALL be unchanged after all tasks complete. The verification MUST use a height-3 template — leaves under two levels of inner nodes — so that `Node.ensureUniqueChild(at:)` is exercised concurrently at more than one depth on genuinely shared children. A single-leaf template only exercises `TextRope.ensureUnique()` at the root and proves nothing about path-copying below it.
 
 Each task's copy MUST be taken inside the concurrently executing task body, not in the spawning loop, so that the copy and the subsequent uniqueness checks actually run in parallel against the same shared nodes.
 
 #### Scenario: Parallel mutations from a shared multi-level rope are independent
 
-- **WHEN** a `TextRope` whose root is an inner node of height ≥ 2 is shared with many concurrent tasks, and each task copies it and mutates at its own distinct UTF-16 offset
+- **WHEN** a `TextRope` whose root is an inner node of height 3 is shared with many concurrent tasks, and each task copies it and mutates at its own distinct UTF-16 offset
 - **THEN** each task's result SHALL equal the result of applying only its own mutation to the template content, verified against a `String` oracle
 - **AND** the template's `content` SHALL be unchanged after every task completes
 
 #### Scenario: Concurrent buffer mutations from a multi-level template are independent
 
-- **WHEN** a `SendableRopeBuffer` backed by a multi-leaf, multi-level rope is shared with many concurrent tasks, and each task copies it and replaces a distinct range
+- **WHEN** a `SendableRopeBuffer` backed by a multi-leaf, height-3 rope is shared with many concurrent tasks, and each task copies it and replaces a distinct range
 - **THEN** each task's buffer content SHALL reflect only its own replacement, and the shared template SHALL be unchanged
 
 #### Scenario: Concurrency coverage is not degenerate
 
 - **WHEN** the concurrent value-semantics tests run
-- **THEN** they SHALL assert the template's tree shape (multiple leaves under multiple inner nodes) before fanning out, so that a future chunking or branching change cannot silently reduce the coverage to a single-leaf case
+- **THEN** they SHALL assert the template's tree shape (height 3: multiple leaves under two levels of inner nodes) before fanning out, so that a future chunking or branching change cannot silently reduce the coverage to a shallower case
 
 ## MODIFIED Requirements
 

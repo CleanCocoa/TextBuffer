@@ -25,7 +25,7 @@ if remaining < childUTF16 || i == node.children.count - 1 {
 
 The existing guard test cannot catch this, because it samples the root (which `TextRope.ensureUnique()` keeps for a single owner regardless) and `children[2]`, which the delete at offset 100 never touches.
 
-This change is scoped to DEF-003, DEF-005, and DEF-008 from `DEFECTS.md`. It corresponds to no roadmap task in `TASKS.md`; it is defect remediation against 0.9.1.
+This change is scoped to DEF-003, DEF-005, DEF-008, and DEF-014's round-trip-chaining bullet (absorbed 2026-08-01) from `DEFECTS.md`. It corresponds to no roadmap task in `TASKS.md`; it is defect remediation against 0.9.1.
 
 ## Goals / Non-Goals
 
@@ -38,7 +38,7 @@ This change is scoped to DEF-003, DEF-005, and DEF-008 from `DEFECTS.md`. It cor
 
 **Non-Goals:**
 
-- DEF-001 (`balancedSplitPoint` fallback), DEF-002 (regional-indicator pairing), DEF-004 (empty-range preconditions), DEF-006 (spec contradictions), DEF-007 (stress sampling rate), DEF-009 (`expandingWindow` length assumption), DEF-011 through DEF-014.
+- DEF-001 (`balancedSplitPoint` fallback), DEF-002 (regional-indicator pairing), DEF-004 (empty-range preconditions), DEF-006 (spec contradictions), DEF-007 (stress sampling rate), DEF-009 (`expandingWindow` length assumption), DEF-011 through DEF-013, and every DEF-014 bullet except round-trip chaining (which this change absorbs — see Resolved open questions).
 - DEF-010's summary-based `==` early-out. This change only adds the equal-length/different-content case that such an optimization must keep green.
 - Wiring ThreadSanitizer into CI.
 - Any change to `Node`, `Summary`, `TextRope+COW.swift`, or the public API.
@@ -99,7 +99,7 @@ The identity fast-path case (`lhs.root === rhs.root`, `TextRope.swift:41`) is as
 
 ### D6: Concurrent-COW test design and the ThreadSanitizer note
 
-**Template shape.** Use 20 blocks of 2048 identical bytes (`(0..<20).map { String(repeating: ..., count: 2048) }.joined()`), the same shape `testDeleteOnSharedRopeSharesUnaffectedSubtrees` already relies on: root → 3 inner children with `[8, 8, 4]` leaves, height 2. Assert that shape at the top of the test so a future chunking change fails loudly instead of silently reverting the test to a single-leaf case.
+**Template shape.** Height 3 (resolved 2026-08-01): 72 blocks of 2047 identical bytes plus `"\n"` joined (≈144 KB), the shape `testSummaryStaysCorrectAfterMultiLevelCascadingMerges` already builds and pins with `XCTAssertEqual(Int(rope.root.height), 3)` — 72 leaves under two levels of inner nodes, so concurrent path-copying descends through two shared inner levels, which is the point of DEF-008. Assert `root.height == 3` at the top of the test so a future chunking change fails loudly instead of silently reverting the test to a shallower case.
 
 **Fan-out.** ~64 concurrent tasks, each mutating at a *different* offset so the tasks spread across different inner children and leaves while all descending from the same shared root. Each task compares its own result against a `String` oracle; after the group drains, assert the template is byte-identical to its original content.
 
@@ -110,9 +110,9 @@ The identity fast-path case (`lhs.root === rhs.root`, `TextRope.swift:41`) is as
 **TSan viability.**
 
 - Invocation: `swift test --sanitize=thread --filter TextRopeConcurrentCOWTests` and `swift test --sanitize=thread --filter SendableRopeBufferConcurrencyTests`.
-- Sizing is chosen for TSan, not for throughput. TSan's shadow memory and instrumentation cost roughly an order of magnitude in time and several times in RSS; 64 tasks over a 40 KB template keeps a sanitized run in seconds, where the existing 1000-task fan-out would not. Race detection depends on contention shape, not on iteration count — 64 tasks contending on the same three inner nodes is a better detector than 1000 tasks that each touch one leaf.
+- Sizing is chosen for TSan, not for throughput. TSan's shadow memory and instrumentation cost roughly an order of magnitude in time and several times in RSS; 64 tasks over a ~144 KB template keeps a sanitized run in seconds, where the existing 1000-task fan-out would not. The height-3 template's memory cost per concurrent copy is accepted for one dedicated test (resolved 2026-08-01). Race detection depends on contention shape, not on iteration count — 64 tasks contending on the same shared inner nodes at two depths is a better detector than 1000 tasks that each touch one leaf.
 - The test class must stay un-isolated (no `@MainActor`). XCTest's `async` test methods run on the cooperative pool; a `@MainActor`-isolated class would serialize every task and TSan would observe no concurrency at all. `SendableRopeBufferConcurrencyTests` is un-annotated today — keep it that way.
-- Pool width is `activeProcessorCount`; on a single-core runner the tasks can serialize and TSan will find nothing. The TSan run is therefore a documented developer-local gate recorded in the tests' doc comments, not a CI gate. Wiring CI is out of scope (see Open Questions).
+- Pool width is `activeProcessorCount`; on a single-core runner the tasks can serialize and TSan will find nothing. The TSan run is therefore a documented developer-local verification step recorded in the tests' doc comments, not a CI gate — resolved 2026-08-01: the repo has no CI configuration to hang it on.
 - Expected failure signature if the COW discipline breaks: a TSan report on `TextRope.Node.chunk`, `.children`, or `.summary`, or on `swift_retain`/`swift_release` for a shared node. Without TSan, the same breakage surfaces as content corruption in the per-task oracle assertion — both are asserted, so the tests are meaningful in an unsanitized run too.
 
 ### D7: Red-first sequencing
@@ -129,7 +129,7 @@ The DEF-005 and DEF-008 tasks are coverage, not remediation: those tests are exp
 - **[Fixing DEF-003 changes allocation behavior in the stress suite]** → Fewer nodes are allocated per delete after the fix, so any stress test that (inadvertently) depends on path-copying identity could shift. `TextRopeStressTests` compares against a `String` oracle and validates invariants, neither of which is identity-sensitive; expected to be unaffected, but the full suite run in the verification group is the check.
 - **[DEF-010 remains open]** → `==` still materializes both ropes on mismatch. This change makes that path *tested*, which arguably makes it harder to change later. Mitigation: the equal-length/different-content scenario is written specifically so a summary-based early-out cannot pass it by accident.
 
-## Open Questions
+## Open Questions (historical — all resolved in the next section, 2026-08-01)
 
 - **Spec collision with `perf-rope-equality-and-bulk-insert` (DEF-010), which is active in parallel.** That change MODIFIES the same requirement — `rope-core-types` → "TextRope is Equatable via content comparison" — replacing its text with a three-tier contract (identity → summary early-out → content). The two deltas are behaviorally compatible (this change's "same length but different content" scenario is precisely the guard that DEF-010's tier 2 must not break), but they cannot both be merged verbatim: whichever archives second overwrites the other's requirement paragraph. Proposed resolution — DEF-010 owns the requirement *text*, this change owns the *coverage obligation* sentence and the test-name pins; at merge time fold this change's scenarios into DEF-010's tiering text, and collapse this change's "Same length but different content is not equal" with DEF-010's "Equal summaries still require content comparison" into a single scenario that carries the test name. Confirm the merge order before archiving either.
 - **Should DEF-010's summary-based early-out land in the same release?** The new Equatable tests are the natural guard for it and the two defects touch the same six lines of `TextRope.swift`. Splitting them means touching `TextRope.swift:39-43` twice; folding them in widens this change from "coverage + one-line fix" to a behavior change. Currently proposed as **deferred to `perf-rope-equality-and-bulk-insert`** — but see the collision item above.
