@@ -97,3 +97,10 @@ A bonus of routing through `chunkLeaves`: its chunks are within `[minChunkUTF8, 
 2. **Is the boundary difference from decision 3 acceptable to pin in a spec scenario?** The delta writes chunk bounds normatively but deliberately says nothing about exact split offsets. If a future defragmentation/rebalance pass wants deterministic shapes, that is where to fix them, not here.
 3. **Who owns `TextRopeEqualityTests.swift`?** The concurrently proposed `fix-rope-cow-and-equality-coverage` also creates that file for DEF-005, and its proposal already names an "equal-length-but-different content" case as a guard for this change's early-out. If both proceed, the second to land merges into the first's file. The early-out in task 1.4 must not be implemented against an empty file either way — the equal-content/different-shape assertion is its only real guard.
 4. **Does TheArchive2's echo suppression need the equal-summary case to be allocation-free too?** If per-keystroke profiles still show `content` dominating (the same-length edit case — e.g. replacing one ASCII character — hits tier 3 every time), the chunk-wise streaming comparison listed under Non-Goals becomes the follow-up. Not resolvable from inside this repo; needs a profile from the consuming app.
+
+## Resolved open questions (2026-08-01)
+
+1. Left-neighbour absorption: confirmed out of scope.
+2. Bounds-not-offsets: confirmed — and the re-chunk path adopts ADR-012's grapheme-first rule via the shared helper `fix-rope-split-point` establishes, so this change sequences after it.
+3. File ownership: `fix-rope-cow-and-equality-coverage` lands first and owns `TextRopeEqualityTests.swift`; this change extends the file and rebases its Equatable spec delta on that archive.
+4. Equal-summary allocation-free comparison: deferred pending a TheArchive2 profile; stays in Non-Goals.
