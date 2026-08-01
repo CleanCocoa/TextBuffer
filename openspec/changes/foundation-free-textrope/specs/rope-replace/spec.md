@@ -1,0 +1,105 @@
+## MODIFIED Requirements
+
+### Requirement: Replace UTF-16 range with new text
+
+The `TextRope` type SHALL provide a `mutating func replace(range utf16Range: Range<Int>, with string: String)` method that replaces the content in the specified half-open UTF-16 code unit range with the given string. The range MUST be valid: `utf16Range.lowerBound >= 0`, `utf16Range.upperBound <= utf16Count`. The operation SHALL be observably equivalent to `delete(in: utf16Range)` followed by `insert(string, at: utf16Range.lowerBound)`. After replacement, the rope's `utf16Count` SHALL equal the previous `utf16Count` minus `utf16Range.count` plus the replacement string's UTF-16 length. The rope's `content` SHALL equal the original content with the specified range removed and the new string spliced in at that position.
+
+#### Scenario: Replace within a single leaf
+- **WHEN** a rope contains `"hello world"` and `replace(range: 5..<11, with: " there")` is called
+- **THEN** `content` is `"hello there"` and `utf16Count` is `11`
+
+#### Scenario: Replace with shorter text
+- **WHEN** a rope contains `"hello world"` and `replace(range: 0..<11, with: "hi")` is called
+- **THEN** `content` is `"hi"` and `utf16Count` is `2`
+
+#### Scenario: Replace with longer text
+- **WHEN** a rope contains `"hi"` and `replace(range: 0..<2, with: "hello world")` is called
+- **THEN** `content` is `"hello world"` and `utf16Count` is `11`
+
+#### Scenario: Replace spanning multiple leaves
+- **WHEN** a multi-leaf rope has content `"aaa...bbb...ccc"` (spanning 3+ leaves) and a replace range spans from the first leaf into the third leaf
+- **THEN** `content` equals the expected result with the spanned region replaced and `utf16Count` is correct
+
+#### Scenario: Replace with multi-byte characters
+- **WHEN** a rope contains `"café"` (UTF-16 length 4) and `replace(range: 3..<4, with: "🎉")` is called
+- **THEN** `content` is `"caf🎉"` and `utf16Count` is `5` (emoji is 2 UTF-16 code units)
+
+#### Scenario: Replace same-length text
+- **WHEN** a rope contains `"abcdef"` and `replace(range: 2..<4, with: "XX")` is called
+- **THEN** `content` is `"abXXef"` and `utf16Count` is `6`
+
+#### Scenario: Out-of-bounds range traps
+- **WHEN** `replace(range:with:)` is called with `lowerBound < 0` or `upperBound > utf16Count`
+- **THEN** a precondition failure MUST occur
+
+### Requirement: Empty replacement string degenerates to delete
+
+When `replace(range:with:)` is called with an empty replacement string and a non-empty range, the resulting rope SHALL be observably identical to the result of calling `delete(in:)` alone with that range: same `content`, same `utf16Count`, `utf8Count`, and line counts, and correct summaries at every node. (The implementation composes delete and insert unconditionally; with an empty string the insert step contributes nothing observable.)
+
+#### Scenario: Replace with empty string deletes the range
+- **WHEN** a rope contains `"hello world"` and `replace(range: 5..<11, with: "")` is called
+- **THEN** `content` is `"hello"` and `utf16Count` is `5`
+
+#### Scenario: Replace with empty string equals delete alone
+- **WHEN** two identical multi-leaf ropes exist and one receives `replace(range: r, with: "")` while the other receives `delete(in: r)`
+- **THEN** both ropes SHALL compare equal and report identical `content` and counts
+
+#### Scenario: Replace entire content with empty string
+- **WHEN** a rope contains `"hello"` and `replace(range: 0..<5, with: "")` is called
+- **THEN** `content` is `""`, `utf16Count` is `0`, and `isEmpty` is `true`
+
+### Requirement: Empty range degenerates to insert
+
+When `replace(range:with:)` is called with an empty range and a non-empty replacement string, the resulting rope SHALL be observably identical to the result of calling `insert(_:at:)` alone at the range's `lowerBound`: same `content`, same `utf16Count`, `utf8Count`, and line counts, and correct summaries at every node. (The implementation composes delete and insert unconditionally; with an empty range the delete step contributes nothing observable.)
+
+#### Scenario: Replace with empty range inserts at location
+- **WHEN** a rope contains `"helloworld"` and `replace(range: 5..<5, with: " ")` is called
+- **THEN** `content` is `"hello world"` and `utf16Count` is `11`
+
+#### Scenario: Replace with empty range equals insert alone
+- **WHEN** two identical multi-leaf ropes exist and one receives `replace(range: k..<k, with: s)` while the other receives `insert(s, at: k)`
+- **THEN** both ropes SHALL compare equal and report identical `content` and counts
+
+#### Scenario: Replace with empty range at start
+- **WHEN** a rope contains `"world"` and `replace(range: 0..<0, with: "hello ")` is called
+- **THEN** `content` is `"hello world"`
+
+#### Scenario: Replace with empty range at end
+- **WHEN** a rope contains `"hello"` and `replace(range: 5..<5, with: " world")` is called
+- **THEN** `content` is `"hello world"`
+
+### Requirement: Both empty is a no-op
+
+When `replace(range:with:)` is called with an empty range and an empty replacement string, the operation SHALL be observably a no-op: the rope's `content`, counts, and tree structure MUST remain unchanged, and no copy-on-write copying SHALL be triggered.
+
+#### Scenario: Empty range and empty string
+- **WHEN** a rope contains `"hello"` and `replace(range: 3..<3, with: "")` is called
+- **THEN** `content` remains `"hello"` and the tree structure is unchanged
+
+### Requirement: Summary correctness after replace
+
+After any call to `replace(range:with:)`, every node in the tree MUST have a correct summary. The root summary MUST reflect the total UTF-8 byte count, UTF-16 code unit count, and newline count of the entire rope content.
+
+#### Scenario: Summary after replacing text with newlines
+- **WHEN** a rope contains `"line1\nline2\nline3"` and `replace(range: 5..<11, with: "\nx\ny\nz")` is called
+- **THEN** `root.summary.lines` equals the number of `\n` characters in the resulting content, and `root.summary.utf8` and `root.summary.utf16` match `Summary.of(rope.content)`
+
+#### Scenario: Summary after replace with emoji
+- **WHEN** a rope contains `"abc"` and `replace(range: 1..<2, with: "🎉")` is called
+- **THEN** `root.summary.utf8` is `6` (1 + 4 + 1), `root.summary.utf16` is `4` (1 + 2 + 1), and `root.summary.lines` is `0`
+
+#### Scenario: Summary consistency after replace spanning leaves
+- **WHEN** a multi-leaf rope undergoes a replace that spans multiple leaves
+- **THEN** a full tree traversal confirms every inner node's summary equals the sum of its children's summaries, and the root summary matches `Summary.of(rope.content)`
+
+### Requirement: COW independence on replace
+
+When a `TextRope` value is copied and one copy is mutated via `replace`, the mutation SHALL NOT affect the other copy. Both the delete and insert steps of the composed operation MUST respect COW path-copying discipline.
+
+#### Scenario: Replace on shared rope preserves original
+- **WHEN** `var a = TextRope("hello world")`, `var b = a`, then `b.replace(range: 0..<5, with: "goodbye")`
+- **THEN** `a.content` is `"hello world"` and `b.content` is `"goodbye world"`
+
+#### Scenario: Single-owner replace avoids unnecessary copying
+- **WHEN** a `TextRope` has a single owner (no copies exist) and `replace` is called
+- **THEN** the mutation modifies nodes in place without allocating new node objects along the path
