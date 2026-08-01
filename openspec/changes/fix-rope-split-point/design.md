@@ -32,10 +32,10 @@ ADR-004 (UTF-8 storage), ADR-006 (always-rooted) and SPEC.md §4.2/§4.3 are una
 - State chunk-size bounds so they are simultaneously *achievable* and *checkable*, so per-operation invariant validation (DEF-007) can be turned on without false failures
 - Preserve the tree shape produced on every path that is currently correct, so no green test changes expectations except the one DEF-014 names
 - Leave the invariant validator strictly stronger than it is today
+- Extract the merge machinery into the spec-named `Sources/TextRope/Node+Merge.swift`, symmetric with `Node+Split.swift` — pure file movement (DEF-006c, added 2026-08-01)
 
 **Non-Goals:**
 - Rebalancing beyond what the split point itself decides — no global rebalance pass
-- `Node+Merge.swift` (spec-named, never created; see DEF-006) — merging stays where it lives today
 - DEF-009's window-length desync at the composed-sequence reader (contained in `fix-composed-sequence-reads`)
 - DEF-011's quadratic bulk insert, which changes `splitLeaf`'s *caller*, not its split point
 - Performance work: the window search is O(window width) index validations, unchanged in order
@@ -83,11 +83,11 @@ The two merge/repair call sites want chunks, not an index, because the answer is
 
 1. `count <= maxChunkUTF8` → `[slice]`. Single leaf.
 2. Boundary search in `[low, high]`, bidirectional from `target = (count + 1) / 2`, nearest wins, ties resolve to the lower offset (matching today's backward-first order). Found → `[left, right]`, both in `[min, max]` by construction.
-3. Window empty → re-chunk the whole slice with the greedy construction chunker (D2). For `count ∈ [3072, 4096]` this yields three chunks; for the residual band it yields two, one of which is short.
+3. Window empty → balanced redistribution (decided 2026-08-01, resolving open question 2 toward balance everywhere — the fallback fires only on paths that are broken today, so no green test shifts). For `count >= 3 * minChunkUTF8` this is a three-way split with targets at `count / 3` and `2 * count / 3`, each moved to the nearest `Character` boundary with minimal deviation, ties to the lower offset; for the residual band it is the minimal-deviation two-way split of D3.
 
 Rule 2 is the only rule that fires on every currently-correct path, so no green test changes shape.
 
-Worked example, manifestations 1 and 2 (`count == 4096`, `"a"×2047 + "\r\n" + "b"×2047`): rule 2's window is `[2048, 2048]`, and offset 2048 is the CR/LF interior — empty. Rule 3 takes the largest boundary ≤ 2048, which is 2047, leaving 2049 bytes (`"\r\n" + "b"×2047`); that remainder re-enters the balanced branch with window `[1024, 1025]`, target 1025, boundary found → `[2047, 1025, 1024]`. All three in `[1024, 2048]`, `\r\n` intact inside chunk 2.
+Worked example, manifestations 1 and 2 (`count == 4096`, `"a"×2047 + "\r\n" + "b"×2047`): rule 2's window is `[2048, 2048]`, and offset 2048 is the CR/LF interior — empty. Rule 3's three-way targets are 1365 and 2730; both are plain-ASCII boundaries → `[1365, 1365, 1366]`. All three in `[1024, 2048]`, `\r\n` intact inside chunk 2.
 
 ### D2. `leadingChunkEnd(in:) -> String.Index` unifies `leafSplitPoint` and `chunkEnd`
 
@@ -99,28 +99,29 @@ Worked example, manifestations 1 and 2 (`count == 4096`, `"a"×2047 + "\r\n" + "
 
 Rule 3 is what fixes manifestation 4. Existing `NodeTests` expectations survive: 2049 ASCII bytes → 1025; 10,000 bytes → 2048; `1024×"a" + "\r\n" + 1023×"b"` → 1024; 513 × 😀 (2052 bytes) → 1024.
 
-### D3. Bound asymmetry, and the carve-out predicate
+### D3. Grapheme-first bounds, and the starvation predicate (ADR-012)
 
-- **`maxChunkUTF8` is hard.** A chunk may exceed it only when no Unicode *scalar* boundary sits at any offset in `[count - maxChunkUTF8, min(maxChunkUTF8, count - 1)]` — i.e. one grapheme cluster larger than 2048 bytes. Scalar boundaries are at most 4 bytes apart, so the excess is bounded: **≤ 3 bytes**. That bound is what makes the rule statable in a spec at all.
-- **`minChunkUTF8` is best-effort.** A leaf may fall below it only when, for each adjacent sibling `S`, `leaf.utf8 + S.utf8 > maxChunkUTF8` **and** the combined slice has no `Character` boundary in its `[low, high]` window. That predicate is decidable from the tree alone, so the invariant validator can assert the strong bound everywhere else instead of skipping the check.
-- **Tie-break inside the residual band.** Among the boundaries in the hard window `[count - max, min(max, count - 1)]`, pick the one minimizing `shortfall(p) = max(0, min - p) + max(0, min - (count - p))`; ties resolve to the lower offset. For manifestation 4's `1022 | 😀 | 1027` layout this picks 1026 (shortfall 1) instead of today's 1022 (shortfall 2). For `NodeTests.swift:42-48`'s `1023 | 😀 | 1027` layout it picks 1023 (shortfall 1; the alternative 1027 leaves 1022, shortfall 2) — the same number the test pins today, now for a stated reason. See proposal Open Question 1.
+- **Splits fall on `Character` boundaries only.** No split point ever falls inside a grapheme cluster — not even at a Unicode scalar boundary. The scalar-boundary escape hatch considered earlier is rejected (ADR-012); there is no bounded-excess constant.
+- **`maxChunkUTF8` yields only to a whole cluster.** A chunk may exceed it only when the chunk is a **single grapheme cluster** larger than 2048 bytes — the cluster occupies one whole-cluster leaf of whatever size it needs. That exception is exact (the chunk is one `Character`), which is what makes the rule statable in a spec and assertable by the validator.
+- **`minChunkUTF8` is best-effort under starvation.** A leaf may fall below it only when, for each adjacent sibling `S`, `leaf.utf8 + S.utf8 > maxChunkUTF8` **and** the combined slice has no `Character` boundary in its `[low, high]` window. That predicate is decidable from the tree alone, so the invariant validator can assert the strong bound everywhere else instead of skipping the check.
+- **Tie-break inside the residual band.** Among the boundaries in the hard window `[count - max, min(max, count - 1)]`, pick the one minimizing `shortfall(p) = max(0, min - p) + max(0, min - (count - p))`; ties resolve to the lower offset. For manifestation 4's `1022 | 😀 | 1027` layout this picks 1026 (shortfall 1) instead of today's 1022 (shortfall 2). For `NodeTests.swift:42-48`'s `1023 | 😀 | 1027` layout it picks 1023 (shortfall 1; the alternative 1027 leaves 1022, shortfall 2) — the same number the test pins today, now for a stated reason (resolved 2026-08-01: the test is renamed to state it).
 
 ### D4. Termination and bounds
 
-- D1 rule 3's loop calls D2, which always returns an index strictly greater than `startIndex` (its rule 2 requires a boundary ≥ some positive offset; its rule 3's hard-window search is non-empty because `count > maxChunkUTF8`), so the remaining slice strictly shrinks. With `count <= 4096` and each chunk ≥ 1023-ish bytes the loop runs at most 4 times; in practice 3.
-- D2 does not recurse. D1 rule 3 calls D2, not D1, so there is no mutual recursion.
+- D1 rule 3 computes at most three chunks directly from fixed fractional targets — there is no loop to terminate. D2's construction chunking loop terminates because `leadingChunkEnd` always returns an index strictly greater than `startIndex` (its rule 2 requires a boundary ≥ some positive offset; its rule 3's hard-window search is non-empty because `count > maxChunkUTF8`, and the whole-cluster rule returns `endIndex`), so the remaining slice strictly shrinks.
+- D2 does not recurse, and D1 does not call itself, so there is no mutual recursion.
 - No merge/split oscillation: `rebalancedChunks` is a pure function of the combined slice. When it returns a short chunk it is because the residual-band predicate holds, and re-running the same merge on the same pair returns the identical shape — a fixed point that the validator now *accepts* rather than flags. Manifestation 3's `[1023, 1026]` is that fixed point; the change makes it legal-and-explained instead of illegal-and-invisible.
-- Every rule preserves the `\r\n` invariant for free: `\r\n` is a single `Character`, so no `Character`-boundary split point can fall inside it. Only D3's scalar-boundary escape hatch could, and `\r\n` is two scalars — so the escape hatch's precondition (a cluster > 2048 bytes) must additionally be checked to avoid landing between CR and LF. The implementation excludes that offset explicitly.
+- Every rule preserves the `\r\n` invariant for free: `\r\n` is a single `Character`, and under ADR-012 every split point is a `Character` boundary — so no split can ever fall between CR and LF. The invariant is absolute, not a guarded special case.
 
 ### D5. Call-site plumbing for the three-chunk result
 
 - `combinedLeaf` (`TextRope+Delete.swift:149-159`) already appends spill-over into `merged` and returns the tail; it appends `chunks.count - 1` leaves and returns the last. One chunk means the pair truly merged — that is the existing `<= maxChunkUTF8` early return, which stays.
-- `repairCRLFSeam` (`TextRope+Insert.swift:70-88`) rewrites `leftLeaf` and `rightLeaf` in place and cannot express a third leaf. It becomes `repairCRLFSeam(...) -> [Node]`: chunk 0 into `leftLeaf`, the final chunk into `rightLeaf`, any middle chunk returned to `insertIntoNode`, which splices it after `children[i]` and then re-runs the existing `children.count > maxChildren → splitInner()` check at `:51-53`. That path already exists for the sibling returned by a recursive insert. The alternative — replacing both spines via `buildTree` — is simpler but re-allocates the seam's whole subtree; see proposal Open Question 3.
+- `repairCRLFSeam` (`TextRope+Insert.swift:70-88`) rewrites `leftLeaf` and `rightLeaf` in place and cannot express a third leaf. It becomes `repairCRLFSeam(...) -> [Node]`: chunk 0 into `leftLeaf`, the final chunk into `rightLeaf`, any middle chunk returned to `insertIntoNode`, which splices it after `children[i]` and then re-runs the existing `children.count > maxChildren → splitInner()` check at `:51-53`. That path already exists for the sibling returned by a recursive insert. The alternative — replacing both spines via `buildTree` — is simpler but re-allocates the seam's whole subtree; rejected 2026-08-01 in favor of the sibling return (open question 3).
 - Both spines' summaries are already recomputed bottom-up at `:82-87`; a spliced middle leaf needs the same treatment on the right spine.
 
 ### D6. Invariant validator and DEF-007
 
-`Tests/TextRopeTests/TreeInvariantValidation.swift:52-61` asserts `size >= minChunkUTF8` for every leaf of a non-leaf root. Under D3 that is *almost* right — it must become "≥ min, or the carve-out predicate holds against both neighbours", which is stricter than skipping and stricter than today for every leaf that has a merge partner. Adding a `size <= maxChunkUTF8 + 3` allowance for the scalar escape hatch keeps the hard bound assertable.
+`Tests/TextRopeTests/TreeInvariantValidation.swift:52-61` asserts `size >= minChunkUTF8` for every leaf of a non-leaf root. Under D3 that is *almost* right — it must become "≥ min, or the starvation predicate holds against both neighbours", which is stricter than skipping and stricter than today for every leaf that has a merge partner. The upper bound stays assertable exactly: `size <= maxChunkUTF8`, or the chunk is a single grapheme cluster (the whole-cluster leaf). No byte tolerance anywhere.
 
 With the predicate in place, per-operation validation (DEF-007) cannot produce false failures, so at least one seeded stress run validates after every operation instead of every hundredth. `verifyTreeInvariants` is O(n) and the loop already materializes `rope.content` per operation, so the marginal cost is a constant factor on an already-linear step.
 
@@ -129,14 +130,14 @@ With the predicate in place, per-operation validation (DEF-007) cannot produce f
 - **Tree shape churn.** Rule 2 covers every path that works today, so shapes only change where they were illegal. The one deliberate exception is `repairCRLFSeam` on small combinations (previously bisected, now left as one leaf) — a shape improvement that could still surprise a test pinning leaf counts. → Mitigation: run the full suite before touching any expectation, and record every changed expectation in tasks with its justification.
 - **Three-way splitting raises child counts.** A seam repair that adds a leaf can push an inner node over `maxChildren` and cascade a split during what used to be an in-place fix. → Mitigation: the cascade path is the existing `splitInner` one; the CRLF stress tests at `TextRopeStressTests.swift:262-352` already drive it, and per-operation validation will catch a mishandled cascade at the operation that caused it.
 - **The residual band stays imperfect.** `[1023, 1026]` remains the output for manifestation 3. The change makes it provably optimal and documented rather than making it disappear. → Mitigation: the regression test asserts the *optimality* (no boundary in the window; the alternative split has a larger shortfall), so if someone later widens the band they must revisit it deliberately.
-- **The scalar escape hatch can split a grapheme cluster.** Only for clusters > 2048 bytes, and it is the sole way to bound chunk size for such input. It re-creates exactly the condition DEF-009 defends against in the composed-sequence reader. → Mitigation: bounded to ≤ 3 bytes of excess before it is used, `\r\n` explicitly excluded, and the behavior stated in the spec rather than in a comment.
+- **A cluster larger than `maxChunkUTF8` yields one oversized whole-cluster leaf.** It is never split (ADR-012), so leaf-local `Character` iteration stays intact and DEF-009's mid-cluster seam becomes impossible; the cost is a locally more expensive edit path for crafted input (Zalgo, long ZWJ chains). → Mitigation: the validator accepts an oversized leaf only when its chunk is a single `Character`, and the behavior is stated in the spec rather than in a comment.
 - **Per-operation validation slows CI.** One 2,000-operation seed, not all four 10,000-operation seeds. → Mitigation: record the measured wall-clock delta in the verification task; if it exceeds a few seconds, drop the dedicated run's operation count rather than its per-operation validation.
 
 ## Alternatives Considered
 
 - **Clamp `splitPoint`'s walk to `low` and stop there.** Minimal diff, fixes manifestation 3's undersized side, but leaves manifestations 1 and 2 with no answer at all (their window is a single illegal offset), so it would have to return "no split possible" anyway.
 - **Allow the merge to be skipped when no legal split exists.** Leaves the pre-merge shape, which for manifestation 3 is `[1000, 1049]` — two undersized leaves instead of one. Strictly worse.
-- **Relax split points to Unicode scalar boundaries everywhere.** Would make the residual band satisfiable for multi-scalar clusters (flags, ZWJ chains) but not for the single-scalar case that manifestation 3 and 4 actually hit, while breaking leaf-local `Character` iteration for all input. Kept as the bounded escape hatch only (D3).
+- **Relax split points to Unicode scalar boundaries.** Would make the residual band satisfiable for multi-scalar clusters (flags, ZWJ chains) but not for the single-scalar case that manifestations 3 and 4 actually hit, while breaking leaf-local `Character` iteration. Rejected outright by ADR-012 — no split ever crosses a `Character` boundary; a cluster larger than `maxChunkUTF8` occupies one whole-cluster leaf instead.
 - **Pull bytes from a farther sibling.** The general fix for undersized leaves in a B-tree, and out of scope here: manifestation 3's rope is 2049 bytes in total, so no farther sibling exists and the band would remain.
 
 ## Resolved open questions (2026-08-01, ADR-012)
