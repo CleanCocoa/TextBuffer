@@ -48,3 +48,12 @@ The template permits `skip_specs: true` for pure docs changes, but every archive
 - **[Retroactive `[Unreleased]` entries read as new work]** A reader of the next release notes will see seven `Fixed` entries for changes that shipped one or two releases ago. Mitigated by a lead-in noting they landed in the 0.9.0 fold and are disclosed retroactively; the alternative (amending 0.9.0 in place) rewrites published history and is left as an open question.
 - **[Under-disclosure persists]** The seven commits DEF-013 enumerates are not the complete set of behavior-changing fixes in the fold — the two `findLeaf` fixes are also undisclosed (proposal open question 2). Fixing only the enumerated seven closes DEF-013 as written while leaving a smaller gap.
 - **[The caveat becomes stale when M3 lands]** The DocC caveat and the third `[M3 Rope Queries]` marker must be removed together with the other two when the summary-guided traversal ships. Mitigated by the uniform marker text: one grep finds all three sites and the spec scenario that pins the caveat.
+
+## Resolved open questions (2026-08-01)
+
+1. **Placement: amend the released `## 0.9.0` section in place** — historical accuracy wins over append-only. The `[Unreleased]`-retro-block assumption in tasks.md is superseded; the CHANGELOG tasks rework at apply time to target the 0.9.0 section directly (no retro lead-in needed — entries sit where the release sits).
+2. **`findLeaf` fixes stay undisclosed**: internal API, unreachable by any 0.8.2 caller.
+3. **The 0.9.0 `Changed` bullet stands** once the `Fixed` entries land beside it in the same section.
+4. **DocC scope**: as tasked; the verified-only sites (task 4.3) stay unedited.
+5. **DEFECTS.md bookkeeping** is release-side work done in this repo by this workflow, not part of the change's tasks.
+6. **Scope addition**: fill in the eleven `## Purpose / TBD` headers on the promoted canonical specs (`openspec/specs/*/spec.md:3-4`) — one-paragraph purposes derived from each capability's requirements.
