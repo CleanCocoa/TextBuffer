@@ -138,3 +138,13 @@ With the predicate in place, per-operation validation (DEF-007) cannot produce f
 - **Allow the merge to be skipped when no legal split exists.** Leaves the pre-merge shape, which for manifestation 3 is `[1000, 1049]` — two undersized leaves instead of one. Strictly worse.
 - **Relax split points to Unicode scalar boundaries everywhere.** Would make the residual band satisfiable for multi-scalar clusters (flags, ZWJ chains) but not for the single-scalar case that manifestation 3 and 4 actually hit, while breaking leaf-local `Character` iteration for all input. Kept as the bounded escape hatch only (D3).
 - **Pull bytes from a farther sibling.** The general fix for undersized leaves in a B-tree, and out of scope here: manifestation 3's rope is 2049 bytes in total, so no farther sibling exists and the band would remain.
+
+## Resolved open questions (2026-08-01, ADR-012)
+
+- **Chunk-bounds regime**: grapheme-first per ADR-012. Splits only at `Character` boundaries; bounds MUST except under provable boundary starvation, where the nearest-boundary minimal-deviation split (or a whole-cluster leaf) is taken. The scalar-boundary escape hatch (D3) is **dropped** — no split ever crosses a `Character` boundary. The validator gains the exact per-leaf starvation predicate instead of a tolerance.
+- **The 1023 residue**: correct by the minimal-deviation rule. `NodeTests`' pinned expectation stays numerically and the test is renamed to state the starvation reasoning (resolves open question 1 in the reviewer's favor).
+- **Redistribution policy**: balanced, not greedy — no green test shifts (open question 2).
+- **`repairCRLFSeam` plumbing**: return overflow siblings to `insertIntoNode`; no `buildTree` spine rebuilds (open question 3).
+- **DEF-007 cost**: add one dedicated 2,000-op seed validating invariants after every operation; the four 10,000-op seeds keep 1% sampling; `TextRopeInsertTests` stays sampled (open question 4).
+- **Merge no-retry**: a leaf out of bounds under proven starvation is accepted by subsequent merge scans without re-attempting rebalance (new, from ADR-012).
+- **Scope addition (DEF-006c)**: extract the merge machinery into the spec-named `Sources/TextRope/Node+Merge.swift`, symmetric with `Node+Split.swift` — pure file movement, disclosed here rather than by silent task edit.
