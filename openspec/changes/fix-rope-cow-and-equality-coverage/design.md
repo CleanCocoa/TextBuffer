@@ -137,3 +137,12 @@ The DEF-005 and DEF-008 tasks are coverage, not remediation: those tests are exp
 - **The archived task `2026-07-29-m2-rope-foundation/tasks.md:36` is ticked for coverage that was never written.** Archived changes are treated as immutable history in this repo, so the correction is recorded here rather than by editing the archive. Confirm that is the preferred convention, or amend the archive with a review-fold note the way task 4.2 of that same file was amended.
 - **Should the delete descent gain a debug-only assertion** (e.g. `assert(isKnownUniquelyReferenced(&child))` behind `#if DEBUG`) so an alias regression trips at run time rather than only in the identity tests? It would need a mutable binding of its own and so would perturb the thing it measures. Not proposed; raised because identity tests alone are a shape-sensitive guard.
 - **Is a 20-leaf / height-2 template deep enough for DEF-008?** It exercises two levels of `ensureUniqueChild` below the root. A height-3 template (72 blocks, ~144 KB, as `testSummaryStaysCorrectAfterMultiLevelCascadingMerges` uses) exercises three but costs ~3.5× the memory per concurrent copy under TSan. Proposed as height 2; escalate if TSan finds nothing and the deeper shape is cheap enough in practice.
+
+## Resolved open questions (2026-08-01)
+
+- **Sibling collision**: this change lands before `perf-rope-equality-and-bulk-insert` and owns `TextRopeEqualityTests.swift`; the perf change extends the file and rebases its Equatable spec delta on this change's archive. DEF-010's early-out stays in the sibling.
+- **TSan**: documented developer-local gate; no CI gate (the repo has no CI configuration to hang it on).
+- **Archive correction**: amend the archived `2026-07-29-m2-rope-foundation/tasks.md:36` with a disclosed review-fold note, matching the precedent set by that file's task 4.2 — not an untouchable-history convention.
+- **Debug uniqueness assertion in the descent**: not added, as analyzed — the mutable binding would perturb the measurement.
+- **Template depth**: height 3. The memory cost is acceptable for one dedicated test, and concurrent path-copying through two inner levels is the point of DEF-008.
+- **Scope addition**: DEF-014's orphaned round-trip-chaining bullet joins this change — rework `testConsecutiveRoundTripsAreIdempotent` to feed each round-trip's receiver into the next pass per `rope-transfer-convergence/spec.md:74-76`.
