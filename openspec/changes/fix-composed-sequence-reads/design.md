@@ -88,3 +88,11 @@ The drift helper compares against `MutableStringBuffer` rather than hardcoded ex
 - **[Risk] Foundation's RI behavior is the oracle** → the tests assert equality with `MutableStringBuffer`, so a Foundation change moves both sides together and the drift tests stay green by construction. The rope-level tests use hardcoded `"🇩🇪"` expectations for the headline repro to keep at least one absolute anchor.
 - **[Trade-off] Fallback makes pathological input `O(n)` per read** → accepted; correctness over throughput on input that does not occur in prose.
 - **[Risk] DEF-009's fallback branch is hard to reach in a test** → it requires constructing a rope with a mid-scalar chunk split, which today needs the DEF-001 degenerate path. If it cannot be provoked without new internal seams, the branch ships assertion-only with the desync test marked as a documented gap rather than faking the state.
+
+## Resolved open questions (2026-08-01)
+
+- **DEF-009 disposition**: under ADR-012 (grapheme-first chunk bounds) a chunk seam can never fall inside a `Character`, so the window-length desync is structurally unreachable. The debug-assert-plus-fallback design (D4) is superseded: the length check becomes a hard `precondition`, the release fallback and the unreachable desync test are dropped. This change sequences after `fix-rope-split-point`, which establishes that invariant.
+- **Window cap**: fixed at 4,096 UTF-16 units, not derived from `Node.maxChunkUTF8` — the cap bounds RI-run walking, which is a property of text, not of chunk geometry. Cap-exceeded falls back to full-document expansion silently (testable; no `assertionFailure`).
+- **Capability placement**: the composed API stays under `rope-utf16-navigation`; revisit only if a future spec-map cleanup warrants its own capability.
+- **Read fast path**: confirmed out of scope (DEF-011, deferred pending benchmarks).
+- **Scope addition (DEF-004)**: this change also enforces the out-of-bounds trap for zero-length ranges — preconditions move before the empty-range early returns in `content(in:)` and both composed-sequence APIs, with exit tests for past-end, negative, and `NSNotFound` locations. Decided 2026-08-01; a 0.10.0-scope behavior tightening.
