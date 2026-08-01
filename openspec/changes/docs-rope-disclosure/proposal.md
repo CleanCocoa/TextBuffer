@@ -9,7 +9,7 @@ Both are documentation debt only. Fixing them costs nothing at runtime and remov
 
 ## What Changes
 
-**CHANGELOG catch-up (DEF-013), all under a new `## [Unreleased]` section:**
+**CHANGELOG catch-up (DEF-013), amending the released `## 0.9.0` section in place** (decision 2026-08-01: historical accuracy over append-only — the entries describe what 0.9.0 actually shipped, so they belong in 0.9.0's section; a retroactive `[Unreleased]` block was considered and rejected). No retro lead-in is needed: the entries sit where the release sits. The existing 0.9.0 `Changed` bullet ("M2 rope verification complete …") stands unmodified beside the new entries — it supplies the verification half, the new `Fixed` entries the behavior half. The two `findLeaf` fixes in the same fold (`ea9531c`, `1053d4b`) stay undisclosed: internal API, unreachable by any 0.8.2 caller.
 
 - `Added`: `RopeBuffer: CustomStringConvertible` — guillemet/caret selection notation matching `MutableStringBuffer` and the `TextBufferTesting` helpers.
 - `Added`: the public composed-sequence API on `TextRope` — `composedCharacterSequences(in:)` and `composedCharacterSequence(at:)`, window-materializing equivalents of `NSString.rangeOfComposedCharacterSequences(for:)` / `rangeOfComposedCharacterSequence(at:)`.
@@ -19,6 +19,12 @@ Both are documentation debt only. Fixing them costs nothing at runtime and remov
 
 - Add the missing `[M3 Rope Queries]` marker to the default `lineRange(for:)` in `TextAnalysisCapable.swift:51-55`, mirroring the wording already on the sibling `wordRange(for:)` at `:46` and naming `SendableRopeBuffer` as the inheritor.
 - Soften the `RopeBuffer` DocC header (`RopeBuffer.swift:4-7`): scope the large-document recommendation to insert/delete/replace and state that `lineRange(for:)`/`wordRange(for:)` currently materialize the full document on every call.
+
+**Canonical spec Purpose fill-ins (scope added 2026-08-01):**
+
+Eleven canonical specs under `openspec/specs/` still carry the archive-time placeholder `## Purpose` / `TBD - created by archiving change <name>. Update Purpose after archive.` (lines 3-4 of each). This change fills each in with a one-paragraph purpose derived from that capability's requirements: `rope-buffer-conformance`, `rope-buffer-drift`, `rope-core-types`, `rope-delete`, `rope-edge-cases`, `rope-insert`, `rope-replace`, `rope-stress-testing`, `rope-target-setup`, `rope-transfer-convergence`, `rope-utf16-navigation`.
+
+*Mechanism:* canonical specs normally change only by archive-promoting a change's `specs/` delta, but deltas operate on `### Requirement:` blocks — a Purpose header is non-normative prose with no delta representation (the repo's spec rules in `openspec/config.yaml` govern requirements and scenarios only). So the fill-ins are direct edits to `openspec/specs/*/spec.md`, performed at apply time as tasks of this change; no requirement or scenario text changes, so archive promotion is unaffected.
 
 ## Capabilities
 
@@ -32,10 +38,10 @@ _(none)_
 
 ## Impact
 
-- **Modified file:** `CHANGELOG.md` — new `## [Unreleased]` section with `### Added` (2 entries) and `### Fixed` (7 entries). Existing released sections are left untouched.
+- **Modified file:** `CHANGELOG.md` — the released `## 0.9.0` section gains a `### Added` subsection (2 entries) and seven entries appended to its existing `### Fixed` list; its `Changed` bullet stands. `## 0.9.1` and everything older are left untouched.
 - **Modified file:** `Sources/TextBuffer/Buffer/TextAnalysisCapable.swift` — one comment added in the default `lineRange(for:)` body.
 - **Modified file:** `Sources/TextBuffer/Buffer/RopeBuffer.swift` — DocC header caveat.
-- **Modified file:** `DEFECTS.md` — DEF-013 status, and a note on DEF-012 that its docs half is addressed while the O(log n) implementation remains M3.
+- **Modified files:** the eleven `openspec/specs/*/spec.md` listed above — placeholder `## Purpose` paragraph replaced; requirements and scenarios untouched.
 - **No source behavior changes.** No new tests: there is nothing observable to assert. The repo's TDD convention (red test first) does not apply to any task in this change — every task is a prose edit. Verification is `swift build` (the `TextAnalysisCapable` comment sits inside an `@inlinable` body) plus the existing green suite.
 - **API:** none.
 
@@ -44,12 +50,16 @@ _(none)_
 - **The actual O(log n) `lineRange`/`wordRange` implementation** — summary-guided rope traversal replacing `self.content as NSString`. That is M3 Rope Queries scope and is exactly what the `[M3 Rope Queries]` markers track. This change documents the current cost; it does not reduce it.
 - Removing the `[M3 Rope Queries]` markers — they stay until M3 lands.
 - Any of the remaining open defects (DEF-001 through DEF-011, DEF-014). The seven fixes are only *described* here, not revisited.
-- Amending the released `## 0.9.0` and `## 0.9.1` sections in place (see open questions).
+- The `## 0.9.1` section and everything older than 0.9.0 — only the `## 0.9.0` section is amended.
+- Disclosing the two `findLeaf` fixes (`ea9531c` end-of-document child skip, `1053d4b` out-of-range offset preconditions). Resolved 2026-08-01: internal API, unreachable by any 0.8.2 caller — they stay undisclosed, deliberately.
+- `DEFECTS.md` bookkeeping (flipping DEF-013 to `fixed`, annotating DEF-012's docs half). Resolved 2026-08-01: that is release-side work done by the release workflow, not a task of this change.
 
-## Open Questions
+## Resolved Questions (2026-08-01)
 
-1. **Retroactive disclosure placement.** All new entries go under `## [Unreleased]`, per the instruction and the repo's keepachangelog convention — but the seven fixes and both API additions actually shipped in 0.9.0. Options: (a) leave 0.9.0 untouched and let `[Unreleased]` carry the disclosure, with each entry noting the fixes landed in the 0.9.0 fold; (b) amend the `## 0.9.0` section in place, which is historically accurate but rewrites a published release. Tasks assume (a) with a short lead-in; confirm before implementing.
-2. **Three more undisclosed fixes in the same fold.** `ea9531c` (`findLeaf` skipped past the last child at end-of-document offsets) and `1053d4b` (`findLeaf` preconditions out-of-range offsets) are behavior-changing fixes in `0.8.2..0.9.0` that DEF-013 does not enumerate and the CHANGELOG does not mention. `8b1f7da` (insert-unwind CRLF seam repair) *is* already disclosed. Should the two `findLeaf` fixes be folded into this catch-up, or left for a DEF-013 follow-up?
-3. **Does the `Changed` bullet in 0.9.0 need a correction?** It is not wrong, but read alone it implies the fold was verification work. If option (a) above is chosen, the bullet stays as-is and the new `Fixed` entries supply the missing half.
-4. **Scope of the DocC softening.** DEF-012 names only `RopeBuffer.swift:6-7`. `ChoosingABuffer.md:30` ("O(log n) insert, delete, and replace, even for large documents") and `TextRope.swift:4` are already scoped to mutations and appear accurate — a task verifies this rather than edits them. Confirm no caveat is wanted on `SendableRopeBuffer`'s DocC header too, given it inherits the untagged default `lineRange` and is the `InMemoryBuffer` typealias.
-5. **DEFECTS.md bookkeeping.** Should a docs change flip DEF-013 to `fixed` and annotate DEF-012 as half-addressed, or is DEFECTS.md maintained only at release time?
+The proposal's five open questions were resolved in the 2026-08-01 grilling (recorded in `design.md` "Resolved open questions" and `DEFECTS.md` "Decisions"); the sections above reflect them:
+
+1. **Placement** — amend the released `## 0.9.0` section in place; historical accuracy over append-only. The `[Unreleased]` retro-block (with lead-in) is rejected; no lead-in is needed since the entries sit where the release sits.
+2. **`findLeaf` fixes** — stay undisclosed (internal API, unreachable at 0.8.2).
+3. **The 0.9.0 `Changed` bullet** — stands as-is once the `Fixed` entries land beside it in the same section.
+4. **DocC softening scope** — as tasked; the verified-only sites stay unedited.
+5. **DEFECTS.md bookkeeping** — release-side work, not part of this change's tasks.

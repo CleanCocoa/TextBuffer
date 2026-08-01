@@ -16,7 +16,7 @@ DEF-012's docs half is a smaller, self-contained inconsistency: the `[M3 Rope Qu
 **Non-Goals:**
 - Making `lineRange`/`wordRange` O(log n) — M3 Rope Queries.
 - Removing any `[M3 Rope Queries]` marker.
-- Rewriting the released `## 0.9.0` / `## 0.9.1` sections (open question 1 in the proposal).
+- Touching the released `## 0.9.1` section. (`## 0.9.0` is amended in place per the 2026-08-01 resolution of open question 1 — that amendment is the change's core, not a non-goal.)
 - Any test, source-behavior, or API change.
 
 ## Decisions
@@ -45,8 +45,8 @@ The template permits `skip_specs: true` for pure docs changes, but every archive
 
 ## Risks / Trade-offs
 
-- **[Retroactive `[Unreleased]` entries read as new work]** A reader of the next release notes will see seven `Fixed` entries for changes that shipped one or two releases ago. Mitigated by a lead-in noting they landed in the 0.9.0 fold and are disclosed retroactively; the alternative (amending 0.9.0 in place) rewrites published history and is left as an open question.
-- **[Under-disclosure persists]** The seven commits DEF-013 enumerates are not the complete set of behavior-changing fixes in the fold — the two `findLeaf` fixes are also undisclosed (proposal open question 2). Fixing only the enumerated seven closes DEF-013 as written while leaving a smaller gap.
+- **[Amending a released section rewrites published history]** The retro-disclosures land inside the released `## 0.9.0` section (decision 2026-08-01: historical accuracy over append-only), so anyone who read the 0.9.0 notes at release time sees them grow after the fact. Accepted: the entries describe what that release actually shipped, and placing them anywhere else — the rejected `[Unreleased]` retro-block — would permanently misfile them under a later release. The git history of `CHANGELOG.md` preserves what the section said at tag time.
+- **[Under-disclosure persists]** The seven commits DEF-013 enumerates are not the complete set of behavior-changing fixes in the fold — the two `findLeaf` fixes are also undisclosed. Resolved 2026-08-01: they stay undisclosed deliberately (internal API, unreachable by any 0.8.2 caller), so the residual gap is accepted, not accidental.
 - **[The caveat becomes stale when M3 lands]** The DocC caveat and the third `[M3 Rope Queries]` marker must be removed together with the other two when the summary-guided traversal ships. Mitigated by the uniform marker text: one grep finds all three sites and the spec scenario that pins the caveat.
 
 ## Resolved open questions (2026-08-01)
