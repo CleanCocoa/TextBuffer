@@ -11,11 +11,16 @@ Both are `Low` severity in the tracker but sit on per-keystroke and paste-sized 
 
 - **Equality early-out.** `TextRope.==` gains a summary comparison between the existing identity fast path and the content materialization: if `lhs.root.summary != rhs.root.summary`, return `false` without materializing. Identical summaries still fall through to full content comparison — summaries are a lossy digest, not a hash of the text.
 - **Single-pass bulk insert.** `insertIntoLeaf`'s overflow path re-chunks the spliced leaf in one pass with `TextRope.chunkLeaves(from:)` (the same helper the root-leaf branch and `TextRope.init(_:)` use), keeping the first chunk in the mutated leaf and returning the rest as siblings. The repeated-`splitLeaf` loop in `insertIntoNode` is removed; the existing n-way `splitInner()` overflow handling absorbs the wider sibling batch unchanged.
-- **Equality test coverage.** `TextRope: Equatable` currently has no rope-to-rope assertions anywhere (DEF-005), which is exactly the coverage the early-out needs before it can be trusted. This change adds that coverage as its regression guard.
+- **Equality test coverage.** The early-out needs rope-to-rope equality assertions before it can be trusted. Per the 2026-08-01 decisions, `fix-rope-cow-and-equality-coverage` lands first, closes DEF-005, and owns `Tests/TextRopeTests/TextRopeEqualityTests.swift` — including the "equal-length-but-different content" case it names as a guard for exactly this early-out. This change **extends** that file with the summary-specific cases (multi-leaf byte permutations, summary boundary cases) and rebases its `rope-core-types` Equatable delta as an increment on that change's archived delta, not a competing rewrite.
 
-  **Collision:** the sibling change `fix-rope-cow-and-equality-coverage` also claims DEF-005 and also creates `Tests/TextRopeTests/TextRopeEqualityTests.swift` — including, explicitly, an "equal-length-but-different content" case named as a guard for "any future summary-based early-out per DEF-010". Whichever change lands first owns the file; the second merges its cases in rather than recreating it. This change cannot ship its early-out without those assertions, so if `fix-rope-cow-and-equality-coverage` lands first, tasks 1.1-1.3 reduce to auditing the existing file and adding only the missing summary-specific cases.
+**Sequencing (2026-08-01 decisions).** This change lands **after** both:
 
-Both defects are marked `fixed` in `DEFECTS.md` and noted in `CHANGELOG.md` under the upcoming patch release.
+1. `fix-rope-split-point` — which replaces `balancedSplitPoint` with `rebalancedChunks(in:)` and unifies `leafSplitPoint` and construction's `chunkEnd` onto the shared `leadingChunkEnd(in:)` helper. The bulk-insert re-chunk path here routes through `chunkLeaves`, and therefore through that shared helper, adopting ADR-012's grapheme-first chunk bounds (splits only at `Character` boundaries; `[minChunkUTF8, maxChunkUTF8]` whenever a conforming boundary exists; minimal-deviation under provable boundary starvation) by construction.
+2. `fix-rope-cow-and-equality-coverage` — file ownership and delta baseline as above.
+
+The agreed 0.10.0 order is: `fix-rope-split-point` → `fix-composed-sequence-reads` → `fix-rope-cow-and-equality-coverage` → **this change** → `docs-rope-disclosure` → `foundation-free-textrope`.
+
+Both defects are marked `fixed` in `DEFECTS.md` and noted in `CHANGELOG.md` under the combined 0.10.0 release.
 
 ## Capabilities
 
@@ -24,15 +29,15 @@ Both defects are marked `fixed` in `DEFECTS.md` and noted in `CHANGELOG.md` unde
 
 ### Modified Capabilities
 - `rope-core-types`: equality gains a normative O(1) summary-based early-out with an explicit statement that differing summaries prove differing content while equal summaries prove nothing
-- `rope-insert`: leaf overflow is re-chunked in a single pass, with the resulting chunks bounded by `[minChunkUTF8, maxChunkUTF8]`
+- `rope-insert`: leaf overflow is re-chunked in a single pass, with the resulting chunks bounded per ADR-012 — within `[minChunkUTF8, maxChunkUTF8]` whenever a conforming `Character` boundary exists, minimal-deviation splits under provable boundary starvation (delta rebased on `fix-rope-split-point`'s "Leaf splitting on overflow" requirement)
 
 ## Impact
 
 - **Modified sources:** `Sources/TextRope/TextRope.swift` (equality), `Sources/TextRope/TextRope+Insert.swift` (`insertIntoLeaf` return type and overflow path, `insertIntoNode` loop removal)
-- **New tests:** `Tests/TextRopeTests/TextRopeEqualityTests.swift`; new cases in `Tests/TextRopeTests/TextRopeInsertTests.swift`
+- **Extended tests:** `Tests/TextRopeTests/TextRopeEqualityTests.swift` (created and owned by `fix-rope-cow-and-equality-coverage`; this change adds cases); new cases in `Tests/TextRopeTests/TextRopeInsertTests.swift`
 - **API surface:** unchanged — no public signature moves; `insertIntoLeaf` is `private`
-- **Behavioral compatibility:** `==` keeps exact content-equality semantics. Chunk *boundaries* produced by a bulk insert change (see design decision 3 and the open question) — leaf shape is not part of any public contract, and content, summaries, and all tree invariants are preserved
+- **Behavioral compatibility:** `==` keeps exact content-equality semantics. Chunk *boundaries* produced by a bulk insert change (see design decision 3) — leaf shape is not part of any public contract, and content, summaries, and all tree invariants (chunk bounds per ADR-012) are preserved
 - **`Node.splitLeaf()`** loses both call sites but stays, pinned by `Tests/TextRopeTests/NodeTests.swift:28`
-- **Defects closed:** DEF-010 and the insert half of DEF-011; DEF-005 as a side effect of the equality tests, unless `fix-rope-cow-and-equality-coverage` closes it first
-- **Coordination:** overlaps `fix-rope-cow-and-equality-coverage` on `Tests/TextRopeTests/TextRopeEqualityTests.swift` and DEF-005 (see What Changes). No source-file overlap with the other active changes — `fix-composed-sequence-reads` touches `TextRope+ComposedSequences.swift`, `docs-rope-disclosure` touches docs only; both edit `CHANGELOG.md` and `DEFECTS.md`, so expect textual conflicts there
+- **Defects closed:** DEF-010 and the insert half of DEF-011. DEF-005 is closed upstream by `fix-rope-cow-and-equality-coverage`
+- **Coordination:** depends on `fix-rope-split-point` (shared `leadingChunkEnd(in:)` split helper, ADR-012 bounds, invariant-validator carve-out) and on `fix-rope-cow-and-equality-coverage` (`TextRopeEqualityTests.swift` ownership, Equatable delta baseline) — see What Changes for the full 0.10.0 order. No source-file overlap with `fix-composed-sequence-reads` (`TextRope+ComposedSequences.swift`) or `docs-rope-disclosure` (docs only); all changes edit `CHANGELOG.md` and `DEFECTS.md`, so expect textual conflicts there
 - **Explicitly not closed:** the `unsafeCharacter(at:)` read regression, the other half of DEF-011 — see Non-Goals in `design.md`

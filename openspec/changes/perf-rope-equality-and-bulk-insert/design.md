@@ -5,7 +5,7 @@
 Relevant existing machinery, all already present:
 
 - `TextRope.Summary` (`Sources/TextRope/Summary.swift`) — `utf8`, `utf16`, `lines`, `Equatable`, additive via `add(_:)`. Every node carries one; the root's is the whole rope's, maintained by every mutation and already trusted by `isEmpty`, `utf8Count`, `utf16Count`.
-- `TextRope.chunkLeaves(from:)` (`Sources/TextRope/TextRope+Construction.swift:12-23`) — walks a `Substring` once, emitting `[Node]` leaves via `chunkEnd(in:)`, which targets `maxChunkUTF8` for long remainders and the midpoint when the remainder is under `maxChunkUTF8 + minChunkUTF8`, then rounds down to a `Character` boundary through `Node.splitPoint(in:targetUTF8:)`.
+- `TextRope.chunkLeaves(from:)` (`Sources/TextRope/TextRope+Construction.swift:12-23`) — walks a `Substring` once, emitting `[Node]` leaves via `chunkEnd(in:)`, which targets `maxChunkUTF8` for long remainders and the midpoint when the remainder is under `maxChunkUTF8 + minChunkUTF8`. After `fix-rope-split-point` (which this change sequences behind), `chunkEnd` is folded onto the shared grapheme-first `leadingChunkEnd(in:)` helper (ADR-012): splits only at `Character` boundaries, window-clamped bidirectional search, minimal deviation under provable boundary starvation.
 - `Node.splitInner()` (`Sources/TextRope/Node+Split.swift:11-33`) — already an n-way split into groups of at most `maxChildren`, returning all the new right siblings. It does not care how many children arrived at once.
 
 ADR-004 (UTF-8 storage with cached UTF-16 counts) is what makes the summary early-out possible at all; ADR-007 (no parent pointers, status returned up the call stack) is why `insertIntoLeaf` communicates its overflow through its return value.
@@ -23,7 +23,7 @@ ADR-004 (UTF-8 storage with cached UTF-16 counts) is what makes the summary earl
 - Chunk-wise streaming comparison for the equal-summary case (compare leaf chunks in order instead of materializing two `String`s). It is the natural next step and would make `==` allocation-free in both directions, but it needs a leaf cursor that does not exist yet and it is not what the per-keystroke path is paying for.
 - Hashing, content fingerprints, or any digest beyond the summary already stored.
 - `Hashable` conformance for `TextRope`.
-- The `balancedSplitPoint` fallback bug (DEF-001) — the bulk-insert path calls `Node.splitPoint(in:targetUTF8:)` via `chunkLeaves`, not `balancedSplitPoint`, so the two do not collide. The CRLF seam repair on the insert unwind still calls `balancedSplitPoint` and keeps DEF-001's behavior exactly as it is today.
+- Split-point selection itself. DEF-001 is fixed upstream by `fix-rope-split-point`, which lands before this change; the bulk-insert path reuses its shared `leadingChunkEnd(in:)` helper via `chunkLeaves` and adds no split logic of its own. The CRLF seam repair on the insert unwind (`repairCRLFSeam`, returning overflow siblings since that change) keeps the behavior `fix-rope-split-point` established, unchanged here.
 - Rebalancing, node merging, or any change to `splitInner()`/`buildTree`.
 
 ## Decisions
@@ -40,7 +40,7 @@ ADR-004 (UTF-8 storage with cached UTF-16 counts) is what makes the summary earl
 
 The converse is false and must not be assumed: `"ab"` and `"ba"` share a summary, as do any two permutations of the same bytes. Tier 3 is not an optimization that could be dropped later — removing it would make `==` unsound.
 
-**What this newly depends on.** Correctness of `==` now rests on the summary invariant (every node's summary matches its subtree). That invariant is already load-bearing for navigation and for `utf16Count`, and `verifyTreeInvariants` checks it, so this adds no new obligation — but it does turn a summary bug from "wrong offsets" into "wrong equality", which is why the equal-content/different-shape test in tasks 1.1 is the guard that matters.
+**What this newly depends on.** Correctness of `==` now rests on the summary invariant (every node's summary matches its subtree). That invariant is already load-bearing for navigation and for `utf16Count`, and `verifyTreeInvariants` checks it, so this adds no new obligation — but it does turn a summary bug from "wrong offsets" into "wrong equality", which is why the equal-content/different-shape test (established by `fix-rope-cow-and-equality-coverage`, verified in task 1.2) is the guard that matters.
 
 **Rejected:** caching a content hash on the root. It costs a full pass on every mutation to save a comparison that is already O(1)-rejectable in the common case, and it would need invalidation discipline on every structural edit.
 
@@ -73,15 +73,15 @@ This is verbatim what the root-leaf branch does (`TextRope+Insert.swift:9-12`), 
 
 ### 3. Chunk boundaries change; invariants do not
 
-`chunkLeaves` and the repeated-`splitLeaf` loop do not pick the same split points. `chunkEnd` targets `maxChunkUTF8` once the remainder reaches `maxChunkUTF8 + minChunkUTF8` and the midpoint below that; `leafSplitPoint` targets `min((count + 1) / 2, maxChunkUTF8)`. For a 3500-byte chunk the old path yields `[1751, 1749]` and the new one `[2048, 1452]`. Both are legal.
+`chunkLeaves` and the repeated-`splitLeaf` loop do not pick the same split points. The chunker (via `leadingChunkEnd` after `fix-rope-split-point`) targets `maxChunkUTF8` once the remainder reaches `maxChunkUTF8 + minChunkUTF8` and the balanced window below that; `splitLeaf`'s old per-round target was `min((count + 1) / 2, maxChunkUTF8)`. For a 3500-byte chunk the old path yields `[1751, 1749]` and the new one `[2048, 1452]`. Both are legal.
 
-So the structural test in task 2.2 asserts *invariants and content*, not byte-identical leaf shapes: content unchanged, every chunk within `[minChunkUTF8, maxChunkUTF8]`, no `\r\n` split across leaves, every summary consistent, uniform leaf depth. Leaf boundaries are internal and pinned by no public contract; `==` is content-based, so ropes that differ only in shape still compare equal — which is precisely what task 1.1 asserts from the other direction.
+So the structural test in task 2.2 asserts *invariants and content*, not byte-identical leaf shapes: content unchanged, every chunk within the ADR-012 grapheme-first bounds (`[minChunkUTF8, maxChunkUTF8]` wherever a conforming `Character` boundary exists, provable-starvation carve-out otherwise), no `\r\n` split across leaves, every summary consistent, uniform leaf depth. Leaf boundaries are internal and pinned by no public contract; `==` is content-based, so ropes that differ only in shape still compare equal — which is precisely what the equality guard in group 1 asserts from the other direction.
 
-A bonus of routing through `chunkLeaves`: its chunks are within `[minChunkUTF8, maxChunkUTF8]` by construction for any input over `maxChunkUTF8`, whereas the old loop reached that only because the last two rounds happened to fall into `leafSplitPoint`'s midpoint branch.
+A bonus of routing through `chunkLeaves`: its chunks satisfy the ADR-012 bounds by construction for any input over `maxChunkUTF8` — the shared `leadingChunkEnd` helper enforces them — whereas the old loop reached that only because the last two rounds happened to fall into `leafSplitPoint`'s midpoint branch.
 
 ### 4. CRLF safety comes from `Character` boundaries, not from special-casing
 
-`chunkLeaves` → `chunkEnd` → `Node.splitPoint(in:targetUTF8:)` walks the target offset backward until `String.Index(candidate, within: slice) != nil`. `\r\n` is a single Swift `Character`, so no index between them ever validates and the pair cannot be split. The old `splitLeaf` path got its CRLF safety from the same helper. The unwind's seam repair between adjacent children (`TextRope+Insert.swift:47-50`) is untouched and still handles the boundary between the mutated leaf and its left neighbour.
+`chunkLeaves` selects every chunk end through the shared grapheme-first helper (`leadingChunkEnd(in:)` after `fix-rope-split-point`), which only ever accepts offsets where `String.Index(candidate, within: slice) != nil`. `\r\n` is a single Swift `Character`, so no index between them ever validates and the pair cannot be split — under ADR-012 this is the general rule, not a special case. The old `splitLeaf` path got its CRLF safety the same way. The unwind's seam repair between adjacent children (`repairCRLFSeam`, in the shape `fix-rope-split-point` gave it) is untouched by this change and still handles the boundary between the mutated leaf and its left neighbour.
 
 ## Risks / Trade-offs
 
