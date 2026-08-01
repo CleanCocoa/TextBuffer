@@ -11,20 +11,20 @@ radius *= 2
 
 The retry is the *entire* correctness argument for the windowing: "if the window truncated the answer, the answer touches the edge, so retry bigger." DEF-002 is the case where that argument fails. This change repairs the argument for the one Unicode rule that breaks it, and makes the window's implicit length assumption (DEF-009) explicit.
 
-Scope is a single file. `RopeBuffer` (`Sources/TextBuffer/Buffer/RopeBuffer.swift:49-62`) and `SendableRopeBuffer` (`:52-64`) both call straight through to the rope, so both inherit the fix without edits.
+Scope is two source files: `TextRope+ComposedSequences.swift`, plus `TextRope+Navigation.swift` for the DEF-004 precondition move (see "Resolved open questions" below). `RopeBuffer` (`Sources/TextBuffer/Buffer/RopeBuffer.swift:49-62`) and `SendableRopeBuffer` (`:52-64`) both call straight through to the rope, so both inherit the fixes without edits.
 
 ## Goals / Non-Goals
 
 **Goals:**
 - Windowed composed reads produce, for every offset in every document, exactly what full-document `NSString` expansion produces — RI runs included
-- The window length assumption is either guaranteed or explicitly detected (DEF-009)
+- The window length assumption is guaranteed structurally by ADR-012 and enforced with a hard `precondition` (DEF-009)
+- Zero-length out-of-range reads trap like any other out-of-bounds read (DEF-004), with process-exit test coverage
 - Regression coverage at the rope level and at the buffer-drift level, red before green
 - The composed-read contract is written into the specs so the next behavior change cannot land untested
 
 **Non-Goals:**
 - Read-path performance work (DEF-011) — the RI walk is on the cold path; no fast path is added here
-- Root-causing mid-scalar chunk splits (DEF-001) — DEF-009 is contained, not cured
-- Empty-range precondition bypass (DEF-004), even though it lives at `TextRope+ComposedSequences.swift:9`
+- Root-causing mid-scalar chunk splits (DEF-001) — fixed upstream by `fix-rope-split-point` under ADR-012; this change only enforces the resulting invariant
 - Any change to `RopeBuffer` / `SendableRopeBuffer` source
 
 ## Decisions
@@ -50,7 +50,7 @@ Alternatives rejected:
 
 The walk is unbounded in principle: a document that is one enormous RI run makes it `O(n)`, and it would be running *inside* the retry loop. Cap it at 4096 UTF-16 units (2048 consecutive regional indicators) measured from the pre-walk `windowStart`. If the run continues past the cap, abandon windowing for this call and compute the expansion over `content` (the full document) — trivially correct, since that is exactly the `MutableStringBuffer` path.
 
-Rationale for the shape of the fallback rather than its constant: correctness must not depend on the cap. Any cap value yields correct results; the cap only chooses where the cost cliff sits. 2048 consecutive flags is not real prose, so the cliff is unreachable outside adversarial or generated input, and the fallback keeps such input *correct* rather than *fast*. The constant itself is an open question (proposal Q1/Q2).
+Rationale for the shape of the fallback rather than its constant: correctness must not depend on the cap. Any cap value yields correct results; the cap only chooses where the cost cliff sits. 2048 consecutive flags is not real prose, so the cliff is unreachable outside adversarial or generated input, and the fallback keeps such input *correct* rather than *fast*. The constant is fixed at 4,096 (resolved 2026-08-01): the cap bounds RI-run walking, which is a property of the text, not of chunk geometry, so it is deliberately not derived from `Node.maxChunkUTF8`. The fallback is silent — no `assertionFailure` in any build configuration — so tests can drive it as an ordinary path.
 
 The cap is measured in UTF-16 units, not RI count, so it is comparable to `radius` and cheap to check against `windowStart`.
 
@@ -64,13 +64,13 @@ GB12/13 is the sole rule with **unbounded, non-local left context**: the break d
 
 This is the load-bearing argument of the whole design: the anchor walk restores "window context ≡ document context" for the one rule that violated it, leaving the edge-touch retry responsible for all the rest. Tests in section 1.3 of tasks.md pin the combining-mark/ZWJ half so a future rule change (or a Foundation behavior change) surfaces as a red test rather than as another silent content defect.
 
-### D4: DEF-009 — assert the window length, fall back on mismatch
+### D4: DEF-009 — `precondition` the window length
 
-`expandingWindow` computes `local` as `NSRange(location: utf16Range.location - windowStart, length: utf16Range.length)`, valid only if `content(in:)` returned exactly `windowEnd - windowStart` UTF-16 units. That holds unless a chunk boundary fell mid-scalar — reachable via the documented degenerate fallback at `Node+Split.swift:87-88`, where `splitPoint` returns a UTF-8 index that is not a scalar boundary, so re-materializing the chunk repairs the broken scalar into U+FFFD and changes the code-unit count. `local` then indexes a window that has shifted underneath it: at best a wrong answer, at worst an `NSString` range exception.
+`expandingWindow` computes `local` as `NSRange(location: utf16Range.location - windowStart, length: utf16Range.length)`, valid only if `content(in:)` returned exactly `windowEnd - windowStart` UTF-16 units. Before `fix-rope-split-point`, that could fail when a chunk boundary fell mid-scalar via the then-documented degenerate fallback at `Node+Split.swift:87-88`, shifting the window underneath `local`: at best a wrong answer, at worst an `NSString` range exception. Under ADR-012's grapheme-first chunk bounds — established by `fix-rope-split-point`, after which this change sequences — a chunk seam can never fall inside a `Character`, so the desync is structurally unreachable.
 
-Handling: compare `window.length` against `windowEnd - windowStart`; on mismatch `assert` (debug trap, so fuzzing and the stress suite surface the underlying split defect loudly) and, in release, take the full-document path from D2. Full materialization goes through the same `content` accessor the buffer's `content` property uses, so the read stays *consistent with what the buffer reports* even while the tree is in the degenerate state.
+Handling (resolved 2026-08-01, superseding this design's earlier debug-assert-plus-release-fallback shape): compare `window.length` against `windowEnd - windowStart` and `precondition` on mismatch, in all build configurations. A mismatch can only mean a broken rope-internal invariant, and no text computed against a shifted window is correct to return — so trapping beats any recovery, including in shipping apps. The release fallback and the desync test are dropped: the fallback would be dead code guarding an unreachable state, and the test cannot be written without faking tree state.
 
-Deliberately not chosen: silently clamping `local` into the returned window (hides the defect and can still return wrong text), or `precondition` (turns a rope-internal invariant break into a crash on a read path in shipping apps). If DEF-001 lands and proves the desync unreachable, promoting this to `precondition` is a follow-up (proposal Q3).
+Deliberately not chosen: silently clamping `local` into the returned window (hides the defect and can still return wrong text), and the earlier assert-plus-fallback (launders an invariant break into a plausible-looking read in release). `precondition` was earlier rejected as "a crash on a read path in shipping apps" — that reasoning held only while the desync was reachable; with ADR-012 making it a can't-happen state, the crash is the correct surfacing of a corrupted rope.
 
 ### D5: Test placement — rope level and buffer level, both
 
@@ -87,7 +87,7 @@ The drift helper compares against `MutableStringBuffer` rather than hardcoded ex
 - **[Risk] Walk implemented via repeated `findLeaf` descents** → a naive backward walk that calls `findLeaf(utf16Offset:)` per code unit is `O(k log n)`. Mitigation: walk within the leaf's `chunk` and only re-descend at leaf boundaries, mirroring the existing `isTrailSurrogate(at:)` access pattern.
 - **[Risk] Foundation's RI behavior is the oracle** → the tests assert equality with `MutableStringBuffer`, so a Foundation change moves both sides together and the drift tests stay green by construction. The rope-level tests use hardcoded `"🇩🇪"` expectations for the headline repro to keep at least one absolute anchor.
 - **[Trade-off] Fallback makes pathological input `O(n)` per read** → accepted; correctness over throughput on input that does not occur in prose.
-- **[Risk] DEF-009's fallback branch is hard to reach in a test** → it requires constructing a rope with a mid-scalar chunk split, which today needs the DEF-001 degenerate path. If it cannot be provoked without new internal seams, the branch ships assertion-only with the desync test marked as a documented gap rather than faking the state.
+- **[Trade-off] The DEF-009 `precondition` is untestable by construction** → under ADR-012 no reachable rope state desynchronizes the window, so the check ships without a covering test — it is an executable statement of the invariant, not a defended branch. Faking tree state to trigger it was rejected; ADR-012's tree validator owns the underlying invariant.
 
 ## Resolved open questions (2026-08-01)
 

@@ -39,3 +39,8 @@ Range validation is unchanged: an out-of-range subrange SHALL throw `BufferAcces
 #### Scenario: Reads are independent of document position
 - **WHEN** the same composed sequence appears near the start of a document and far beyond any internal read-window radius
 - **THEN** reads at the corresponding offsets SHALL return the same string in both positions
+
+#### Scenario: Reads over a flag run longer than the rope's internal cap
+- **WHEN** a buffer holds more than 2,048 consecutive regional indicators (a contiguous run exceeding the rope's fixed 4,096-UTF-16-unit backward-walk cap) and reads target offsets inside the run
+- **THEN** the results SHALL match `MutableStringBuffer` for the same calls
+- **AND** no assertion or trap SHALL fire in any build configuration — the rope falls back silently to full-document expansion

@@ -40,6 +40,11 @@ The drift suite SHALL cover UAX #29 GB12/GB13 regional indicator pairing across 
 - **WHEN** the document contains an odd-length regional indicator run and a lone regional indicator between ASCII characters
 - **THEN** reads at every affected offset SHALL match `MutableStringBuffer`
 
+#### Scenario: Flag run exceeding the internal backward-walk cap
+- **WHEN** both buffer kinds hold a run of more than 2,048 consecutive identical flags (exceeding the rope's fixed 4,096-UTF-16-unit backward-walk cap) and reads are sampled at offsets across the run
+- **THEN** every result SHALL equal the `MutableStringBuffer` result at that offset
+- **AND** no assertion or trap SHALL fire in any build configuration — the silent full-document fallback is exercised as an ordinary path
+
 ### Requirement: Drift tests pin the composed-sequence rules that are unaffected by windowing
 
 Combining marks and ZWJ chains are locally decidable and are handled by the read window's edge-touch retry, not by regional indicator anchoring. The drift suite SHALL pin them at document positions far beyond any internal window radius, so that a future change to the windowing strategy surfaces as a failing test rather than as another silent content defect.
