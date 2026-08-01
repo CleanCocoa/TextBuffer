@@ -13,12 +13,22 @@ Status values: `open`, `in-progress`, `fixed`, `wontfix`.
 | DEF-003, DEF-005, DEF-008 | Specced: `fix-rope-cow-and-equality-coverage` (25 tasks) |
 | DEF-010, DEF-011 (quadratic insert) | Specced: `perf-rope-equality-and-bulk-insert` (17 tasks) |
 | DEF-013, DEF-012 (docs half) | Specced: `docs-rope-disclosure` (22 tasks) |
-| DEF-004 | Deferred — decide: enforce trap on empty-range OOB vs amend spec to sanction leniency |
-| DEF-006 | Deferred — spec governance decisions (NSRange policy, replace white-box clause, merge-seam naming) |
+| DEF-004 | Decided 2026-08-01: enforce the trap. Tasks join `fix-composed-sequence-reads` (owns the navigation spec delta). |
+| DEF-006 | Decided 2026-08-01: (a) NSRange → ADR-013, `foundation-free-textrope` change to be authored, lands last; (b) replace spec amended to observable behavior, rides that change; (c) `Node+Merge.swift` extracted in `fix-rope-split-point`, disclosed; Purpose-TBD headers fold into `docs-rope-disclosure`. |
 | DEF-011 (read fast path) | Deferred — benchmark-driven; interacts with `fix-composed-sequence-reads` |
 | DEF-012 (O(log n) queries) | Deferred — M3 Rope Queries |
 
 Implementation order constraint: `fix-rope-cow-and-equality-coverage` before `perf-rope-equality-and-bulk-insert` (both touch the Equatable requirement and `TextRopeEqualityTests.swift`; the perf change's spec delta rebases on the former's archive).
+
+## Decisions (2026-08-01 grilling)
+
+Recorded here for traceability; architectural detail in ADR-012 (grapheme-first chunk bounds) and ADR-013 (Foundation-free TextRope).
+
+- **Release**: one combined **0.10.0** (no interim 0.9.2). Order: fix-rope-split-point → fix-composed-sequence-reads → fix-rope-cow-and-equality-coverage → perf-rope-equality-and-bulk-insert → docs-rope-disclosure → foundation-free-textrope → release. Push held until proposals reflect these decisions.
+- **DEF-004**: trap enforced; preconditions precede the empty-range early returns in `content(in:)` and the composed-sequence APIs.
+- **Chunk bounds**: grapheme-first per ADR-012; DEF-009's fallback graduates to a precondition; `NodeTests`' 1023 renamed as the reasoned minimal-shortfall case; no scalar-boundary escape.
+- **CHANGELOG**: retro-disclosures amend the released `0.9.0` section in place (historical accuracy over append-only); `findLeaf` fixes stay undisclosed (internal, unreachable at 0.8.2).
+- Minor calls: composed-read window cap fixed at 4096 UTF-16 units with silent full-document fallback; TSan remains a documented developer-local gate; DEF-008 uses a height-3 template; DEF-007 adds a dedicated 2,000-op per-operation-validated seed alongside the four sampled 10k seeds; balanced (not greedy) redistribution; `repairCRLFSeam` returns siblings; archived foundation tasks.md gets a disclosed correction note for the false Equatable tick; DEF-014's round-trip-chaining bullet joins `fix-rope-cow-and-equality-coverage`; equal-summary allocation-free equality deferred pending a TheArchive2 profile.
 
 ## Critical
 
