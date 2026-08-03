@@ -78,7 +78,9 @@ Affects any document > 129 UTF-16 units containing an RI run (136/400 offsets wr
 
 **Fix direction:** walk `windowStart` backward over the contiguous RI run (`U+1F1E6...U+1F1FF`) to a parity-correct anchor, capped with fallback to full materialization.
 
-### DEF-003: Single-owner delete always path-copies — `open`
+### DEF-003: Single-owner delete always path-copies — `fixed`
+
+Fixed 2026-08-03 (`46ee53f`, change `fix-rope-cow-and-equality-coverage`): the descent captures `children[i].summary.utf16` instead of aliasing the node. Pinned by on-path identity tests `testDeleteOnSingleOwnerRopeMutatesInPlace` (strengthened), `testDeleteOnSingleOwnerMultiLevelRopeKeepsOnPathNodeIdentity`, and insert/replace twins.
 
 `Sources/TextRope/TextRope+Delete.swift:56`: `let child = node.children[i]` holds a second strong reference still live when `ensureUniqueChild(at:)` runs, so `isKnownUniquelyReferenced` is always false and every delete path-copies even with one owner. Violates `openspec/specs/rope-delete/spec.md:63-65`. `testDeleteOnSingleOwnerRopeMutatesInPlace` (`TextRopeDeleteTests.swift:396-406`) passes because it checks the root and an off-path child only.
 
@@ -92,9 +94,11 @@ Fixed 2026-08-03 (`03ebba7`, change `fix-composed-sequence-reads`): precondition
 
 `TextRope+Navigation.swift:30` and `TextRope+ComposedSequences.swift:9`: `length == 0` early-returns before the preconditions, so `content(in: NSRange(location: 500, length: 0))` (also negative / `NSNotFound` locations) silently returns `""` on a 5-char rope. Violates `openspec/specs/rope-utf16-navigation/spec.md:75-77`. Flagged in the 2026-07-28 audit; not fixed by the fold and copied into the new API. Contained at the buffer layer (RopeBuffer guards with `contains(range:)`).
 
-### DEF-005: `TextRope: Equatable` has zero tests — `open`
+### DEF-005: `TextRope: Equatable` has zero tests — `fixed`
 
 `TextRope.swift:39`. Archived task `2026-07-29-m2-rope-foundation/tasks.md:36` is ticked naming Equatable coverage in `TextRopeConstructionTests.swift`; no rope-to-rope equality assertion exists anywhere. Spec: `openspec/specs/rope-core-types/spec.md:102-113`.
+
+Fixed 2026-08-03 (`46ee53f`): `TextRopeEqualityTests.swift` covers the six spec cases, including equal-content/different-shape (leaf shapes asserted to differ) and equal-summary/different-content; the archived task's tick carries a disclosed correction note.
 
 ### DEF-006: Canonical spec contradictions and silent task rewrites — `open`
 
@@ -110,9 +114,11 @@ Fixed 2026-08-03 (`03ebba7`, change `fix-composed-sequence-reads`): precondition
 
 Fixed 2026-08-03 (`1e6a6aa`): `testPerOperationInvariantValidation` (seed `0xDEF007`, 2,000 ops, validated after every operation) alongside the four sampled 10k seeds, judged by the exact ADR-012 predicates (per-adjacent-leaf starvation, whole-cluster exception, unconditional seam check) — it caught a real producer gap on its first run. Sampled runs keep sampling with an explanatory comment.
 
-### DEF-008: No concurrent-COW test on multi-level ropes — `open`
+### DEF-008: No concurrent-COW test on multi-level ropes — `fixed`
 
 `SendableRopeBufferConcurrencyTests.testTaskGroupParallelReplace` fans 1000 parallel mutations over a single-leaf template, so concurrent path-copying below the root is never exercised. `TextRope: Sendable` (`nonisolated(unsafe) var root` over non-Sendable `Node`) rests entirely on the COW discipline this would verify. (Raised by ta2-speccer.)
+
+Fixed 2026-08-03 (`46ee53f`): height-3 template (72×2047+`\n`, height pinned) exercised concurrently at rope level (`TextRopeConcurrentCOWTests`) and buffer level (`testTaskGroupParallelReplaceOnMultiLevelRope`); developer-local TSan run clean, invocation documented at the test.
 
 ### DEF-009: `expandingWindow` assumes returned window length equals requested — `fixed`
 
@@ -139,11 +145,11 @@ Tagged `[M3 Rope Queries]` at `RopeBuffer.swift:44` and `TextAnalysisCapable.swi
 
 No `Added` section: `RopeBuffer: CustomStringConvertible` (`98b5a35`) and the public composed-sequence API are undisclosed; the seven behavior-changing structural fixes are summarized as test work. Amend under the upcoming patch release notes.
 
-### DEF-014: Test hygiene — `open` (rope bullets fixed; round-trip chaining pending)
+### DEF-014: Test hygiene — `fixed`
 
 - ~~`NodeTests.swift:42-48` pins DEF-001(4)'s buggy split point (fix together).~~ Fixed 2026-08-03 (`135457d`): reframed as the reasoned minimal-shortfall case, value asserted from ADR-012's reasoning.
 - ~~`testDeleteLeafMergeDoesNotSplitCRLF` (`TextRopeDeleteTests.swift:306`) still executes no merge; `testDeleteSpanningLeaves` (`:108`) spans but never merges — rename or reshape.~~ Fixed 2026-08-03 (`135457d`): both reshaped so the merge genuinely fires; exact shapes asserted.
 - ~~`testDeleteCausingLeafMerge` (`:130-131`) assertions don't discriminate merged from un-merged shapes; assert `[1050, 1050]`.~~ Fixed 2026-08-03 (`135457d`).
-- `testConsecutiveRoundTripsAreIdempotent` (`RopeTransferIntegrationTests.swift:126-143`) round-trips the same unmutated buffer thrice instead of chaining receiver into the next pass (spec `rope-transfer-convergence/spec.md:74-76`). Assigned to `fix-rope-cow-and-equality-coverage` per the 2026-08-01 decisions.
+- ~~`testConsecutiveRoundTripsAreIdempotent` (`RopeTransferIntegrationTests.swift:126-143`) round-trips the same unmutated buffer thrice instead of chaining receiver into the next pass (spec `rope-transfer-convergence/spec.md:74-76`). Assigned to `fix-rope-cow-and-equality-coverage` per the 2026-08-01 decisions.~~ Fixed 2026-08-03 (`46ee53f`): each pass now chains the previous receiver; green on HEAD as predicted, plus redo/undo on the final receiver.
 - `Node+Split.swift:71` doc comment misstates the fallback's trigger (fires on plain `\r\n` at width-1 windows, not just degenerate ZWJ chains) and omits the oversized-right-chunk residue.
 - `RopeBufferDriftTests.swift:49` `MARK: - Delete` sits above the insert-with-selection tests.
