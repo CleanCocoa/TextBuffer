@@ -46,8 +46,6 @@ final class RopeBufferDriftTests: XCTestCase {
         assertDriftMatch(pair)
     }
 
-    // MARK: - Delete
-
     func testInsertBeforeSelection() throws {
         let pair = try bufferPair("你好世界«编程真棒»加油笔记")
         try pair.msb.insert("😀", at: 2)
@@ -82,6 +80,8 @@ final class RopeBufferDriftTests: XCTestCase {
         try pair.rb.insert("𝄞", at: 10)
         assertDriftMatch(pair)
     }
+
+    // MARK: - Delete
 
     func testDeleteBeforeInsertionPoint() throws {
         let pair = try bufferPair("àbcdèˇfghíj")

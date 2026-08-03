@@ -105,15 +105,20 @@ final class TextRopeDeleteTests: XCTestCase {
         verifyTreeInvariants(rope)
     }
 
-    func testDeleteSpanningLeaves() {
-        let chunk = String(repeating: "a", count: 1500)
-        let input = chunk + "BBBB" + chunk
+    func testDeleteSpanningLeavesMergesUndersizedEdgeLeaf() {
+        let input = String(repeating: "a", count: 1500) + "BBBB" + String(repeating: "c", count: 1500)
         var rope = TextRope(input)
-        let expected = chunk + chunk
+        XCTAssertEqual(leafChunkSizes(rope), [1502, 1502])
 
-        let deleteStart = chunk.utf16.count
-        rope.delete(in: NSRange(location: deleteStart, length: 4))
+        rope.delete(in: NSRange(location: 900, length: 700))
+
+        let expected = String(repeating: "a", count: 900) + String(repeating: "c", count: 1404)
         XCTAssertEqual(rope.content, expected)
+        // The deletion spans the leaf seam and drops the left leaf to 900 bytes
+        // (< minChunkUTF8), so the merge redistributes the 2304-byte combination at the
+        // balanced boundary 1152.
+        XCTAssertEqual(leafChunkSizes(rope), [1152, 1152])
+        verifyTreeInvariants(rope)
     }
 
     func testDeleteCausingLeafMerge() {
@@ -127,8 +132,10 @@ final class TextRopeDeleteTests: XCTestCase {
         let expected = String(a.prefix(900)) + b
         XCTAssertEqual(rope.content, expected)
         XCTAssertEqual(rope.utf16Count, expected.utf16.count)
-        XCTAssertEqual(leafChunkSizes(rope).count, 2)
-        XCTAssertEqual(leafChunkSizes(rope).reduce(0, +), 2100)
+        // Discriminates merged from un-merged: the un-merged shape would be [900, 1200].
+        // The 2100-byte combination redistributes at the balanced boundary — window
+        // [1024, 1076], target 1050, all-ASCII → exact.
+        XCTAssertEqual(leafChunkSizes(rope), [1050, 1050])
         verifyTreeInvariants(rope)
     }
 
@@ -308,19 +315,22 @@ final class TextRopeDeleteTests: XCTestCase {
     }
 
     func testDeleteLeafMergeDoesNotSplitCRLF() {
-        let beforeCR = String(repeating: "a", count: 2047)
-        let afterLF = String(repeating: "b", count: 1500)
-        let filler = String(repeating: "c", count: 100)
-        let input = beforeCR + "\r\n" + filler + afterLF
-        var rope = TextRope(input)
+        // Manifestation 2 shape (see NodeSplitPointTests): deleting the middle leaf whole
+        // leaves a bare-\r leaf end against a \n leaf start, so the merge fires across
+        // the CRLF seam.
+        let beforeCR = String(repeating: "a", count: 2047) + "\r"
+        let middle = String(repeating: "m", count: 2048)
+        let afterLF = "\n" + String(repeating: "b", count: 2047)
+        var rope = TextRope(beforeCR + middle + afterLF)
+        XCTAssertEqual(leafChunkSizes(rope), [2048, 2048, 2048])
 
-        XCTAssertEqual(rope.content, input)
+        rope.delete(in: NSRange(location: 2048, length: 2048))
 
-        let deleteStart = (beforeCR + "\r\n").utf16.count
-        rope.delete(in: NSRange(location: deleteStart, length: filler.utf16.count))
-
-        let expected = beforeCR + "\r\n" + afterLF
+        let expected = beforeCR + afterLF
         XCTAssertEqual(rope.content, expected)
+        // The merged 4096-byte combination has no legal two-way boundary (offset 2048 is
+        // the CRLF interior), so it redistributes three ways with the pair kept intact.
+        XCTAssertEqual(leafChunkSizes(rope), [1365, 1365, 1366])
 
         var chunks: [String] = []
         func collectChunks(_ node: TextRope.Node) {

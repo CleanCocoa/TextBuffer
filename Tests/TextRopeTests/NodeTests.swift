@@ -39,11 +39,28 @@ final class NodeTests: XCTestCase {
         XCTAssertFalse(String(chunk[chunk.startIndex..<split]).hasSuffix("\r"))
     }
 
-    func testLeafSplitPointAdjustsWhenMidpointLandsInsideMultiByteCharacter() {
+    func testLeafSplitPointUnderBoundaryStarvationTakesMinimalShortfallSplit() {
+        // ADR-012 boundary starvation: the emoji spans bytes [1023, 1027), so the legal
+        // window [minChunkUTF8, count - minChunkUTF8] = [1024, 1025] holds no Character
+        // boundary and the split falls back to the minimal-shortfall boundary.
         let chunk = String(repeating: "a", count: 1023) + "\u{1F600}" + String(repeating: "b", count: 1022)
         XCTAssertEqual(chunk.utf8.count, 2049)
+        let utf8 = chunk.utf8
+        for offset in TextRope.Node.minChunkUTF8...(chunk.utf8.count - TextRope.Node.minChunkUTF8) {
+            let candidate = utf8.index(utf8.startIndex, offsetBy: offset)
+            XCTAssertNil(String.Index(candidate, within: chunk), "offset \(offset) must sit inside the straddling cluster for this repro")
+        }
+
         let split = TextRope.Node.leafSplitPoint(in: chunk[...])
+
+        // 1023 (left short by 1) beats the sole alternative: 1026 is still cluster interior,
+        // and the next boundary 1027 leaves a 1022-byte tail (short by 2).
         XCTAssertEqual(chunk.utf8.distance(from: chunk.utf8.startIndex, to: split), 1023)
+        XCTAssertNil(String.Index(utf8.index(utf8.startIndex, offsetBy: 1026), within: chunk))
+        XCTAssertNotNil(String.Index(utf8.index(utf8.startIndex, offsetBy: 1027), within: chunk))
+        let shortfallAt1023 = TextRope.Node.minChunkUTF8 - 1023
+        let shortfallAt1027 = TextRope.Node.minChunkUTF8 - (2049 - 1027)
+        XCTAssertLessThan(shortfallAt1023, shortfallAt1027, "1023 must be the minimal-shortfall boundary")
         XCTAssertEqual(String(chunk[chunk.startIndex..<split]) + String(chunk[split...]), chunk)
     }
 
