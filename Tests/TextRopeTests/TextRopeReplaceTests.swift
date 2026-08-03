@@ -1,4 +1,5 @@
 import XCTest
+import Testing
 import Foundation
 @testable import TextRope
 
@@ -184,5 +185,112 @@ final class TextRopeReplaceTests: XCTestCase {
         let end = expected.utf16.index(start, offsetBy: 10)
         expected.replaceSubrange(start..<end, with: "xyz")
         XCTAssertEqual(rope.content, expected)
+    }
+
+    // MARK: Range<Int> primitive mirrors
+
+    func testReplaceIntRangeWithinLeaf() {
+        var rope = TextRope("hello world")
+        rope.replace(range: 5..<11, with: " there")
+        XCTAssertEqual(rope.content, "hello there")
+        XCTAssertEqual(rope.utf16Count, 11)
+    }
+
+    func testReplaceIntRangeSpanningLeaves() {
+        let chunk = String(repeating: "a", count: 1500)
+        let input = chunk + "BRIDGE" + chunk
+        var rope = TextRope(input)
+        rope.replace(range: 1500..<1506, with: "XX")
+        XCTAssertEqual(rope.content, chunk + "XX" + chunk)
+        verifyTreeInvariants(rope)
+    }
+
+    func testReplaceIntRangeMultiByte() {
+        var rope = TextRope("café")
+        rope.replace(range: 3..<4, with: "🎉")
+        XCTAssertEqual(rope.content, "caf🎉")
+        XCTAssertEqual(rope.utf16Count, 5)
+    }
+
+    func testReplaceIntRangeEqualsNSRangeForm() {
+        let input = "hello 🎉 world, café 你好"
+        var viaInt = TextRope(input)
+        var viaNSRange = TextRope(input)
+
+        viaInt.replace(range: 5..<9, with: "line\r\n你😀")
+        viaNSRange.replace(range: NSRange(location: 5, length: 4), with: "line\r\n你😀")
+
+        XCTAssertEqual(viaInt, viaNSRange)
+        XCTAssertEqual(viaInt.content, viaNSRange.content)
+    }
+
+    // DEF-006b: degenerate cases specced as observable equivalence.
+
+    func testReplaceIntRangeWithEmptyStringEqualsDeleteAlone() {
+        let blocks = (0..<4).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
+        let input = blocks.joined()
+        var replaced = TextRope(input)
+        var deleted = TextRope(input)
+
+        replaced.replace(range: 1000..<6000, with: "")
+        deleted.delete(in: 1000..<6000)
+
+        XCTAssertEqual(replaced, deleted)
+        XCTAssertEqual(replaced.content, deleted.content)
+        XCTAssertEqual(replaced.utf16Count, deleted.utf16Count)
+        XCTAssertEqual(replaced.utf8Count, deleted.utf8Count)
+        XCTAssertEqual(replaced.root.summary, deleted.root.summary)
+        verifyTreeInvariants(replaced)
+    }
+
+    func testReplaceIntRangeEmptyRangeEqualsInsertAlone() {
+        let blocks = (0..<4).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
+        let input = blocks.joined()
+        var replaced = TextRope(input)
+        var inserted = TextRope(input)
+
+        replaced.replace(range: 3000..<3000, with: "wedge\r\n你😀")
+        inserted.insert("wedge\r\n你😀", at: 3000)
+
+        XCTAssertEqual(replaced, inserted)
+        XCTAssertEqual(replaced.content, inserted.content)
+        XCTAssertEqual(replaced.utf16Count, inserted.utf16Count)
+        XCTAssertEqual(replaced.utf8Count, inserted.utf8Count)
+        XCTAssertEqual(replaced.root.summary, inserted.root.summary)
+        verifyTreeInvariants(replaced)
+    }
+
+    func testReplaceIntRangeBothEmptyIsNoOp() {
+        var rope = TextRope("hello")
+        let rootBefore = ObjectIdentifier(rope.root)
+
+        rope.replace(range: 3..<3, with: "")
+
+        XCTAssertEqual(rope.content, "hello")
+        XCTAssertEqual(rope.utf16Count, 5)
+        XCTAssertEqual(ObjectIdentifier(rope.root), rootBefore)
+    }
+}
+
+@Suite struct TextRopeReplaceIntRangePreconditions {
+    @Test func `replacing traps when the range end exceeds the document length`() async {
+        await #expect(processExitsWith: .failure) {
+            var rope = TextRope("hello")
+            rope.replace(range: 3..<8, with: "x")
+        }
+    }
+
+    @Test func `replacing traps for a negative lowerBound`() async {
+        await #expect(processExitsWith: .failure) {
+            var rope = TextRope("hello")
+            rope.replace(range: (-1)..<2, with: "x")
+        }
+    }
+
+    @Test func `replacing traps for an empty range past the end`() async {
+        await #expect(processExitsWith: .failure) {
+            var rope = TextRope("hello")
+            rope.replace(range: 500..<500, with: "x")
+        }
     }
 }

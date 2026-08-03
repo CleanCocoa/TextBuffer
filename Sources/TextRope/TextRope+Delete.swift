@@ -7,10 +7,20 @@ extension TextRope {
         precondition(utf16Range.location >= 0, "delete range location \(utf16Range.location) must be non-negative")
         precondition(utf16Range.length >= 0, "delete range length \(utf16Range.length) must be non-negative")
         precondition(utf16Range.location + utf16Range.length <= utf16Count, "delete range end \(utf16Range.location + utf16Range.length) exceeds utf16Count \(utf16Count)")
+        delete(in: utf16Range.location ..< utf16Range.location + utf16Range.length)
+    }
+
+    /// Removes the content within a half-open range of UTF-16 code unit offsets.
+    ///
+    /// - Invariant: `utf16Range` must be within `0..<utf16Count`.
+    public mutating func delete(in utf16Range: Range<Int>) {
+        if utf16Range.isEmpty { return }
+        precondition(utf16Range.lowerBound >= 0, "delete range location \(utf16Range.lowerBound) must be non-negative")
+        precondition(utf16Range.upperBound <= utf16Count, "delete range end \(utf16Range.upperBound) exceeds utf16Count \(utf16Count)")
         ensureUnique()
 
-        let start = utf16Range.location
-        let end = utf16Range.location + utf16Range.length
+        let start = utf16Range.lowerBound
+        let end = utf16Range.upperBound
 
         _ = Self.deleteFromNode(root, utf16Start: start, utf16End: end)
 

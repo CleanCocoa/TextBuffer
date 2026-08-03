@@ -1,4 +1,5 @@
 import XCTest
+import Testing
 import Foundation
 @testable import TextRope
 
@@ -543,5 +544,79 @@ final class TextRopeDeleteTests: XCTestCase {
         XCTAssertEqual(rope.content, expected)
         XCTAssertEqual(rope.root.summary.lines, 1)
         verifyTreeInvariants(rope)
+    }
+
+    // MARK: Range<Int> primitive mirrors
+
+    func testDeleteIntRangeFromSingleLeaf() {
+        var rope = TextRope("hello world")
+        rope.delete(in: 5..<11)
+        XCTAssertEqual(rope.content, "hello")
+        XCTAssertEqual(rope.utf16Count, 5)
+    }
+
+    func testDeleteIntRangeSpanningLeaves() {
+        let a = String(repeating: "a", count: 1200)
+        let b = String(repeating: "b", count: 1200)
+        var rope = TextRope(a + b)
+        XCTAssertEqual(rope.root.children.count, 2)
+
+        rope.delete(in: 600..<1800)
+
+        XCTAssertEqual(rope.content, String(repeating: "a", count: 600) + String(repeating: "b", count: 600))
+        XCTAssertEqual(rope.utf16Count, 1200)
+        verifyTreeInvariants(rope)
+    }
+
+    func testDeleteIntRangeEmptyRangeIsNoOp() {
+        var rope = TextRope("hello")
+        rope.delete(in: 3..<3)
+        XCTAssertEqual(rope.content, "hello")
+        XCTAssertEqual(rope.utf16Count, 5)
+    }
+
+    func testDeleteIntRangeSpanningSurrogatePair() {
+        var rope = TextRope("a🎉b")
+        rope.delete(in: 1..<3)
+        XCTAssertEqual(rope.content, "ab")
+        XCTAssertEqual(rope.utf16Count, 2)
+    }
+
+    func testDeleteIntRangeAtSurrogatePairEdges() {
+        var leading = TextRope("a🎉b")
+        leading.delete(in: 0..<1)
+        XCTAssertEqual(leading.content, "🎉b")
+
+        var trailing = TextRope("a🎉b")
+        trailing.delete(in: 3..<4)
+        XCTAssertEqual(trailing.content, "a🎉")
+    }
+
+    func testDeleteIntRangeEqualsNSRangeForm() {
+        let input = "hello 🎉 world, café 你好"
+        var viaInt = TextRope(input)
+        var viaNSRange = TextRope(input)
+
+        viaInt.delete(in: 5..<9)
+        viaNSRange.delete(in: NSRange(location: 5, length: 4))
+
+        XCTAssertEqual(viaInt, viaNSRange)
+        XCTAssertEqual(viaInt.content, viaNSRange.content)
+    }
+}
+
+@Suite struct TextRopeDeleteIntRangePreconditions {
+    @Test func `deleting traps when the range end exceeds the document length`() async {
+        await #expect(processExitsWith: .failure) {
+            var rope = TextRope("hello")
+            rope.delete(in: 3..<8)
+        }
+    }
+
+    @Test func `deleting traps for a negative lowerBound`() async {
+        await #expect(processExitsWith: .failure) {
+            var rope = TextRope("hello")
+            rope.delete(in: (-1)..<2)
+        }
     }
 }

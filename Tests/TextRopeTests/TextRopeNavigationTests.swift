@@ -180,4 +180,125 @@ final class TextRopeNavigationTests: XCTestCase {
         let result = rope.content(in: NSRange(location: 0, length: input.utf16.count))
         XCTAssertEqual(result, input)
     }
+
+    // MARK: Range<Int> primitive mirrors
+
+    func testContentInIntRangeSingleLeaf() {
+        let rope = TextRope("Hello, world!")
+        XCTAssertEqual(rope.content(in: 7..<12), "world")
+    }
+
+    func testContentInIntRangeSpanningHeadMiddleAndTailLeaves() {
+        let blocks = ["a", "b", "c", "d"].map { String(repeating: $0, count: 2048) }
+        let input = blocks.joined()
+        let rope = TextRope(input)
+        XCTAssertEqual(rope.root.children.count, 4)
+
+        let expected = (input as NSString).substring(with: NSRange(location: 1000, length: 6000))
+        XCTAssertEqual(rope.content(in: 1000..<7000), expected)
+    }
+
+    func testContentInIntRangeMultiLeaf() {
+        let chunk = String(repeating: "A", count: 2048)
+        let rope = TextRope(chunk + "BCDE")
+        XCTAssertEqual(rope.content(in: 2046..<2052), "AABCDE")
+    }
+
+    func testContentInIntRangeAtBoundary() {
+        let chunkA = String(repeating: "A", count: 2048)
+        let chunkB = String(repeating: "B", count: 2048)
+        let rope = TextRope(chunkA + chunkB)
+
+        XCTAssertEqual(rope.content(in: 2044..<2048), "AAAA")
+        XCTAssertEqual(rope.content(in: 2048..<2052), "BBBB")
+    }
+
+    func testContentInIntRangeSurrogatePair() {
+        let rope = TextRope("Music: 𝄞 end")
+        XCTAssertEqual(rope.content(in: 7..<9), "𝄞")
+    }
+
+    func testContentInIntRangeEmptyInBoundsRange() {
+        let rope = TextRope("Hello, world!")
+        XCTAssertEqual(rope.content(in: 3..<3), "")
+    }
+
+    func testContentInIntRangeFullDocumentRange() {
+        let input = "Hello 🌍 world"
+        let rope = TextRope(input)
+        XCTAssertEqual(rope.content(in: 0..<rope.utf16Count), input)
+    }
+
+    func testContentInIntRangeOnEmptyRope() {
+        let rope = TextRope("")
+        XCTAssertEqual(rope.content(in: 0..<0), "")
+    }
+
+    func testContentInIntRangeEqualsNSRangeForm() {
+        let blocks = ["a", "é", "🎉", "你"].map { String(repeating: $0, count: 700) }
+        let rope = TextRope(blocks.joined())
+
+        XCTAssertEqual(rope.content(in: 500..<3000), rope.content(in: NSRange(location: 500, length: 2500)))
+    }
+
+    // MARK: utf16CodeUnits(in:) primitive
+
+    func testUTF16CodeUnitsMatchContentUTF16ViewOnMixedContent() {
+        let input = "abc é你 🎉😀 end\r\n"
+        let rope = TextRope(input)
+        let allUnits = Array(input.utf16)
+
+        for range in [0..<allUnits.count, 2..<9, 7..<13, 0..<1] {
+            XCTAssertEqual(rope.utf16CodeUnits(in: range), Array(allUnits[range]), "range \(range)")
+        }
+    }
+
+    func testUTF16CodeUnitsRangeSplittingSurrogatePairReturnsRawHalves() {
+        let rope = TextRope("a🎉b")
+        let units = Array("a🎉b".utf16)
+
+        // Starts on the trail surrogate of 🎉: raw, unpaired half plus "b".
+        XCTAssertEqual(rope.utf16CodeUnits(in: 2..<4), [units[2], units[3]])
+        XCTAssertEqual(rope.utf16CodeUnits(in: 2..<4), [0xDF89, UInt16(UnicodeScalar("b").value)])
+
+        // Ends on the lead surrogate: "a" plus raw lead half.
+        XCTAssertEqual(rope.utf16CodeUnits(in: 0..<2), [UInt16(UnicodeScalar("a").value), 0xD83C])
+
+        // Just the two halves.
+        XCTAssertEqual(rope.utf16CodeUnits(in: 1..<3), [0xD83C, 0xDF89])
+    }
+
+    func testUTF16CodeUnitsEmptyRange() {
+        let rope = TextRope("hello")
+        XCTAssertEqual(rope.utf16CodeUnits(in: 3..<3), [])
+        XCTAssertEqual(TextRope("").utf16CodeUnits(in: 0..<0), [])
+    }
+
+    func testUTF16CodeUnitsFullRange() {
+        let input = "Hello 🌍 café 你好\r\nworld"
+        let rope = TextRope(input)
+        XCTAssertEqual(rope.utf16CodeUnits(in: 0..<rope.utf16Count), Array(input.utf16))
+    }
+
+    func testUTF16CodeUnitsSpanningMultipleLeaves() {
+        let blocks = ["a", "b", "c", "d"].map { String(repeating: $0, count: 2048) }
+        let input = blocks.joined()
+        let rope = TextRope(input)
+        XCTAssertEqual(rope.root.children.count, 4)
+
+        let allUnits = Array(input.utf16)
+        XCTAssertEqual(rope.utf16CodeUnits(in: 1000..<7000), Array(allUnits[1000..<7000]))
+    }
+
+    func testUTF16CodeUnitsSpanningLeavesWithSurrogateEdges() {
+        // Emoji-heavy multi-leaf rope; ranges chosen without regard to character boundaries.
+        let input = String(repeating: "😀🎉", count: 1024)
+        let rope = TextRope(input)
+        XCTAssertGreaterThan(rope.root.children.count, 1)
+
+        let allUnits = Array(input.utf16)
+        for range in [1..<4095, 2047..<2050, 0..<4096] {
+            XCTAssertEqual(rope.utf16CodeUnits(in: range), Array(allUnits[range]), "range \(range)")
+        }
+    }
 }

@@ -2,7 +2,9 @@
 
 ### Requirement: Content extraction by UTF-16 range
 
-`TextRope` SHALL provide a public `content(in utf16Range: Range<Int>) -> String` method that returns the substring corresponding to the given half-open range of UTF-16 code unit offsets. The extraction MUST be O(log n + k) where k is the length of the extracted content. The range MUST be validated before any early return: `utf16Range.lowerBound >= 0` and `utf16Range.upperBound <= utf16Count` MUST hold, or a precondition failure occurs — including for empty ranges whose bounds lie outside the document.
+`TextRope` SHALL provide a public `content(in utf16Range: Range<Int>) -> String` method that returns the substring corresponding to the given half-open range of UTF-16 code unit offsets. The extraction MUST be O(log n + k) where k is the length of the extracted content.
+
+Bounds validation MUST precede the empty-range early return: a range whose bounds lie outside the document — `lowerBound < 0` or `upperBound > utf16Count` — MUST cause a precondition failure even when the range is empty. An empty range at an in-bounds offset (`0 <= k <= utf16Count` for `k..<k`) SHALL return `""`.
 
 #### Scenario: Range within a single leaf
 - **WHEN** `content(in:)` is called with a range that falls entirely within one leaf
@@ -16,9 +18,10 @@
 - **WHEN** `content(in: k..<k)` is called where `0 <= k <= utf16Count`
 - **THEN** the method MUST return an empty string `""`
 
-#### Scenario: Empty range out of bounds
-- **WHEN** `content(in: k..<k)` is called where `k > utf16Count` or `k < 0`
+#### Scenario: Zero-length range at an out-of-bounds location traps
+- **WHEN** `content(in: k..<k)` is called where `k` is past the end (`k > utf16Count`) or negative
 - **THEN** a precondition failure MUST occur
+- **AND** the call SHALL NOT return `""`
 
 #### Scenario: Full document range
 - **WHEN** `content(in: 0..<utf16Count)` is called
@@ -43,6 +46,13 @@
 ### Requirement: Composed character sequence reads match full-document NSString semantics
 
 The `TextBuffer` target SHALL provide, as public extensions on `TextRope`, `composedCharacterSequences(in utf16Range: NSRange) -> String` and `composedCharacterSequence(at utf16Offset: Int) -> String`. These APIs are deliberately homed in the TextBuffer target rather than the Foundation-free `TextRope` target because their contract is defined by Foundation: for every rope and every in-bounds argument, the returned string MUST be identical to the result of applying `NSString.rangeOfComposedCharacterSequences(for:)` / `NSString.rangeOfComposedCharacterSequence(at:)` to the rope's **entire** content and extracting the resulting range. The result MUST NOT depend on the rope's internal chunking, tree shape, or on any window size used internally to avoid materializing the whole document. The implementation MUST access rope content exclusively through `TextRope`'s stdlib-only accessors: the public `content(in:)` and `utf16Count`, and the `package`-scoped `utf16CodeUnits(in:)`.
+
+An out-of-bounds argument MUST cause a precondition failure. Bounds validation MUST precede any zero-length early return: `composedCharacterSequences(in:)` called with a zero-length range whose location is out of bounds — past the end, negative, or `NSNotFound` — MUST trap rather than return `""`. A zero-length range at an in-bounds location (`0 <= location <= utf16Count`) SHALL return `""`.
+
+#### Scenario: Zero-length range at an out-of-bounds location traps
+- **WHEN** `composedCharacterSequences(in:)` is called with `NSRange(location: k, length: 0)` where `k` is past the end (`k > utf16Count`), negative, or `NSNotFound`
+- **THEN** a precondition failure MUST occur
+- **AND** the call SHALL NOT return `""`
 
 #### Scenario: Read equals full-document expansion at every offset
 - **WHEN** `composedCharacterSequence(at: k)` is called for any `k` in `0..<utf16Count`
