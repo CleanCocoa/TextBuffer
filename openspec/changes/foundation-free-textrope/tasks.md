@@ -37,7 +37,7 @@
 
 ## 6. Spec Truth and Bookkeeping
 
-- [ ] 6.1 Confirm the `specs/` deltas in this change match what shipped (post-1.1 rebase, post-implementation): `rope-target-setup` Foundation-free requirement + NSRange-convenience requirement, `rope-utf16-navigation` `Range<Int>` restatement + `utf16CodeUnits(in:)` + composed-read re-homing, `rope-replace` DEF-006b observable wording, `rope-delete` / `rope-edge-cases` / `rope-stress-testing` restatements.
-- [ ] 6.2 Update `DEFECTS.md`: mark DEF-006 bullets (a) NSRange contradiction and (b) replace degenerate clauses as `fixed`, naming `foundation-free-textrope`; leave the Node+Merge and Purpose-TBD bullets to their owning changes' entries.
-- [ ] 6.3 Add the CHANGELOG entry under the 0.10.0 release notes: a `### Changed`/breaking note — TextRope's public range API is now `Range<Int>` over UTF-16 code units; NSRange forms moved to TextBuffer-target extensions (consumers importing TextBuffer are unaffected); composed-sequence APIs now provided by the TextBuffer target; TextRope no longer imports Foundation.
-- [ ] 6.4 Run `openspec validate foundation-free-textrope --strict` and the full `swift test` suite one final time before archiving.
+- [x] 6.1 Confirm the `specs/` deltas in this change match what shipped (post-1.1 rebase, post-implementation): `rope-target-setup` Foundation-free requirement + NSRange-convenience requirement, `rope-utf16-navigation` `Range<Int>` restatement + `utf16CodeUnits(in:)` + composed-read re-homing, `rope-replace` DEF-006b observable wording, `rope-delete` / `rope-edge-cases` / `rope-stress-testing` restatements.
+- [x] 6.2 Update `DEFECTS.md`: mark DEF-006 bullets (a) NSRange contradiction and (b) replace degenerate clauses as `fixed`, naming `foundation-free-textrope`; leave the Node+Merge and Purpose-TBD bullets to their owning changes' entries.
+- [x] 6.3 Add the CHANGELOG entry under the 0.10.0 release notes: a `### Changed`/breaking note — TextRope's public range API is now `Range<Int>` over UTF-16 code units; NSRange forms moved to TextBuffer-target extensions (consumers importing TextBuffer are unaffected); composed-sequence APIs now provided by the TextBuffer target; TextRope no longer imports Foundation.
+- [x] 6.4 Run `openspec validate foundation-free-textrope --strict` and the full `swift test` suite one final time before archiving.

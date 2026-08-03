@@ -100,13 +100,13 @@ Fixed 2026-08-03 (`03ebba7`, change `fix-composed-sequence-reads`): precondition
 
 Fixed 2026-08-03 (`46ee53f`): `TextRopeEqualityTests.swift` covers the six spec cases, including equal-content/different-shape (leaf shapes asserted to differ) and equal-summary/different-content; the archived task's tick carries a disclosed correction note.
 
-### DEF-006: Canonical spec contradictions and silent task rewrites — `open`
+### DEF-006: Canonical spec contradictions and silent task rewrites — `fixed`
 
-- `openspec/specs/rope-target-setup/spec.md:7` says TextRope "MUST NOT depend on ... Foundation's NSRange"; three sibling canonical specs mandate NSRange and four source files use it publicly. Decide and amend one side.
-- `openspec/specs/rope-replace/spec.md:34,45` ("No insert/delete operation SHALL occur" in degenerate cases) is false as written — replace composes unconditionally; correctness rests on the primitives' undocumented pre-precondition early returns.
-- `openspec/specs/rope-insert/spec.md:87,95` says an overflowing inner node splits "into two"; implementation is n-way.
+- ~~`openspec/specs/rope-target-setup/spec.md:7` says TextRope "MUST NOT depend on ... Foundation's NSRange"; three sibling canonical specs mandate NSRange and four source files use it publicly. Decide and amend one side.~~ Fixed 2026-08-04 (`9ef3750`, `9d36811`, change `foundation-free-textrope` per ADR-013): the code moved — TextRope is Foundation-free with `Range<Int>` primitives, the NSRange surface lives in TextBuffer extensions, and the MUST-NOT clause is grep-checkably true.
+- ~~`openspec/specs/rope-replace/spec.md:34,45` ("No insert/delete operation SHALL occur" in degenerate cases) is false as written — replace composes unconditionally; correctness rests on the primitives' undocumented pre-precondition early returns.~~ Fixed 2026-08-04 (same change, DEF-006b): the replace spec states observable equivalences (result equals `delete(in:)` / `insert(_:at:)` alone), pinned by equivalence tests.
+- ~~`openspec/specs/rope-insert/spec.md:87,95` says an overflowing inner node splits "into two"; implementation is n-way.~~ Superseded during the train: the canonical insert spec now describes the n-way `splitInner`/sibling-batch behavior (promoted by `fix-rope-split-point` and `perf-rope-equality-and-bulk-insert`).
 - ~~`m2-rope-delete` tasks 1.3/2.4 had the mandated `Node+Merge.swift` path rewritten to `TextRope+Delete.swift` inside fix commits `8e7ec0c`/`2abfd52` without disclosure (contrast the split seam, which got the spec-named `Node+Split.swift`).~~ Done 2026-08-03 (`6386e45`): merge machinery extracted to `Node+Merge.swift` as pure movement (DEF-006c).
-- All 11 promoted canonical specs still carry `## Purpose / TBD`.
+- ~~All 11 promoted canonical specs still carry `## Purpose / TBD`.~~ Fixed 2026-08-03 (`3997670`, change `docs-rope-disclosure`).
 
 ### DEF-007: Stress suite validates invariants at 1% sampling — `fixed`
 
