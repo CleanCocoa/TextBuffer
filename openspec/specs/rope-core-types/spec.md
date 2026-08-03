@@ -1,7 +1,8 @@
 # rope-core-types Specification
 
 ## Purpose
-TBD - created by archiving change m2-rope-foundation. Update Purpose after archive.
+Defines the foundational types and invariants everything else in the rope builds on: the internal `Summary` (cached UTF-8 byte, UTF-16 code unit, and line counts) and B-tree `Node` (leaves holding grapheme-first bounded chunks, inner nodes with bounded child counts), and the public `TextRope` value type built on them — always rooted, `Sendable`, `Equatable` by content with an O(1) summary early-out, and copy-on-write via path-copying so copies share structure until mutated, a guarantee that must hold under concurrent mutation from many tasks. Construction from a `String` produces a balanced tree whose split points fall only on `Character` boundaries within the window-clamped chunk-size bounds (so `\r\n` pairs and grapheme clusters are never split), and the root summary makes length queries O(1).
+
 ## Requirements
 ### Requirement: Summary tracks utf8, utf16, and line counts
 `TextRope.Summary` SHALL be an internal value type with three integer fields: `utf8` (byte count), `utf16` (UTF-16 code unit count), and `lines` (newline count). It SHALL provide a `zero` static constant, `add(_:)` and `subtract(_:)` mutating methods for combining summaries, and a `of(_:)` static factory that computes metrics from a `String`.

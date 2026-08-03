@@ -1,7 +1,8 @@
 # rope-insert Specification
 
 ## Purpose
-TBD - created by archiving change m2-rope-insert. Update Purpose after archive.
+Guarantees correct insertion at any UTF-16 offset of a `TextRope`: content is spliced exactly where requested (never between surrogate halves), an overflowing leaf is re-chunked in a single linear pass through the same grapheme-first split helper construction and redistribution use, splits propagate upward with uniform leaf depth and exact summaries at every node, a `\r\n` seam left at a leaf boundary is repaired without violating the chunk-size bounds, and copy-on-write path-copying keeps shared copies independent while a single-owner insert mutates in place.
+
 ## Requirements
 ### Requirement: Insert at UTF-16 offset
 The `TextRope` type SHALL provide a `mutating func insert(_ string: String, at utf16Offset: Int)` method that inserts the given string at the specified UTF-16 code unit offset. The offset MUST be in the range `0...utf16Count`. After insertion, the rope's `utf16Count` SHALL equal the previous `utf16Count` plus the inserted string's UTF-16 length. The rope's `content` SHALL equal the original content with the string spliced at the corresponding position.

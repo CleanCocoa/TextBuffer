@@ -1,7 +1,8 @@
 # rope-stress-testing Specification
 
 ## Purpose
-TBD - created by archiving change m2-rope-verification. Update Purpose after archive.
+Backs the rope's correctness claims with randomized verification against a `String` oracle: at least 10,000 seeded random insert, delete, and replace operations with content and counts compared after every operation, drawing from a mixed ASCII, multi-byte Latin, emoji, CJK, and `\r\n` character pool, with full tree-invariant validation — per-operation on a dedicated seed, judging out-of-bounds leaves against the exact grapheme-first starvation predicates — plus construction round-trip and copy-on-write independence coverage across encodings. Failures report seed and operation index so any sequence can be replayed exactly.
+
 ## Requirements
 ### Requirement: Stress test with String oracle
 The test suite SHALL apply at least 10,000 random operations (insert, delete, replace) to both a `TextRope` and an equivalent `String` oracle. After each operation, the test MUST assert that `rope.content == oracle`, `rope.utf16Count == oracle.utf16.count`, and `rope.utf8Count == oracle.utf8.count`. Any mismatch MUST cause an immediate test failure with the operation index and seed reported.

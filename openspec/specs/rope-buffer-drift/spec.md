@@ -1,7 +1,8 @@
 # rope-buffer-drift Specification
 
 ## Purpose
-TBD - created by archiving change m2-rope-buffer. Update Purpose after archive.
+Pins `RopeBuffer` — and for reads, `SendableRopeBuffer` — to `MutableStringBuffer` by direct comparison: every insert, delete, replace, and sequential-operation scenario runs against both buffer kinds with identical initial state and asserts identical `content` and `selectedRange` after every step, and every composed-sequence read — surrogate halves, combining marks, ZWJ chains, and regional-indicator runs long enough to exceed any internal read window — must return exactly what the Foundation-backed oracle returns, cross-platform with no macOS gating. The suite exists so a rope-side divergence surfaces as a failing drift test instead of a silent content defect.
+
 ## Requirements
 ### Requirement: Drift tests prove RopeBuffer insert selection equivalence with MutableStringBuffer
 For every insert operation scenario, applying the same `insert(_:at:)` call to both a `RopeBuffer` and a `MutableStringBuffer` with identical initial state SHALL produce identical `content` and `selectedRange` afterwards.

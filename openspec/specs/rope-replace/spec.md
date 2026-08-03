@@ -1,7 +1,8 @@
 # rope-replace Specification
 
 ## Purpose
-TBD - created by archiving change m2-rope-replace. Update Purpose after archive.
+Specifies `TextRope.replace(range:with:)` as the composed edit primitive: the ranged content is removed and the replacement spliced in, with exact summaries at every node afterwards, and the operation degenerates cleanly — an empty replacement string behaves exactly like `delete(in:)`, a zero-length range exactly like `insert(_:at:)`, and both empty is a no-op — while copy-on-write independence holds across the composed delete-plus-insert just as it does for each primitive alone.
+
 ## Requirements
 ### Requirement: Replace UTF-16 range with new text
 The `TextRope` type SHALL provide a `mutating func replace(range utf16Range: NSRange, with string: String)` method that replaces the content in the specified UTF-16 code unit range with the given string. The range MUST be valid: `utf16Range.location >= 0`, `utf16Range.location + utf16Range.length <= utf16Count`. After replacement, the rope's `utf16Count` SHALL equal the previous `utf16Count` minus `utf16Range.length` plus the replacement string's UTF-16 length. The rope's `content` SHALL equal the original content with the specified range removed and the new string spliced in at that position.

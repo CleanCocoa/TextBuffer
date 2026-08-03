@@ -1,7 +1,8 @@
 # rope-target-setup Specification
 
 ## Purpose
-TBD - created by archiving change m2-rope-foundation. Update Purpose after archive.
+Positions the rope as an independently consumable building block: `TextRope` is a standalone SPM library target and declared product with zero external dependencies, so external packages can depend on the rope implementation without pulling in TextBuffer or AppKit, while the `TextBuffer` target depends on it and re-exports it (`@_exported import TextRope`) so consumers importing TextBuffer get all public rope types with a single import.
+
 ## Requirements
 ### Requirement: TextRope is a standalone SPM library target
 The package SHALL declare a `TextRope` library target with zero external dependencies. The target SHALL compile independently — it MUST NOT depend on TextBuffer, Foundation's NSRange, AppKit, or any other target in the package.

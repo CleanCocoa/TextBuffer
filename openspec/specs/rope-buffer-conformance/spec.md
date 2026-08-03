@@ -1,7 +1,8 @@
 # rope-buffer-conformance Specification
 
 ## Purpose
-TBD - created by archiving change m2-rope-buffer. Update Purpose after archive.
+Makes `RopeBuffer` a drop-in `Buffer` implementation: a class wrapping `TextRope` with selection tracking whose insert, delete, and replace adjust the selection exactly as `MutableStringBuffer` does, whose `content(in:)` and `unsafeCharacter(at:)` return composed character sequences identical to `MutableStringBuffer`'s `NSString`-backed results (including regional-indicator pairing unaffected by internal windowing), and whose range validation, `modifying` gate, and `TextAnalysisCapable` conformance match the string buffer — so consumers can swap buffer implementations without behavior change.
+
 ## Requirements
 ### Requirement: RopeBuffer conforms to Buffer protocol
 `RopeBuffer` SHALL be a `public final class` conforming to `Buffer` with `Range == NSRange` and `Content == String`. It SHALL wrap a `TextRope` instance for storage and maintain a `selectedRange: NSRange` property for selection tracking.

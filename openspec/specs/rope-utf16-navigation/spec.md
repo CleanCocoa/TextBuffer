@@ -1,7 +1,8 @@
 # rope-utf16-navigation Specification
 
 ## Purpose
-TBD - created by archiving change m2-rope-navigation. Update Purpose after archive.
+Defines the rope's read path in the UTF-16 coordinate space that Foundation and AppKit text APIs speak: O(log n) descent to the leaf holding an offset, leaf-local translation to `String.Index`, O(log n + k) substring extraction via `content(in:)`, and composed-character-sequence reads (`composedCharacterSequences(in:)`, `composedCharacterSequence(at:)`) that match full-document `NSString` expansion semantics — including UAX #29 regional-indicator pairing counted from the run start — without materializing the whole document. Out-of-bounds arguments trap even for zero-length ranges, internal read windows must verify their materialized length, and no read ever mutates the tree or triggers a COW copy.
+
 ## Requirements
 ### Requirement: Tree descent to UTF-16 offset
 The `TextRope` SHALL provide an internal `findLeaf(utf16Offset:)` method that descends the B-tree in O(log n) time to locate the leaf node containing the given UTF-16 code unit offset. The method MUST return the target leaf node and the remaining UTF-16 offset within that leaf. At each inner node, the descent MUST use the cumulative `summary.utf16` counts of child nodes to determine which child contains the target offset.

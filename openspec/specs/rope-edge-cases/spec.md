@@ -1,7 +1,8 @@
 # rope-edge-cases Specification
 
 ## Purpose
-TBD - created by archiving change m2-rope-verification. Update Purpose after archive.
+Requires targeted coverage of the boundary conditions most likely to corrupt a chunked UTF-8 rope addressed by UTF-16 offsets: `\r\n` pairs landing at chunk boundaries under construction and mutation, delete and replace ranges falling on surrogate-pair boundaries, repeated single-character operations that force many leaf splits and merges, and verification that after any such sequence the tree still satisfies its B-tree structure invariants — uniform leaf depth, bounded child counts, and bounded chunk sizes.
+
 ## Requirements
 ### Requirement: CRLF invariant at chunk boundaries
 The test suite MUST verify that the `\r\n` split invariant holds under mutation pressure. After any sequence of insert, delete, or replace operations on a rope containing `\r\n` pairs, no chunk boundary SHALL fall between a `\r` and its following `\n`. The line count in the root summary MUST equal the number of `\n` characters in the full content.

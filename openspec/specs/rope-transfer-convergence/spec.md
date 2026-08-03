@@ -1,7 +1,8 @@
 # rope-transfer-convergence Specification
 
 ## Purpose
-TBD - created by archiving change convergence-rope-transfer. Update Purpose after archive.
+Guarantees that rope-backed buffers participate fully in the transfer and undo architecture: `TransferableUndoable<RopeBuffer>` undoes and redoes exactly like its `MutableStringBuffer` counterpart, `snapshot()` and `represent(_:)` move content, selection, and undo history across buffer types as fully independent copies, round-trips are lossless and idempotent, and identical step sequences produce identical state on both buffer types — so `RopeBuffer`, `MutableStringBuffer`, and any future base type remain interchangeable through the `MutableStringBuffer` snapshot intermediary.
+
 ## Requirements
 ### Requirement: Undo/redo correctness on rope-backed buffer
 `TransferableUndoable<RopeBuffer>` SHALL support undo and redo operations that produce identical content and selection state as the equivalent operations on `TransferableUndoable<MutableStringBuffer>`. Undo MUST reverse mutations by replaying inverse operations through `RopeBuffer`'s `Buffer` conformance. Redo MUST reapply forward operations. Grouped mutations (via `undoGrouping`) MUST undo/redo atomically.

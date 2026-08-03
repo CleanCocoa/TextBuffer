@@ -1,7 +1,8 @@
 # rope-delete Specification
 
 ## Purpose
-TBD - created by archiving change m2-rope-delete. Update Purpose after archive.
+Guarantees correct deletion of any UTF-16 range from a `TextRope`: content is removed across leaves, whole subtrees, and multiple levels with exact summaries afterwards; undersized leaves and inner nodes merge or redistribute under the window-clamped grapheme-first split rules, split `\r\n` pairs are rejoined, and provably starved shapes are accepted as fixed points rather than retried; deleting everything collapses the tree back to an empty leaf root; and copy-on-write path-copying keeps shared copies independent while a single-owner delete mutates the tree in place without a spurious path copy.
+
 ## Requirements
 ### Requirement: Delete a UTF-16 range
 The `TextRope` type SHALL provide a `mutating func delete(in utf16Range: NSRange)` method that removes the content within the specified UTF-16 code unit range. The range MUST be within `0..<utf16Count` (location + length ≤ utf16Count). After deletion, the rope's `utf16Count` SHALL equal the previous `utf16Count` minus the deleted range's length. The rope's `content` SHALL equal the original content with the specified range removed.
