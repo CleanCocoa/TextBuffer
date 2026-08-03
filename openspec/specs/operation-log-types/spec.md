@@ -1,4 +1,9 @@
-## ADDED Requirements
+# operation-log-types Specification
+
+## Purpose
+Specifies the value-type undo machinery: `BufferOperation` (insert/delete/replace with enough captured context to invert), `UndoGroup` (a named batch of operations), and `OperationLog` (recording, grouping, undo/redo traversal). Undo applies a group's inverse operations in reverse order and redo reapplies them forward, as proper inverses; new edits truncate the redo tail; `canUndo`/`canRedo` and action names expose menu-facing state. Because every type is a value type (ADR-002), copying a log yields fully independent histories — the property buffer transfer relies on.
+
+## Requirements
 
 ### Requirement: BufferOperation value type
 `BufferOperation` SHALL be a public struct conforming to `Sendable` and `Equatable`. It SHALL contain a single stored property `kind` of type `BufferOperation.Kind`.
