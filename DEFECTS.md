@@ -62,7 +62,9 @@ Fixed 2026-08-03 (`16ce570`, `1e6a6aa`): grapheme-first bidirectional boundary s
 
 **Fix direction:** clamp the fallback into `[low, high]` with bidirectional search; when the window holds no boundary, split three ways or (for `count <= 2 * minChunkUTF8`) emit a single leaf. One site fixes all four manifestations. Update `NodeTests.swift:42-48` expectation.
 
-### DEF-002: Regional-indicator pairing breaks in composed-sequence reads — `open`
+### DEF-002: Regional-indicator pairing breaks in composed-sequence reads — `fixed`
+
+Fixed 2026-08-03 (`03ebba7`, change `fix-composed-sequence-reads`): `windowStart` snaps back over the contiguous RI run (leaf-chunk walk, one descent, no added descents on non-RI reads), capped at 4,096 UTF-16 units with silent full-document fallback. Repro and 400-offset sweep pinned at rope and buffer-drift levels.
 
 `Sources/TextRope/TextRope+ComposedSequences.swift:32-51` (`expandingWindow`), introduced by `9570025`. UAX #29 GB12/GB13 pairs regional indicators counting from text start; a ±128-unit window whose start lands on an odd RI boundary flips pairing parity, and the mispaired result sits strictly inside the window so the edge-touch retry never fires. **Content-visible divergence** from `MutableStringBuffer` — the only defect that returns wrong text:
 
@@ -84,7 +86,9 @@ Affects any document > 129 UTF-16 units containing an RI run (136/400 offsets wr
 
 ## Medium
 
-### DEF-004: Empty-range reads bypass out-of-bounds preconditions — `open`
+### DEF-004: Empty-range reads bypass out-of-bounds preconditions — `fixed`
+
+Fixed 2026-08-03 (`03ebba7`, change `fix-composed-sequence-reads`): preconditions moved ahead of the empty-range early returns in `content(in:)` and both composed-sequence APIs; six process-exit tests pin past-end, negative, and `NSNotFound` locations. 0.10.0 behavior tightening.
 
 `TextRope+Navigation.swift:30` and `TextRope+ComposedSequences.swift:9`: `length == 0` early-returns before the preconditions, so `content(in: NSRange(location: 500, length: 0))` (also negative / `NSNotFound` locations) silently returns `""` on a 5-char rope. Violates `openspec/specs/rope-utf16-navigation/spec.md:75-77`. Flagged in the 2026-07-28 audit; not fixed by the fold and copied into the new API. Contained at the buffer layer (RopeBuffer guards with `contains(range:)`).
 
@@ -110,7 +114,9 @@ Fixed 2026-08-03 (`1e6a6aa`): `testPerOperationInvariantValidation` (seed `0xDEF
 
 `SendableRopeBufferConcurrencyTests.testTaskGroupParallelReplace` fans 1000 parallel mutations over a single-leaf template, so concurrent path-copying below the root is never exercised. `TextRope: Sendable` (`nonisolated(unsafe) var root` over non-Sendable `Node`) rests entirely on the COW discipline this would verify. (Raised by ta2-speccer.)
 
-### DEF-009: `expandingWindow` assumes returned window length equals requested — `open`
+### DEF-009: `expandingWindow` assumes returned window length equals requested — `fixed`
+
+Fixed 2026-08-03 (`03ebba7`, change `fix-composed-sequence-reads`): the structural fix is ADR-012's grapheme-first chunk bounds, landed by `fix-rope-split-point` — a chunk seam can no longer fall inside a `Character`, so the desync is unreachable; the enforcing hard `precondition` on the materialized window length landed here.
 
 `TextRope+ComposedSequences.swift:37-41`: `local` is computed assuming `content(in:)` returns exactly `windowEnd - windowStart` units; false when a chunk boundary falls mid-`Character` (the documented degenerate fallback at `Node+Split.swift:87-88`). Surrogate guards cover window edges only. Add a length assertion or handle the desync.
 

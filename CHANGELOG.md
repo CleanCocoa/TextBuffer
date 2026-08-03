@@ -2,7 +2,13 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `TextRope.content(in:)`, `composedCharacterSequences(in:)`, and `composedCharacterSequence(at:)` now trap on out-of-bounds ranges even when the range is empty. Previously a zero-length range past the end (or with a negative or `NSNotFound` location) silently returned `""`, bypassing the documented precondition; the bounds check now runs before the empty-range early return. `RopeBuffer` and `SendableRopeBuffer` are unaffected — they validate ranges before delegating.
+
 ### Fixed
+
+- `RopeBuffer` and `SendableRopeBuffer`: reads inside long regional-indicator (flag) runs return the correct flag again. The windowed composed-sequence expansion could start its window mid-run and flip UAX #29 pairing parity, so `unsafeCharacter(at:)`/`content(in:)` on documents longer than 129 UTF-16 units returned adjacent-but-wrong pairs (🇪🇩 for 🇩🇪) at offsets past the window radius — the only defect in the 0.9.0 fold that returned wrong text. The window start now anchors to the start of the contiguous flag run (capped at 4,096 UTF-16 units, beyond which the read falls back to whole-document expansion), restoring exact parity with `MutableStringBuffer` at every offset.
 
 - `TextRope`: chunk size bounds hold again after CRLF-adjacent edits. The balanced split point's fallback ignored its legal window, so specific edits — inserting between a `\r` and `\n` at full leaves, deletes rejoining a split `\r\n`, deletes redistributing near an emoji at the window edge — produced oversized leaves or a stable undersized leaf that survived hundreds of subsequent operations. Splits now search bidirectionally for the nearest `Character` boundary and redistribute merge combinations into up to three balanced chunks; when no conforming boundary exists, the split deviates minimally, and a single grapheme cluster wider than a chunk occupies one whole leaf (ADR-012). Splits also no longer starve a chunk in isolation when redistributing with an adjacent leaf would conform. No API or content behavior change — document text, offsets, and reads are identical; only internal leaf shapes differ.
 
