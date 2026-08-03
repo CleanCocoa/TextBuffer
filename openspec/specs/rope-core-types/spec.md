@@ -100,15 +100,40 @@ TBD - created by archiving change m2-rope-foundation. Update Purpose after archi
 - **THEN** the compiler SHALL accept it without warnings
 
 ### Requirement: TextRope is Equatable via content comparison
-`TextRope` SHALL conform to `Equatable`. Two TextRope values SHALL be equal if and only if their `content` strings are equal.
+
+`TextRope` SHALL conform to `Equatable`. Two TextRope values SHALL be equal if and only if their `content` strings are equal. Equality SHALL be independent of tree shape: two ropes holding the same characters over different leaf partitions, different child groupings, or different heights SHALL compare equal. Reference-identical roots SHALL be recognized as equal without materializing content.
+
+This conformance SHALL be covered by tests in `Tests/TextRopeTests/TextRopeEqualityTests.swift`. Coverage MUST NOT be claimed by a task checkbox without a rope-to-rope equality assertion existing in the suite.
 
 #### Scenario: Two ropes with the same content are equal
+
 - **WHEN** two `TextRope` values are constructed from the same string
-- **THEN** they SHALL be equal (`==` returns `true`)
+- **THEN** they SHALL be equal (`==` returns `true`), pinned by `testRopesWithSameContentAreEqual`
+
+#### Scenario: Same content over different tree shapes is equal
+
+- **WHEN** one rope is built by a single `TextRope(_:)` construction and another rope holding identical content is assembled by incremental `insert` calls that produce a demonstrably different leaf partition
+- **THEN** the two ropes SHALL be equal, pinned by `testRopesWithSameContentButDifferentTreeShapesAreEqual`, which SHALL first assert that the two leaf partitions actually differ
 
 #### Scenario: Two ropes with different content are not equal
+
 - **WHEN** two `TextRope` values hold different strings
-- **THEN** they SHALL NOT be equal (`==` returns `false`)
+- **THEN** they SHALL NOT be equal (`==` returns `false`), pinned by `testRopesWithDifferentContentAreNotEqual`
+
+#### Scenario: Same length but different content is not equal
+
+- **WHEN** two `TextRope` values hold different strings with identical UTF-8 byte counts, UTF-16 code unit counts, and newline counts
+- **THEN** they SHALL NOT be equal, pinned by `testRopesWithSameUTF16CountButDifferentContentAreNotEqual` — a summary-based early-out MUST NOT be able to satisfy this scenario by comparing summaries alone
+
+#### Scenario: Empty ropes are equal
+
+- **WHEN** `TextRope()` is compared with `TextRope("")`
+- **THEN** they SHALL be equal, pinned by `testEmptyRopesAreEqual`
+
+#### Scenario: Reference-identical roots take the identity fast path
+
+- **WHEN** a `TextRope` is copied and neither copy is mutated, so both share the same root node
+- **THEN** the two values SHALL be equal, and the shared-root precondition SHALL be asserted, pinned by `testCopyWithSharedRootIsEqual`
 
 ### Requirement: Construction from String with chunk splitting
 `TextRope.init(_ string:)` SHALL construct a balanced B-tree from the input string. The string SHALL be split into leaf chunks respecting `minChunkUTF8` (1024) and `maxChunkUTF8` (2048) byte boundaries as defined by the grapheme-first chunk-bounds requirement. Chunk splits MUST fall on `Character` boundaries only, so a `\r\n` sequence is never broken. Split point selection MUST use the same window-clamped bidirectional search as leaf splitting and redistribution: construction MUST NOT produce a leaf below `minChunkUTF8` when a `Character` boundary in the legal window would have avoided it, and MUST NOT split a grapheme cluster larger than `maxChunkUTF8` — such a cluster occupies one whole-cluster leaf. Leaves SHALL be grouped bottom-up in batches of `minChildren` to `maxChildren` to form inner nodes until a single root remains.
@@ -222,4 +247,28 @@ A split offset can never fall between a `\r` and a `\n`: `\r\n` is a single `Cha
 #### Scenario: Split offset never separates CR from LF
 - **WHEN** any slice containing `\r\n` is split by any code path
 - **THEN** no resulting chunk SHALL end with `\r` while the next chunk begins with `\n`
+
+### Requirement: TextRope value semantics hold under concurrent mutation
+
+`TextRope` is `Sendable` over a `nonisolated(unsafe) var root: Node` whose element type is not `Sendable`. The safety of that declaration rests entirely on copy-on-write path-copying, so the guarantee SHALL be verified concurrently and not only single-threaded.
+
+When a single `TextRope` value is shared with many concurrently executing tasks and each task takes its own copy and mutates it, every task SHALL observe only the effect of its own mutation, and the shared original SHALL be unchanged after all tasks complete. The verification MUST use a height-3 template — leaves under two levels of inner nodes — so that `Node.ensureUniqueChild(at:)` is exercised concurrently at more than one depth on genuinely shared children. A single-leaf template only exercises `TextRope.ensureUnique()` at the root and proves nothing about path-copying below it.
+
+Each task's copy MUST be taken inside the concurrently executing task body, not in the spawning loop, so that the copy and the subsequent uniqueness checks actually run in parallel against the same shared nodes.
+
+#### Scenario: Parallel mutations from a shared multi-level rope are independent
+
+- **WHEN** a `TextRope` whose root is an inner node of height 3 is shared with many concurrent tasks, and each task copies it and mutates at its own distinct UTF-16 offset
+- **THEN** each task's result SHALL equal the result of applying only its own mutation to the template content, verified against a `String` oracle
+- **AND** the template's `content` SHALL be unchanged after every task completes
+
+#### Scenario: Concurrent buffer mutations from a multi-level template are independent
+
+- **WHEN** a `SendableRopeBuffer` backed by a multi-leaf, height-3 rope is shared with many concurrent tasks, and each task copies it and replaces a distinct range
+- **THEN** each task's buffer content SHALL reflect only its own replacement, and the shared template SHALL be unchanged
+
+#### Scenario: Concurrency coverage is not degenerate
+
+- **WHEN** the concurrent value-semantics tests run
+- **THEN** they SHALL assert the template's tree shape (height 3: multiple leaves under two levels of inner nodes) before fanning out, so that a future chunking or branching change cannot silently reduce the coverage to a shallower case
 

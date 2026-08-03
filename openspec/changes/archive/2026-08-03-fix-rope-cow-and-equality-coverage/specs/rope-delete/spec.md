@@ -8,6 +8,16 @@ When the rope has a single owner, the delete descent MUST NOT hold a strong refe
 
 Deletes that push a leaf below `Node.minChunkUTF8` or an inner node below `Node.minChildren` trigger merging or redistribution, which constructs replacement nodes by design. The reference-identity guarantee above SHALL NOT be read as forbidding those allocations.
 
+#### Scenario: Delete on shared rope preserves original
+
+- **WHEN** `var a = TextRope("hello world")`, `var b = a`, then `b.delete(in: NSRange(location: 5, length: 6))`
+- **THEN** `a.content` is `"hello world"` and `b.content` is `"hello"`
+
+#### Scenario: Path-copying shares unaffected subtrees
+
+- **WHEN** a multi-leaf rope is copied and one copy is mutated via delete
+- **THEN** nodes not on the root-to-affected-leaf mutation path remain reference-identical between the two copies
+
 #### Scenario: Single-owner mutation avoids copying
 
 - **WHEN** a `TextRope` has a single owner (no copies exist), the tree has more than one level, and `delete` removes a range that lies wholly inside one leaf and leaves every affected node within its size bounds
