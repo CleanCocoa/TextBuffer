@@ -1,4 +1,9 @@
-## ADDED Requirements
+# transferable-undoable-core Specification
+
+## Purpose
+Defines `TransferableUndoable<Base>`, the generic wrapper that turns any `Buffer` into an undoable one: reads and selection delegate to the base, while every mutation is recorded into the `OperationLog` — auto-grouped per edit or batched through nestable named groups — so `undo()`/`redo()` restore both content and selection exactly. This is the core the puppet undo manager drives and the transfer API copies.
+
+## Requirements
 
 ### Requirement: Buffer conformance
 `TransferableUndoable<Base>` SHALL conform to `Buffer` with `Range == NSRange` and `Content == String`. All read operations (`content`, `range`, `content(in:)`, `unsafeCharacter(at:)`) SHALL delegate to the wrapped base buffer. The `selectedRange` property SHALL delegate both get and set to the base buffer.
