@@ -1,4 +1,9 @@
-## ADDED Requirements
+# buffer-transfer-api Specification
+
+## Purpose
+Defines the transfer surface on `TransferableUndoable`: `snapshot()` exports the complete buffer state — content, selection, and undo history — as a fully independent `MutableStringBuffer`-backed copy, and `represent(_:)` replaces the receiver's entire state with an independent copy of another buffer's state. Together they let buffer state move between instances (and, via `Sendable` snapshots, between isolation domains) with no shared mutable state and no coupling between the two undo histories afterward.
+
+## Requirements
 
 ### Requirement: snapshot creates independent copy
 `TransferableUndoable.snapshot()` SHALL return a new `TransferableUndoable<MutableStringBuffer>` containing the same content, selection, and undo history as the original. The returned copy MUST be fully independent — no shared mutable state with the original.
