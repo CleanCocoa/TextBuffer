@@ -1,4 +1,9 @@
-## ADDED Requirements
+# undo-test-infrastructure Specification
+
+## Purpose
+Defines the `TextBufferTesting` scaffolding built ahead of the implementations it exercises: the `BufferStep` vocabulary, the structure of `assertUndoEquivalence`, and the guard requirements that kept the harness and the transfer integration tests compiling-but-inert until `TransferableUndoable` existed. Historical by nature — the guards have since been lifted — it remains the record of how the test infrastructure was allowed to land first.
+
+## Requirements
 
 ### Requirement: BufferStep enum covers all buffer operations
 The `BufferStep` enum in TextBufferTesting SHALL provide cases for every buffer mutation and undo/redo control operation: `insert(content:at:)`, `delete(range:)`, `replace(range:with:)`, `select(_:)`, `undo`, `redo`, and `group(actionName:steps:)`. The `group` case SHALL contain a nested `[BufferStep]` array to model grouped operations recursively.
