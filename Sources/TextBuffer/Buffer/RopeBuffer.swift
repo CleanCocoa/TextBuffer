@@ -4,7 +4,9 @@ import TextRope
 /// A ``Buffer`` implementation backed by a `TextRope` for efficient manipulation of large texts.
 ///
 /// `RopeBuffer` provides O(log n) insert, delete, and replace operations, making it a better choice
-/// than ``MutableStringBuffer`` when working with very large documents.
+/// than ``MutableStringBuffer`` for editing very large documents. The text-analysis queries are the
+/// exception: ``lineRange(for:)`` and `wordRange(for:)` currently materialize the full document on
+/// every call, so they are O(n) in document length.
 ///
 /// `RopeBuffer` is a reference type and is **not** `Sendable`. For a thread-safe value-type alternative,
 /// use ``SendableRopeBuffer``.

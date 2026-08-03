@@ -9,6 +9,10 @@ public typealias EditingBuffer = TransferableUndoable<RopeBuffer>
 /// `SendableRopeBuffer` combines efficient rope-based text storage with a self-contained operation log,
 /// making it safe to pass across actor boundaries while preserving full undo history.
 ///
+/// The rope makes insert, delete, and replace O(log n) in document length. The text-analysis queries
+/// are the exception: the inherited `lineRange(for:)` and `wordRange(for:)` defaults currently
+/// materialize the full document on every call, so they are O(n) in document length.
+///
 /// ## Undo and Redo
 ///
 /// Every mutation automatically records a ``BufferOperation`` in the ``log``. Individual mutations

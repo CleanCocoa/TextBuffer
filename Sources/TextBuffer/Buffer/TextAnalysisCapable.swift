@@ -51,6 +51,7 @@ extension TextAnalysisCapable where Range == NSRange, Content == String {
     public func lineRange(for searchRange: NSRange) throws(BufferAccessFailure) -> NSRange {
         guard contains(range: searchRange)
         else { throw BufferAccessFailure.outOfRange(requested: searchRange, available: self.range) }
+        // TODO: [M3 Rope Queries] the default lineRange materializes the full document per call via `self.content as NSString`, which `SendableRopeBuffer` inherits; replace with summary-guided rope traversal before making large-document claims.
         return (self.content as NSString).lineRange(for: searchRange)
     }
 }
