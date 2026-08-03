@@ -20,9 +20,17 @@ The exact split offsets are NOT specified. Two implementations satisfying the bo
 - **WHEN** an insertion causes a leaf's chunk to exceed `maxChunkUTF8` bytes
 - **THEN** the leaf is replaced by two or more leaves, together containing exactly the original chunk's text, and the parent inner node gains the additional children
 
+#### Scenario: Split respects UTF-8 character boundaries
+- **WHEN** a leaf overflows and the naive midpoint falls inside a multi-byte UTF-8 sequence
+- **THEN** the split point is adjusted to the nearest `Character` boundary so both chunks contain valid UTF-8 (subsumed by the grapheme-cluster rule below)
+
 #### Scenario: Split respects grapheme cluster boundaries
 - **WHEN** a leaf overflows and a candidate split point falls inside a multi-byte UTF-8 sequence or inside a grapheme cluster
 - **THEN** the split point is adjusted to a `Character` boundary so no chunk seam falls inside a cluster and every chunk contains valid UTF-8
+
+#### Scenario: Oversized grapheme cluster is not split
+- **WHEN** an insertion produces a chunk that consists of, or is dominated by, a single grapheme cluster larger than `maxChunkUTF8` bytes, so no `Character` boundary yields a conforming split
+- **THEN** the cluster SHALL end up whole inside one leaf — the implementation SHALL NOT place a split point inside the cluster
 
 #### Scenario: Split searches forward when the backward boundary is illegal
 - **WHEN** a 2049-byte chunk overflows and a 4-byte scalar occupies bytes `[1022, 1026)`, so the boundary below the midpoint would leave a 1022-byte chunk

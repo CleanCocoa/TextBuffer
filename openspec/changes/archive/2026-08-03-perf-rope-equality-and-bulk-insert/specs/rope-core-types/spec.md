@@ -43,6 +43,11 @@ This conformance SHALL be covered by tests in `Tests/TextRopeTests/TextRopeEqual
 - **WHEN** two ropes have the same UTF-16 code unit count but different UTF-8 byte counts (for example one containing a multi-byte character where the other holds ASCII)
 - **THEN** `==` SHALL return `false` via the summary early-out
 
+#### Scenario: Same length but different content is not equal
+
+- **WHEN** two `TextRope` values hold different strings with identical UTF-8 byte counts, UTF-16 code unit counts, and newline counts
+- **THEN** they SHALL NOT be equal, pinned by `testRopesWithSameUTF16CountButDifferentContentAreNotEqual` — a summary-based early-out MUST NOT be able to satisfy this scenario by comparing summaries alone
+
 #### Scenario: Equal summaries still require content comparison
 
 - **WHEN** two ropes have identical `utf8`, `utf16`, and `lines` summaries but different text — the single-leaf case pinned by `testRopesWithSameUTF16CountButDifferentContentAreNotEqual`, and a multi-leaf case whose bytes are permuted across leaf boundaries
