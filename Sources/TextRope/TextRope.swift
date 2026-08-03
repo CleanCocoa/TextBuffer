@@ -4,7 +4,10 @@
 /// for large documents where `NSMutableString`'s O(n) mutations become a bottleneck.
 ///
 /// The struct uses copy-on-write semantics and is `Sendable`. All positions and ranges use
-/// UTF-16 offsets (`Int` and `NSRange`) for compatibility with Foundation and AppKit text APIs.
+/// UTF-16 code unit offsets (`Int` and half-open `Range<Int>`), so they translate mechanically
+/// to and from the ranges Foundation and AppKit text APIs use. The TextRope target itself
+/// depends on nothing but the Swift standard library; conveniences that accept Foundation's
+/// range type come with the TextBuffer target.
 ///
 /// `TextRope` is used internally by `RopeBuffer` and `SendableRopeBuffer` in the TextBuffer library.
 /// Import the `TextRope` module directly when you need a standalone text storage primitive

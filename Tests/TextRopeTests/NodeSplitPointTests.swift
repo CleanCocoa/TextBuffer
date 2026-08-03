@@ -1,5 +1,4 @@
 import XCTest
-import Foundation
 @testable import TextRope
 
 /// DEF-001 regression coverage: split points must respect the legal chunk-size window
@@ -67,7 +66,7 @@ final class NodeSplitPointTests: XCTestCase {
         var rope = TextRope(a + m + b)
         XCTAssertEqual(leafChunkSizes(rope), [2048, 2048, 2048], "construction precondition changed; the repro no longer reproduces")
 
-        rope.delete(in: NSRange(location: 2048, length: 2048))
+        rope.delete(in: 2048..<4096)
 
         XCTAssertEqual(rope.content, a + b)
         assertLeavesWithinChunkBounds(rope)
@@ -81,7 +80,7 @@ final class NodeSplitPointTests: XCTestCase {
         let part2 = String(repeating: "c", count: 1022) + "\u{1F600}" + String(repeating: "d", count: 1022)
         var rope = TextRope(String(repeating: "a", count: 2048) + String(repeating: "b", count: 2048) + part2)
 
-        rope.delete(in: NSRange(location: 1000, length: 4095))
+        rope.delete(in: 1000..<5095)
 
         let expected = String(repeating: "a", count: 1000) + String(repeating: "c", count: 23) + "\u{1F600}" + String(repeating: "d", count: 1022)
         XCTAssertEqual(rope.content, expected)
@@ -110,7 +109,7 @@ final class NodeSplitPointTests: XCTestCase {
         // Re-running the merge over the same starved pair must not retry the redistribution:
         // the shape is a stable fixed point (ADR-012 merge no-retry).
         rope.insert("x", at: 0)
-        rope.delete(in: NSRange(location: 0, length: 1))
+        rope.delete(in: 0..<1)
         XCTAssertEqual(rope.content, expected)
         XCTAssertEqual(leafChunkSizes(rope), [1023, 1026], "starved shape must be a stable fixed point across operations")
     }

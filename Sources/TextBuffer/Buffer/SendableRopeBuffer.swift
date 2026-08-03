@@ -104,8 +104,8 @@ public struct SendableRopeBuffer: TextBuffer, TextAnalysisCapable, Sendable {
             log.beginUndoGroup(selectionBefore: selectedRange)
         }
 
-        let oldContent = rope.content(in: deletedRange)
-        rope.delete(in: deletedRange)
+        let oldContent = rope.content(in: deletedRange.location ..< deletedRange.endLocation)
+        rope.delete(in: deletedRange.location ..< deletedRange.endLocation)
         log.record(BufferOperation(kind: .delete(range: deletedRange, deletedContent: oldContent)))
 
         self.selectedRange.subtract(deletedRange)
@@ -128,8 +128,8 @@ public struct SendableRopeBuffer: TextBuffer, TextAnalysisCapable, Sendable {
             log.beginUndoGroup(selectionBefore: selectedRange)
         }
 
-        let oldContent = rope.content(in: replacementRange)
-        rope.replace(range: replacementRange, with: content)
+        let oldContent = rope.content(in: replacementRange.location ..< replacementRange.endLocation)
+        rope.replace(range: replacementRange.location ..< replacementRange.endLocation, with: content)
         log.record(BufferOperation(kind: .replace(range: replacementRange, oldContent: oldContent, newContent: content)))
 
         self.selectedRange = self.selectedRange
@@ -179,11 +179,11 @@ extension SendableRopeBuffer {
         for operation in group.operations.reversed() {
             switch operation.kind {
             case .insert(let content, let at):
-                rope.delete(in: NSRange(location: at, length: content.utf16.count))
+                rope.delete(in: at ..< at + content.utf16.count)
             case .delete(let range, let deletedContent):
                 rope.insert(deletedContent, at: range.location)
             case .replace(let range, let oldContent, let newContent):
-                rope.replace(range: NSRange(location: range.location, length: newContent.utf16.count), with: oldContent)
+                rope.replace(range: range.location ..< range.location + newContent.utf16.count, with: oldContent)
             }
         }
         selectedRange = group.selectionBefore
@@ -198,9 +198,9 @@ extension SendableRopeBuffer {
             case .insert(let content, let at):
                 rope.insert(content, at: at)
             case .delete(let range, _):
-                rope.delete(in: range)
+                rope.delete(in: range.location ..< range.endLocation)
             case .replace(let range, _, let newContent):
-                rope.replace(range: range, with: newContent)
+                rope.replace(range: range.location ..< range.endLocation, with: newContent)
             }
         }
         guard let selectionAfter = group.selectionAfter else {

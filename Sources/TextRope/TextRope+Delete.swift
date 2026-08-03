@@ -1,15 +1,4 @@
-import Foundation
-
 extension TextRope {
-    /// - Invariant: `utf16Range` must be within `0..<utf16Count` and `length >= 0`.
-    public mutating func delete(in utf16Range: NSRange) {
-        if utf16Range.length == 0 { return }
-        precondition(utf16Range.location >= 0, "delete range location \(utf16Range.location) must be non-negative")
-        precondition(utf16Range.length >= 0, "delete range length \(utf16Range.length) must be non-negative")
-        precondition(utf16Range.location + utf16Range.length <= utf16Count, "delete range end \(utf16Range.location + utf16Range.length) exceeds utf16Count \(utf16Count)")
-        delete(in: utf16Range.location ..< utf16Range.location + utf16Range.length)
-    }
-
     /// Removes the content within a half-open range of UTF-16 code unit offsets.
     ///
     /// - Invariant: `utf16Range` must be within `0..<utf16Count`.

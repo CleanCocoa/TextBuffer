@@ -1,4 +1,5 @@
 import Foundation
+import TextRope
 
 extension TextRope {
     /// UAX #29 GB12/GB13 regional indicator scalars, `U+1F1E6...U+1F1FF`.
@@ -9,9 +10,15 @@ extension TextRope {
     /// that continues past the cap falls back silently to full-document expansion — no
     /// assertion in any build configuration — so correctness never depends on the cap; it
     /// only chooses where the cost cliff sits. Deliberately *not* derived from
-    /// `Node.maxChunkUTF8`: the cap bounds regional-indicator-run walking, a property of
-    /// the text, not of chunk geometry (resolved 2026-08-01).
+    /// chunk geometry: the cap bounds regional-indicator-run walking, a property of
+    /// the text, not of the rope's internal layout (resolved 2026-08-01).
     private static let regionalIndicatorWalkCap = 4096
+
+    /// Block size, in UTF-16 units, for the backward reads of the regional indicator run
+    /// walk: each `utf16CodeUnits(in:)` call descends the tree once and returns a block
+    /// scanned in memory, so the walk costs O(runLength + blocks·log n) instead of one
+    /// descent per code unit (the `fix-composed-sequence-reads` D2 mitigation).
+    private static let regionalIndicatorWalkBlockSize = 128
 
     /// Content of `utf16Range` expanded to composed character sequence boundaries,
     /// matching `NSString.rangeOfComposedCharacterSequences(for:)`.
@@ -73,7 +80,7 @@ extension TextRope {
                 windowStart = runStart
             }
 
-            let window = content(in: NSRange(location: windowStart, length: windowEnd - windowStart)) as NSString
+            let window = content(in: windowStart ..< windowEnd) as NSString
             precondition(
                 window.length == windowEnd - windowStart,
                 "DEF-009: materialized window holds \(window.length) UTF-16 units instead of the requested \(windowEnd - windowStart); ADR-012 guarantees no chunk seam falls inside a Character, so the rope's internal invariants are broken"
@@ -92,47 +99,60 @@ extension TextRope {
 
     /// Snaps `utf16Offset` back to the scalar boundary at or before it (a window edge may
     /// land on a trail surrogate) and reports whether the scalar starting there is a
-    /// regional indicator — one leaf descent answers both questions, keeping the descent
-    /// count of the non-regional-indicator read path unchanged.
+    /// regional indicator — one block read of at most three code units answers both
+    /// questions, keeping the read count of the non-regional-indicator path at one.
     private func scalarAlignedStart(at utf16Offset: Int) -> (offset: Int, isRegionalIndicator: Bool) {
         guard utf16Offset > 0 && utf16Offset < utf16Count else { return (utf16Offset, false) }
-        let position = findLeaf(utf16Offset: utf16Offset)
-        let chunk = position.node.chunk
-        let utf16View = chunk.utf16
+        // units[0] is the unit before the offset (needed when the offset lands on a trail
+        // surrogate), units[1] the unit at the offset, units[2] — when available — the
+        // unit after it (needed to decode a lead surrogate at the offset).
+        let units = utf16CodeUnits(in: utf16Offset - 1 ..< min(utf16Offset + 2, utf16Count))
         var offset = utf16Offset
-        var index = utf16View.index(utf16View.startIndex, offsetBy: position.offsetInLeaf)
-        if UTF16.isTrailSurrogate(utf16View[index]) {
-            // The lead surrogate is in the same leaf: a chunk seam never splits a scalar (ADR-012).
+        let scalarValue: UInt32
+        if UTF16.isTrailSurrogate(units[1]) {
+            // The lead surrogate is the previous unit: the rope holds a valid `String`,
+            // so surrogate halves always pair.
             offset -= 1
-            index = utf16View.index(before: index)
+            scalarValue = Self.decodedSurrogatePair(lead: units[0], trail: units[1])
+        } else if UTF16.isLeadSurrogate(units[1]), units.count > 2 {
+            scalarValue = Self.decodedSurrogatePair(lead: units[1], trail: units[2])
+        } else {
+            scalarValue = UInt32(units[1])
         }
-        guard let scalarIndex = index.samePosition(in: chunk.unicodeScalars) else { return (offset, false) }
-        return (offset, Self.regionalIndicatorScalars.contains(chunk.unicodeScalars[scalarIndex].value))
+        return (offset, Self.regionalIndicatorScalars.contains(scalarValue))
     }
 
     /// The document offset of the first regional indicator in the contiguous run whose
     /// member starts at `utf16Offset`, or `nil` when the walk exceeds `cap` UTF-16 units.
-    /// Scans backward within each leaf's chunk and re-descends only at leaf boundaries,
-    /// never per code unit.
+    /// Reads backward in `regionalIndicatorWalkBlockSize`-unit blocks and scans each block
+    /// in memory, never descending the tree per code unit.
     ///
     /// - Invariant: `utf16Offset` must be a scalar boundary.
     private func regionalIndicatorRunStart(before utf16Offset: Int, cappedAt cap: Int) -> Int? {
         var runStart = utf16Offset
         while runStart > 0 {
-            let position = findLeaf(utf16Offset: runStart - 1)
-            let chunk = position.node.chunk
-            let scalars = chunk.unicodeScalars
-            let utf16View = chunk.utf16
-            // `runStart` is a scalar boundary, and a chunk seam never splits a scalar
-            // (ADR-012), so the exclusive end converts cleanly into the scalar view.
-            let end = utf16View.index(utf16View.startIndex, offsetBy: position.offsetInLeaf + 1)
-            var scalarIndex = end.samePosition(in: scalars)!
-            while scalarIndex > scalars.startIndex {
-                let previous = scalars.index(before: scalarIndex)
-                guard Self.regionalIndicatorScalars.contains(scalars[previous].value) else { return runStart }
-                runStart -= UTF16.width(scalars[previous])
+            let blockStart = max(0, runStart - Self.regionalIndicatorWalkBlockSize)
+            let units = utf16CodeUnits(in: blockStart ..< runStart)
+            var i = units.count
+            while i > 0 {
+                let unit = units[i - 1]
+                let width: Int
+                let value: UInt32
+                if UTF16.isTrailSurrogate(unit) {
+                    // A block edge can split a surrogate pair. `runStart` is a scalar
+                    // boundary (the pair ends here), so re-entering the outer loop
+                    // fetches a block that contains the lead half.
+                    guard i >= 2 else { break }
+                    value = Self.decodedSurrogatePair(lead: units[i - 2], trail: unit)
+                    width = 2
+                } else {
+                    value = UInt32(unit)
+                    width = 1
+                }
+                guard Self.regionalIndicatorScalars.contains(value) else { return runStart }
+                runStart -= width
+                i -= width
                 if utf16Offset - runStart > cap { return nil }
-                scalarIndex = previous
             }
         }
         return 0
@@ -140,9 +160,11 @@ extension TextRope {
 
     private func isTrailSurrogate(at utf16Offset: Int) -> Bool {
         guard utf16Offset > 0 && utf16Offset < utf16Count else { return false }
-        let position = findLeaf(utf16Offset: utf16Offset)
-        let utf16View = position.node.chunk.utf16
-        let index = utf16View.index(utf16View.startIndex, offsetBy: position.offsetInLeaf)
-        return UTF16.isTrailSurrogate(utf16View[index])
+        return UTF16.isTrailSurrogate(utf16CodeUnits(in: utf16Offset ..< utf16Offset + 1)[0])
+    }
+
+    /// The Unicode scalar value encoded by a UTF-16 surrogate pair.
+    private static func decodedSurrogatePair(lead: UTF16.CodeUnit, trail: UTF16.CodeUnit) -> UInt32 {
+        return 0x10000 + ((UInt32(lead) - 0xD800) << 10) + (UInt32(trail) - 0xDC00)
     }
 }

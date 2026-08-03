@@ -23,6 +23,11 @@ that scale to large documents.
 All four conform to ``TextAnalysisCapable``, so you get ``TextAnalysisCapable/wordRange(for:)``
 and ``TextAnalysisCapable/lineRange(for:)`` on every buffer.
 
+The `TextRope` backing module is Foundation-free: its primitives take half-open `Range<Int>`
+values over UTF-16 code unit offsets. The TextBuffer target adds `NSRange`-taking conveniences
+on `TextRope` (`content(in:)`, `delete(in:)`, `replace(range:with:)`) plus the composed
+character sequence reads, so code that imports TextBuffer can keep using `NSRange` throughout.
+
 ## The In-Memory Buffer: SendableRopeBuffer
 
 ``SendableRopeBuffer`` is the default choice for in-memory text manipulation. It combines:

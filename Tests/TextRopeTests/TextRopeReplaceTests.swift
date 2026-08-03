@@ -1,12 +1,11 @@
 import XCTest
 import Testing
-import Foundation
 @testable import TextRope
 
 final class TextRopeReplaceTests: XCTestCase {
     func testReplaceWithinLeaf() {
         var rope = TextRope("hello world")
-        rope.replace(range: NSRange(location: 0, length: 5), with: "greetings")
+        rope.replace(range: 0..<5, with: "greetings")
         XCTAssertEqual(rope.content, "greetings world")
     }
 
@@ -14,7 +13,7 @@ final class TextRopeReplaceTests: XCTestCase {
         let chunk = String(repeating: "a", count: 1500)
         let input = chunk + "BRIDGE" + chunk
         var rope = TextRope(input)
-        rope.replace(range: NSRange(location: chunk.utf16.count, length: 6), with: "XX")
+        rope.replace(range: chunk.utf16.count ..< chunk.utf16.count + 6, with: "XX")
         XCTAssertEqual(rope.content, chunk + "XX" + chunk)
         verifyTreeInvariants(rope)
     }
@@ -23,7 +22,7 @@ final class TextRopeReplaceTests: XCTestCase {
         let a = String(repeating: "a", count: 2048)
         let b = String(repeating: "b", count: 2000)
         var rope = TextRope(a + b)
-        rope.replace(range: NSRange(location: 2047, length: 1000), with: "XX")
+        rope.replace(range: 2047..<3047, with: "XX")
         let expected = String(a.prefix(2047)) + "XX" + String(b.suffix(1001))
         XCTAssertEqual(rope.content, expected)
         verifyTreeInvariants(rope)
@@ -31,32 +30,32 @@ final class TextRopeReplaceTests: XCTestCase {
 
     func testReplaceShorterString() {
         var rope = TextRope("hello world")
-        rope.replace(range: NSRange(location: 0, length: 5), with: "hi")
+        rope.replace(range: 0..<5, with: "hi")
         XCTAssertEqual(rope.content, "hi world")
     }
 
     func testReplaceLongerString() {
         var rope = TextRope("hi world")
-        rope.replace(range: NSRange(location: 0, length: 2), with: "hello")
+        rope.replace(range: 0..<2, with: "hello")
         XCTAssertEqual(rope.content, "hello world")
     }
 
     func testReplaceEmptyStringIsDelete() {
         var rope = TextRope("hello world")
-        rope.replace(range: NSRange(location: 5, length: 6), with: "")
+        rope.replace(range: 5..<11, with: "")
         XCTAssertEqual(rope.content, "hello")
     }
 
     func testReplaceEmptyRangeIsInsert() {
         var rope = TextRope("helloworld")
-        rope.replace(range: NSRange(location: 5, length: 0), with: " ")
+        rope.replace(range: 5..<5, with: " ")
         XCTAssertEqual(rope.content, "hello world")
     }
 
     func testReplaceUpdatesUTF16Count() {
         var rope = TextRope("hello world")
         XCTAssertEqual(rope.utf16Count, 11)
-        rope.replace(range: NSRange(location: 0, length: 5), with: "hi")
+        rope.replace(range: 0..<5, with: "hi")
         XCTAssertEqual(rope.utf16Count, 8)
         XCTAssertEqual(rope.utf16Count, rope.content.utf16.count)
     }
@@ -64,7 +63,7 @@ final class TextRopeReplaceTests: XCTestCase {
     func testReplacePreservesCOW() {
         var rope = TextRope("hello world")
         let copy = rope
-        rope.replace(range: NSRange(location: 0, length: 5), with: "goodbye")
+        rope.replace(range: 0..<5, with: "goodbye")
         XCTAssertEqual(copy.content, "hello world")
         XCTAssertEqual(rope.content, "goodbye world")
     }
@@ -72,7 +71,7 @@ final class TextRopeReplaceTests: XCTestCase {
     func testReplaceMultiByte() {
         let input = "AB\u{1F600}CD"
         var rope = TextRope(input)
-        rope.replace(range: NSRange(location: 2, length: 2), with: "!!")
+        rope.replace(range: 2..<4, with: "!!")
         XCTAssertEqual(rope.content, "AB!!CD")
         XCTAssertEqual(rope.utf16Count, 6)
     }
@@ -81,7 +80,7 @@ final class TextRopeReplaceTests: XCTestCase {
         let blocks = (0..<4).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
         var rope = TextRope(blocks.joined())
 
-        rope.replace(range: NSRange(location: 0, length: rope.utf16Count), with: "")
+        rope.replace(range: 0 ..< rope.utf16Count, with: "")
 
         XCTAssertTrue(rope.isEmpty)
         XCTAssertEqual(rope.content, "")
@@ -92,24 +91,24 @@ final class TextRopeReplaceTests: XCTestCase {
 
     func testReplaceEmptyRangeInsertsAtStartAndEnd() {
         var atStart = TextRope("hello")
-        atStart.replace(range: NSRange(location: 0, length: 0), with: ">>")
+        atStart.replace(range: 0..<0, with: ">>")
         XCTAssertEqual(atStart.content, ">>hello")
 
         var atEnd = TextRope("hello")
-        atEnd.replace(range: NSRange(location: 5, length: 0), with: "<<")
+        atEnd.replace(range: 5..<5, with: "<<")
         XCTAssertEqual(atEnd.content, "hello<<")
     }
 
     func testReplaceEmptyRangeWithEmptyStringIsNoOp() {
         var rope = TextRope("hello world")
-        rope.replace(range: NSRange(location: 5, length: 0), with: "")
+        rope.replace(range: 5..<5, with: "")
         XCTAssertEqual(rope.content, "hello world")
         XCTAssertEqual(rope.utf16Count, 11)
     }
 
     func testReplaceASCIIWithEmoji() {
         var rope = TextRope("hello world")
-        rope.replace(range: NSRange(location: 0, length: 5), with: "😀🎉")
+        rope.replace(range: 0..<5, with: "😀🎉")
         XCTAssertEqual(rope.content, "😀🎉 world")
         XCTAssertEqual(rope.utf16Count, 10)
         XCTAssertEqual(rope.utf8Count, "😀🎉 world".utf8.count)
@@ -117,24 +116,24 @@ final class TextRopeReplaceTests: XCTestCase {
 
     func testReplaceWithinTextContainingSurrogatePairs() {
         var rope = TextRope("😀b🎉")
-        rope.replace(range: NSRange(location: 2, length: 1), with: "𝄞")
+        rope.replace(range: 2..<3, with: "𝄞")
         XCTAssertEqual(rope.content, "😀𝄞🎉")
         XCTAssertEqual(rope.utf16Count, 6)
     }
 
     func testSummaryCorrectAfterReplacesWithNewlinesEmojiAndMultiLeafSpans() {
         var newlines = TextRope("one\ntwo\r\nthree")
-        newlines.replace(range: NSRange(location: 3, length: 6), with: "\n\n")
+        newlines.replace(range: 3..<9, with: "\n\n")
         XCTAssertEqual(newlines.root.summary, TextRope.Summary.of(newlines.content))
         XCTAssertEqual(newlines.root.summary.lines, TextRopeStressTests.newlineCount(in: newlines.content))
 
         var emoji = TextRope("aébc")
-        emoji.replace(range: NSRange(location: 1, length: 2), with: "😀你𝄞")
+        emoji.replace(range: 1..<3, with: "😀你𝄞")
         XCTAssertEqual(emoji.root.summary, TextRope.Summary.of(emoji.content))
 
         let blocks = (0..<4).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
         var spanning = TextRope(blocks.joined())
-        spanning.replace(range: NSRange(location: 1000, length: 5000), with: "line\r\n你😀")
+        spanning.replace(range: 1000..<6000, with: "line\r\n你😀")
         XCTAssertEqual(spanning.root.summary, TextRope.Summary.of(spanning.content))
         verifyTreeInvariants(spanning, context: "multi-leaf replace")
     }
@@ -145,7 +144,7 @@ final class TextRopeReplaceTests: XCTestCase {
         let rootBefore = ObjectIdentifier(rope.root)
         let untouchedBefore = ObjectIdentifier(rope.root.children[2])
 
-        rope.replace(range: NSRange(location: 100, length: 10), with: "XYZ")
+        rope.replace(range: 100..<110, with: "XYZ")
 
         XCTAssertEqual(ObjectIdentifier(rope.root), rootBefore)
         XCTAssertEqual(ObjectIdentifier(rope.root.children[2]), untouchedBefore)
@@ -168,7 +167,7 @@ final class TextRopeReplaceTests: XCTestCase {
         let onPathInnerBefore = ObjectIdentifier(rope.root.children[0])
         let onPathLeafBefore = ObjectIdentifier(rope.root.children[0].children[0])
 
-        rope.replace(range: NSRange(location: 100, length: 10), with: "xyz")
+        rope.replace(range: 100..<110, with: "xyz")
 
         XCTAssertEqual(ObjectIdentifier(rope.root), rootBefore)
         XCTAssertEqual(
@@ -210,18 +209,6 @@ final class TextRopeReplaceTests: XCTestCase {
         rope.replace(range: 3..<4, with: "🎉")
         XCTAssertEqual(rope.content, "caf🎉")
         XCTAssertEqual(rope.utf16Count, 5)
-    }
-
-    func testReplaceIntRangeEqualsNSRangeForm() {
-        let input = "hello 🎉 world, café 你好"
-        var viaInt = TextRope(input)
-        var viaNSRange = TextRope(input)
-
-        viaInt.replace(range: 5..<9, with: "line\r\n你😀")
-        viaNSRange.replace(range: NSRange(location: 5, length: 4), with: "line\r\n你😀")
-
-        XCTAssertEqual(viaInt, viaNSRange)
-        XCTAssertEqual(viaInt.content, viaNSRange.content)
     }
 
     // DEF-006b: degenerate cases specced as observable equivalence.

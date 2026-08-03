@@ -1,5 +1,4 @@
 import XCTest
-import Foundation
 @testable import TextRope
 
 struct SeededRNG: RandomNumberGenerator {
@@ -120,8 +119,7 @@ final class TextRopeStressTests: XCTestCase {
         for start in 0..<len {
             for end in (start + 1)...len {
                 var rope = TextRope(base)
-                let range = NSRange(location: start, length: end - start)
-                rope.delete(in: range)
+                rope.delete(in: start..<end)
                 var expected = base
                 let startIdx = expected.utf16.index(expected.utf16.startIndex, offsetBy: start)
                 let endIdx = expected.utf16.index(expected.utf16.startIndex, offsetBy: end)
@@ -133,7 +131,7 @@ final class TextRopeStressTests: XCTestCase {
 
     func testReplaceWithVariousLengths() {
         let base = "Hello, World!"
-        let replaceRange = NSRange(location: 5, length: 2)
+        let replaceRange = 5..<7
 
         var shorter = TextRope(base)
         shorter.replace(range: replaceRange, with: "X")
@@ -169,7 +167,7 @@ final class TextRopeStressTests: XCTestCase {
     func testCOWDeleteIndependence() {
         let rope = TextRope("hello world")
         var copy = rope
-        copy.delete(in: NSRange(location: 0, length: 5))
+        copy.delete(in: 0..<5)
         XCTAssertEqual(rope.content, "hello world")
         XCTAssertEqual(copy.content, " world")
     }
@@ -180,8 +178,8 @@ final class TextRopeStressTests: XCTestCase {
 
         copies[0].insert("0", at: 0)
         copies[1].insert("1", at: 5)
-        copies[2].delete(in: NSRange(location: 0, length: 3))
-        copies[3].replace(range: NSRange(location: 2, length: 4), with: "XY")
+        copies[2].delete(in: 0..<3)
+        copies[3].replace(range: 2..<6, with: "XY")
         copies[4].insert("😀", at: 10)
 
         XCTAssertEqual(original.content, "abcdefghij")
@@ -202,11 +200,11 @@ final class TextRopeStressTests: XCTestCase {
         XCTAssertEqual(rope.content, original, "insert on copy mutated original")
 
         var deleted = rope
-        deleted.delete(in: NSRange(location: 100, length: 2000))
+        deleted.delete(in: 100..<2100)
         XCTAssertEqual(rope.content, original, "delete on copy mutated original")
 
         var replaced = rope
-        replaced.replace(range: NSRange(location: 500, length: 1000), with: "你好")
+        replaced.replace(range: 500..<1500, with: "你好")
         XCTAssertEqual(rope.content, original, "replace on copy mutated original")
     }
 
@@ -232,16 +230,16 @@ final class TextRopeStressTests: XCTestCase {
             case 1:
                 if let range = Self.randomValidRange(in: oracle, using: &rng) {
                     copy.delete(in: range)
-                    let startIdx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: range.location)
-                    let endIdx = oracle.utf16.index(startIdx, offsetBy: range.length)
+                    let startIdx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: range.lowerBound)
+                    let endIdx = oracle.utf16.index(startIdx, offsetBy: range.count)
                     oracle.removeSubrange(startIdx..<endIdx)
                 }
             default:
                 if let range = Self.randomValidRange(in: oracle, using: &rng) {
                     let text = Self.randomString(using: &rng)
                     copy.replace(range: range, with: text)
-                    let startIdx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: range.location)
-                    let endIdx = oracle.utf16.index(startIdx, offsetBy: range.length)
+                    let startIdx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: range.lowerBound)
+                    let endIdx = oracle.utf16.index(startIdx, offsetBy: range.count)
                     oracle.replaceSubrange(startIdx..<endIdx, with: text)
                 }
             }
@@ -298,17 +296,17 @@ final class TextRopeStressTests: XCTestCase {
         let base = String(repeating: "a", count: 1000) + "\r\n" + String(repeating: "b", count: 1000)
 
         var deleteCR = TextRope(base)
-        deleteCR.delete(in: NSRange(location: 1000, length: 1))
+        deleteCR.delete(in: 1000..<1001)
         XCTAssertEqual(deleteCR.content, String(repeating: "a", count: 1000) + "\n" + String(repeating: "b", count: 1000))
         XCTAssertEqual(deleteCR.root.summary.lines, 1)
 
         var deleteLF = TextRope(base)
-        deleteLF.delete(in: NSRange(location: 1001, length: 1))
+        deleteLF.delete(in: 1001..<1002)
         XCTAssertEqual(deleteLF.content, String(repeating: "a", count: 1000) + "\r" + String(repeating: "b", count: 1000))
         XCTAssertEqual(deleteLF.root.summary.lines, 0)
 
         var replacePair = TextRope(base)
-        replacePair.replace(range: NSRange(location: 999, length: 4), with: "X")
+        replacePair.replace(range: 999..<1003, with: "X")
         XCTAssertEqual(replacePair.content, String(repeating: "a", count: 999) + "X" + String(repeating: "b", count: 999))
         XCTAssertEqual(replacePair.root.summary.lines, 0)
 
@@ -331,19 +329,19 @@ final class TextRopeStressTests: XCTestCase {
         oracle.insert(contentsOf: "\r\n", at: insertIdx)
         assertLineCount("insert CRLF")
 
-        rope.delete(in: NSRange(location: 4, length: 2))
+        rope.delete(in: 4..<6)
         let delStart = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: 4)
         let delEnd = oracle.utf16.index(delStart, offsetBy: 2)
         oracle.removeSubrange(delStart..<delEnd)
         assertLineCount("delete a CRLF pair")
 
-        rope.delete(in: NSRange(location: 100, length: 1))
+        rope.delete(in: 100..<101)
         let halfStart = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: 100)
         let halfEnd = oracle.utf16.index(halfStart, offsetBy: 1)
         oracle.removeSubrange(halfStart..<halfEnd)
         assertLineCount("delete a single unit inside the text")
 
-        rope.replace(range: NSRange(location: 50, length: 20), with: "\n\r\n\n")
+        rope.replace(range: 50..<70, with: "\n\r\n\n")
         let repStart = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: 50)
         let repEnd = oracle.utf16.index(repStart, offsetBy: 20)
         oracle.replaceSubrange(repStart..<repEnd, with: "\n\r\n\n")
@@ -369,7 +367,7 @@ final class TextRopeStressTests: XCTestCase {
         XCTAssertEqual(rope.utf8Count, string.utf8.count)
         XCTAssertEqual(rope.content, string)
 
-        rope.delete(in: NSRange(location: 0, length: 3))
+        rope.delete(in: 0..<3)
         let delStart = string.utf16.startIndex
         let delEnd = string.utf16.index(delStart, offsetBy: 3)
         string.removeSubrange(delStart..<delEnd)
@@ -377,7 +375,7 @@ final class TextRopeStressTests: XCTestCase {
         XCTAssertEqual(rope.utf8Count, string.utf8.count)
         XCTAssertEqual(rope.content, string)
 
-        rope.replace(range: NSRange(location: 1, length: 2), with: "你好")
+        rope.replace(range: 1..<3, with: "你好")
         let rStart = string.utf16.index(string.utf16.startIndex, offsetBy: 1)
         let rEnd = string.utf16.index(rStart, offsetBy: 2)
         string.replaceSubrange(rStart..<rEnd, with: "你好")
@@ -396,32 +394,33 @@ final class TextRopeStressTests: XCTestCase {
 
     func testDeleteAtSurrogateBoundaries() {
         var deleteEmoji = TextRope("a🎉b")
-        deleteEmoji.delete(in: NSRange(location: 1, length: 2))
+        deleteEmoji.delete(in: 1..<3)
         XCTAssertEqual(deleteEmoji.content, "ab")
         XCTAssertEqual(deleteEmoji.utf16Count, 2)
 
         var deleteBefore = TextRope("a🎉b")
-        deleteBefore.delete(in: NSRange(location: 0, length: 1))
+        deleteBefore.delete(in: 0..<1)
         XCTAssertEqual(deleteBefore.content, "🎉b")
         XCTAssertEqual(deleteBefore.utf16Count, 3)
 
         var deleteMultiple = TextRope("a🎉🚀😀b")
-        deleteMultiple.delete(in: NSRange(location: 1, length: 6))
+        deleteMultiple.delete(in: 1..<7)
         XCTAssertEqual(deleteMultiple.content, "ab")
         XCTAssertEqual(deleteMultiple.utf16Count, 2)
     }
 
     func testReplaceAtSurrogateBoundaries() {
         var replaceEmoji = TextRope("a🎉b")
-        replaceEmoji.replace(range: NSRange(location: 1, length: 2), with: "XY")
+        replaceEmoji.replace(range: 1..<3, with: "XY")
         XCTAssertEqual(replaceEmoji.content, "aXYb")
         XCTAssertEqual(replaceEmoji.utf16Count, 4)
 
         let family = "👨\u{200D}👩\u{200D}👧"
         var replacePartial = TextRope(family)
-        let range = NSRange(location: 2, length: 3)
-        replacePartial.replace(range: range, with: "X")
-        let expected = (family as NSString).replacingCharacters(in: range, with: "X")
+        replacePartial.replace(range: 2..<5, with: "X")
+        var expectedUnits = Array(family.utf16)
+        expectedUnits.replaceSubrange(2..<5, with: Array("X".utf16))
+        let expected = String(decoding: expectedUnits, as: UTF16.self)
         XCTAssertEqual(replacePartial.content, expected)
         XCTAssertEqual(replacePartial.utf16Count, expected.utf16.count)
         XCTAssertEqual(replacePartial.utf8Count, expected.utf8.count)
@@ -429,7 +428,7 @@ final class TextRopeStressTests: XCTestCase {
 
     func testDeleteAndReplaceEmojiNearChunkBoundary() {
         let base = String(repeating: "a", count: 2046) + "😀" + String(repeating: "b", count: 2046)
-        let emojiRange = NSRange(location: 2046, length: 2)
+        let emojiRange = 2046..<2048
 
         let constructed = TextRope(base)
         XCTAssertEqual(constructed.content, base)
@@ -437,14 +436,14 @@ final class TextRopeStressTests: XCTestCase {
 
         var deleted = constructed
         deleted.delete(in: emojiRange)
-        let expectedAfterDelete = (base as NSString).replacingCharacters(in: emojiRange, with: "")
+        let expectedAfterDelete = String(repeating: "a", count: 2046) + String(repeating: "b", count: 2046)
         XCTAssertEqual(deleted.content, expectedAfterDelete)
         XCTAssertEqual(deleted.utf16Count, expectedAfterDelete.utf16.count)
         verifyTreeInvariants(deleted, context: "delete emoji")
 
         var replaced = constructed
         replaced.replace(range: emojiRange, with: "🚀🎉")
-        let expectedAfterReplace = (base as NSString).replacingCharacters(in: emojiRange, with: "🚀🎉")
+        let expectedAfterReplace = String(repeating: "a", count: 2046) + "🚀🎉" + String(repeating: "b", count: 2046)
         XCTAssertEqual(replaced.content, expectedAfterReplace)
         XCTAssertEqual(replaced.utf16Count, expectedAfterReplace.utf16.count)
         XCTAssertEqual(replaced.utf8Count, expectedAfterReplace.utf8.count)
@@ -493,7 +492,7 @@ final class TextRopeStressTests: XCTestCase {
 
         for char in chars.reversed() {
             let length = char.utf16.count
-            rope.delete(in: NSRange(location: rope.utf16Count - length, length: length))
+            rope.delete(in: (rope.utf16Count - length) ..< rope.utf16Count)
         }
 
         XCTAssertTrue(rope.isEmpty)
@@ -522,7 +521,7 @@ final class TextRopeStressTests: XCTestCase {
                     let next = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: start + 1)
                     if UTF16.isTrailSurrogate(oracle.utf16[next]) { length = 2 }
                 }
-                rope.delete(in: NSRange(location: start, length: length))
+                rope.delete(in: start ..< start + length)
                 let startIdx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: start)
                 let endIdx = oracle.utf16.index(startIdx, offsetBy: length)
                 oracle.removeSubrange(startIdx..<endIdx)
@@ -585,7 +584,7 @@ final class TextRopeStressTests: XCTestCase {
         return offset
     }
 
-    static func randomValidRange(in string: String, maxLength: Int = 10, using rng: inout SeededRNG) -> NSRange? {
+    static func randomValidRange(in string: String, maxLength: Int = 10, using rng: inout SeededRNG) -> Range<Int>? {
         let len = string.utf16.count
         guard len > 0 else { return nil }
         let start = validUTF16Offset(Int.random(in: 0..<len, using: &rng), in: string)
@@ -594,7 +593,7 @@ final class TextRopeStressTests: XCTestCase {
         let rawLength = Int.random(in: 1...maxLen, using: &rng)
         let length = validUTF16Offset(start + rawLength, in: string) - start
         guard length > 0 else { return nil }
-        return NSRange(location: start, length: length)
+        return start ..< start + length
     }
 
     static func newlineCount(in string: String) -> Int {
@@ -651,8 +650,8 @@ final class TextRopeStressTests: XCTestCase {
                 deleteCount += 1
                 if let range = Self.randomValidRange(in: string, using: &rng) {
                     rope.delete(in: range)
-                    let startIdx = string.utf16.index(string.utf16.startIndex, offsetBy: range.location)
-                    let endIdx = string.utf16.index(startIdx, offsetBy: range.length)
+                    let startIdx = string.utf16.index(string.utf16.startIndex, offsetBy: range.lowerBound)
+                    let endIdx = string.utf16.index(startIdx, offsetBy: range.count)
                     string.removeSubrange(startIdx..<endIdx)
                 }
 
@@ -661,8 +660,8 @@ final class TextRopeStressTests: XCTestCase {
                 if let range = Self.randomValidRange(in: string, using: &rng) {
                     let text = Self.randomString(using: &rng)
                     rope.replace(range: range, with: text)
-                    let startIdx = string.utf16.index(string.utf16.startIndex, offsetBy: range.location)
-                    let endIdx = string.utf16.index(startIdx, offsetBy: range.length)
+                    let startIdx = string.utf16.index(string.utf16.startIndex, offsetBy: range.lowerBound)
+                    let endIdx = string.utf16.index(startIdx, offsetBy: range.count)
                     string.replaceSubrange(startIdx..<endIdx, with: text)
                 }
 

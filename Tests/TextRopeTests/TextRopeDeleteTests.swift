@@ -1,6 +1,5 @@
 import XCTest
 import Testing
-import Foundation
 @testable import TextRope
 
 final class TextRopeDeleteTests: XCTestCase {
@@ -13,32 +12,32 @@ final class TextRopeDeleteTests: XCTestCase {
 
     func testDeleteFromStart() {
         var rope = TextRope("hello world")
-        rope.delete(in: NSRange(location: 0, length: 3))
+        rope.delete(in: 0..<3)
         XCTAssertEqual(rope.content, "lo world")
     }
 
     func testDeleteFromEnd() {
         var rope = TextRope("hello world")
         let len = "hello world".utf16.count
-        rope.delete(in: NSRange(location: len - 3, length: 3))
+        rope.delete(in: (len - 3) ..< len)
         XCTAssertEqual(rope.content, "hello wo")
     }
 
     func testDeleteFromMiddle() {
         var rope = TextRope("hello world")
-        rope.delete(in: NSRange(location: 3, length: 5))
+        rope.delete(in: 3..<8)
         XCTAssertEqual(rope.content, "helrld")
     }
 
     func testDeleteEmptyRange() {
         var rope = TextRope("hello world")
-        rope.delete(in: NSRange(location: 3, length: 0))
+        rope.delete(in: 3..<3)
         XCTAssertEqual(rope.content, "hello world")
     }
 
     func testDeleteAll() {
         var rope = TextRope("hello world")
-        rope.delete(in: NSRange(location: 0, length: "hello world".utf16.count))
+        rope.delete(in: 0 ..< "hello world".utf16.count)
         XCTAssertTrue(rope.isEmpty)
         XCTAssertEqual(rope.content, "")
         XCTAssertEqual(rope.utf16Count, 0)
@@ -52,7 +51,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(a + b)
         XCTAssertEqual(leafChunkSizes(rope), [1200, 1200])
 
-        rope.delete(in: NSRange(location: 0, length: 2400))
+        rope.delete(in: 0..<2400)
 
         XCTAssertTrue(rope.isEmpty)
         XCTAssertEqual(rope.content, "")
@@ -67,7 +66,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(blocks.joined())
         XCTAssertEqual(Int(rope.root.height), 2)
 
-        rope.delete(in: NSRange(location: 0, length: rope.utf16Count))
+        rope.delete(in: 0 ..< rope.utf16Count)
 
         XCTAssertTrue(rope.isEmpty)
         XCTAssertEqual(rope.content, "")
@@ -82,7 +81,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(blocks.joined())
         XCTAssertEqual(Int(rope.root.height), 2)
 
-        rope.delete(in: NSRange(location: 100, length: rope.utf16Count - 100))
+        rope.delete(in: 100 ..< rope.utf16Count)
 
         XCTAssertEqual(rope.content, String(blocks[0].prefix(100)))
         XCTAssertTrue(rope.root.isLeaf)
@@ -94,7 +93,7 @@ final class TextRopeDeleteTests: XCTestCase {
         let blocks = (0..<24).map { String(repeating: Character(UnicodeScalar(97 + $0 % 26)!), count: 2048) }
         var rope = TextRope(blocks.joined())
 
-        rope.delete(in: NSRange(location: 0, length: rope.utf16Count))
+        rope.delete(in: 0 ..< rope.utf16Count)
         rope.insert("new", at: 0)
 
         XCTAssertEqual(rope.content, "new")
@@ -111,7 +110,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(input)
         XCTAssertEqual(leafChunkSizes(rope), [1502, 1502])
 
-        rope.delete(in: NSRange(location: 900, length: 700))
+        rope.delete(in: 900..<1600)
 
         let expected = String(repeating: "a", count: 900) + String(repeating: "c", count: 1404)
         XCTAssertEqual(rope.content, expected)
@@ -128,7 +127,7 @@ final class TextRopeDeleteTests: XCTestCase {
         let input = a + b
         var rope = TextRope(input)
 
-        rope.delete(in: NSRange(location: 900, length: 300))
+        rope.delete(in: 900..<1200)
 
         let expected = String(a.prefix(900)) + b
         XCTAssertEqual(rope.content, expected)
@@ -147,7 +146,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(input)
 
         let deleteLen = 800
-        rope.delete(in: NSRange(location: a.utf16.count - deleteLen / 2, length: deleteLen))
+        rope.delete(in: (a.utf16.count - deleteLen / 2) ..< (a.utf16.count + deleteLen / 2))
 
         let expectedA = String(a.prefix(a.count - deleteLen / 2))
         let expectedB = String(b.dropFirst(deleteLen / 2))
@@ -164,7 +163,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(blocks.joined())
         XCTAssertEqual(leafChunkSizes(rope), [2048, 2048, 2048, 2048])
 
-        rope.delete(in: NSRange(location: 900, length: 6392))
+        rope.delete(in: 900..<7292)
 
         let expected = String(blocks[0].prefix(900)) + String(blocks[3].suffix(900))
         XCTAssertEqual(rope.content, expected)
@@ -179,7 +178,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(a + b)
         XCTAssertEqual(leafChunkSizes(rope), [1200, 1200])
 
-        rope.delete(in: NSRange(location: 1800, length: 600))
+        rope.delete(in: 1800..<2400)
 
         let expected = a + String(b.prefix(600))
         XCTAssertEqual(rope.content, expected)
@@ -194,7 +193,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(a + b)
         XCTAssertEqual(leafChunkSizes(rope), [2048, 2000])
 
-        rope.delete(in: NSRange(location: 2148, length: 1900))
+        rope.delete(in: 2148..<4048)
 
         let expected = a + String(b.prefix(100))
         XCTAssertEqual(rope.content, expected)
@@ -208,7 +207,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(a + b)
         XCTAssertEqual(leafChunkSizes(rope), [1200, 1200])
 
-        rope.delete(in: NSRange(location: 900, length: 300))
+        rope.delete(in: 900..<1200)
 
         XCTAssertEqual(rope.content, String(a.prefix(900)) + b)
         // The redistribution target 1050 is the CR/LF interior; the boundaries 1049 and 1051
@@ -226,7 +225,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(a + b)
         XCTAssertEqual(leafChunkSizes(rope), [1200, 1200])
 
-        rope.delete(in: NSRange(location: 900, length: 300))
+        rope.delete(in: 900..<1200)
 
         XCTAssertEqual(rope.content, String(a.prefix(900)) + b)
         XCTAssertEqual(leafChunkSizes(rope).count, 2)
@@ -240,7 +239,7 @@ final class TextRopeDeleteTests: XCTestCase {
         XCTAssertEqual(leafChunkSizes(rope).count, 20)
         XCTAssertEqual(rope.root.children.map(\.children.count), [8, 8, 4])
 
-        rope.delete(in: NSRange(location: 10 * 2048, length: 6 * 2048))
+        rope.delete(in: (10 * 2048) ..< (16 * 2048))
 
         let expected = blocks[0..<10].joined() + blocks[16...].joined()
         XCTAssertEqual(rope.content, expected)
@@ -253,7 +252,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(blocks.joined())
         XCTAssertEqual(rope.root.children.map(\.children.count), [8, 8, 8])
 
-        rope.delete(in: NSRange(location: 10 * 2048, length: 6 * 2048))
+        rope.delete(in: (10 * 2048) ..< (16 * 2048))
 
         let expected = blocks[0..<10].joined() + blocks[16...].joined()
         XCTAssertEqual(rope.content, expected)
@@ -266,7 +265,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(blocks.joined())
         XCTAssertEqual(rope.root.children.map(\.children.count), [5, 4])
 
-        rope.delete(in: NSRange(location: 7 * 2048, length: 2 * 2048))
+        rope.delete(in: (7 * 2048) ..< (9 * 2048))
 
         XCTAssertEqual(rope.content, blocks[0..<7].joined())
         XCTAssertEqual(Int(rope.root.height), 1)
@@ -280,7 +279,7 @@ final class TextRopeDeleteTests: XCTestCase {
         XCTAssertEqual(Int(rope.root.height), 3)
         XCTAssertEqual(rope.root.children.map(\.children.count), [5, 4])
 
-        rope.delete(in: NSRange(location: 2048, length: 38 * 2048))
+        rope.delete(in: 2048 ..< (39 * 2048))
 
         let expected = blocks[0] + blocks[39] + blocks[40...].joined()
         XCTAssertEqual(rope.content, expected)
@@ -292,7 +291,7 @@ final class TextRopeDeleteTests: XCTestCase {
     func testDeletePreservesCOW() {
         var original = TextRope("hello world")
         let copy = original
-        original.delete(in: NSRange(location: 0, length: 5))
+        original.delete(in: 0..<5)
         XCTAssertEqual(original.content, " world")
         XCTAssertEqual(copy.content, "hello world")
     }
@@ -300,7 +299,7 @@ final class TextRopeDeleteTests: XCTestCase {
     func testDeleteUpdatesUTF16Count() {
         var rope = TextRope("hello world")
         let originalCount = rope.utf16Count
-        rope.delete(in: NSRange(location: 2, length: 4))
+        rope.delete(in: 2..<6)
         XCTAssertEqual(rope.utf16Count, originalCount - 4)
         XCTAssertEqual(rope.utf16Count, rope.content.utf16.count)
     }
@@ -310,7 +309,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(input)
         let emojiStart = 2
         let emojiUTF16Len = 2
-        rope.delete(in: NSRange(location: emojiStart, length: emojiUTF16Len))
+        rope.delete(in: emojiStart ..< emojiStart + emojiUTF16Len)
         XCTAssertEqual(rope.content, "ABCD")
         XCTAssertEqual(rope.utf16Count, 4)
     }
@@ -325,7 +324,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(beforeCR + middle + afterLF)
         XCTAssertEqual(leafChunkSizes(rope), [2048, 2048, 2048])
 
-        rope.delete(in: NSRange(location: 2048, length: 2048))
+        rope.delete(in: 2048..<4096)
 
         let expected = beforeCR + afterLF
         XCTAssertEqual(rope.content, expected)
@@ -362,14 +361,14 @@ final class TextRopeDeleteTests: XCTestCase {
 
     func testSummaryStaysCorrectAfterSimpleDelete() {
         var rope = TextRope("hello wonderful world")
-        rope.delete(in: NSRange(location: 5, length: 10))
+        rope.delete(in: 5..<15)
         XCTAssertEqual(rope.content, "hello world")
         assertSummaryMatchesContent(rope, "simple ASCII delete")
     }
 
     func testSummaryStaysCorrectAfterDeletingMultiByteCharacters() {
         var rope = TextRope("aé你😀𝄞b")
-        rope.delete(in: NSRange(location: 2, length: 5))
+        rope.delete(in: 2..<7)
         XCTAssertEqual(rope.content, "aéb")
         assertSummaryMatchesContent(rope, "multi-byte delete")
     }
@@ -378,7 +377,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope("one\ntwo\r\nthree\nfour")
         XCTAssertEqual(rope.root.summary.lines, 3)
 
-        rope.delete(in: NSRange(location: 3, length: 6))
+        rope.delete(in: 3..<9)
         XCTAssertEqual(rope.content, "onethree\nfour")
         XCTAssertEqual(rope.root.summary.lines, 1)
         assertSummaryMatchesContent(rope, "newline delete")
@@ -389,7 +388,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(blocks.joined())
         XCTAssertEqual(Int(rope.root.height), 3)
 
-        rope.delete(in: NSRange(location: 2048, length: 38 * 2048))
+        rope.delete(in: 2048 ..< (39 * 2048))
 
         XCTAssertEqual(rope.content, blocks[0] + blocks[39...].joined())
         XCTAssertEqual(Int(rope.root.height), 2)
@@ -402,7 +401,7 @@ final class TextRopeDeleteTests: XCTestCase {
         let originalContent = original.content
 
         var copy = original
-        copy.delete(in: NSRange(location: 1000, length: 3000))
+        copy.delete(in: 1000..<4000)
 
         XCTAssertEqual(original.content, originalContent)
         XCTAssertNotEqual(copy.content, originalContent)
@@ -418,7 +417,7 @@ final class TextRopeDeleteTests: XCTestCase {
         let onPathLeafBefore = ObjectIdentifier(rope.root.children[0])
         let untouchedLeafBefore = ObjectIdentifier(rope.root.children[2])
 
-        rope.delete(in: NSRange(location: 100, length: 10))
+        rope.delete(in: 100..<110)
 
         XCTAssertEqual(ObjectIdentifier(rope.root), rootBefore)
         XCTAssertEqual(
@@ -447,7 +446,7 @@ final class TextRopeDeleteTests: XCTestCase {
         let onPathInnerBefore = ObjectIdentifier(rope.root.children[0])
         let onPathLeafBefore = ObjectIdentifier(rope.root.children[0].children[0])
 
-        rope.delete(in: NSRange(location: 100, length: 10))
+        rope.delete(in: 100..<110)
 
         XCTAssertEqual(ObjectIdentifier(rope.root), rootBefore)
         XCTAssertEqual(
@@ -472,7 +471,7 @@ final class TextRopeDeleteTests: XCTestCase {
         XCTAssertEqual(original.root.children.map(\.children.count), [8, 8, 4])
 
         var copy = original
-        copy.delete(in: NSRange(location: 100, length: 10))
+        copy.delete(in: 100..<110)
 
         XCTAssertTrue(copy.root !== original.root, "root must be path-copied")
         XCTAssertTrue(copy.root.children[0] !== original.root.children[0], "subtree on the delete path must be path-copied")
@@ -499,7 +498,7 @@ final class TextRopeDeleteTests: XCTestCase {
         while oracle.utf16.count > 500 {
             let length = min(5000, oracle.utf16.count - 500)
             let location = (oracle.utf16.count - length) / 2
-            rope.delete(in: NSRange(location: location, length: length))
+            rope.delete(in: location ..< location + length)
 
             let startIdx = oracle.utf16.index(oracle.utf16.startIndex, offsetBy: location)
             let endIdx = oracle.utf16.index(startIdx, offsetBy: length)
@@ -521,7 +520,7 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(a + "\r" + middle + "\n" + b)
         XCTAssertEqual(leafChunkSizes(rope), [2048, 1554])
 
-        rope.delete(in: NSRange(location: 1501, length: 600))
+        rope.delete(in: 1501..<2101)
 
         XCTAssertEqual(rope.content, a + "\r\n" + b)
         XCTAssertEqual(rope.root.summary.lines, 1)
@@ -536,11 +535,11 @@ final class TextRopeDeleteTests: XCTestCase {
         var rope = TextRope(input)
         XCTAssertEqual(rope.root.children.map(\.children.count), [8, 8, 4])
 
-        rope.delete(in: NSRange(location: 15884, length: 1000))
+        rope.delete(in: 15884 ..< 16884)
 
-        let expected = (input as NSString).replacingCharacters(
-            in: NSRange(location: 15884, length: 1000), with: ""
-        )
+        var expectedBytes = bytes
+        expectedBytes.removeSubrange(15884..<16884)
+        let expected = String(expectedBytes)
         XCTAssertEqual(rope.content, expected)
         XCTAssertEqual(rope.root.summary.lines, 1)
         verifyTreeInvariants(rope)
@@ -590,18 +589,6 @@ final class TextRopeDeleteTests: XCTestCase {
         var trailing = TextRope("a🎉b")
         trailing.delete(in: 3..<4)
         XCTAssertEqual(trailing.content, "a🎉")
-    }
-
-    func testDeleteIntRangeEqualsNSRangeForm() {
-        let input = "hello 🎉 world, café 你好"
-        var viaInt = TextRope(input)
-        var viaNSRange = TextRope(input)
-
-        viaInt.delete(in: 5..<9)
-        viaNSRange.delete(in: NSRange(location: 5, length: 4))
-
-        XCTAssertEqual(viaInt, viaNSRange)
-        XCTAssertEqual(viaInt.content, viaNSRange.content)
     }
 }
 

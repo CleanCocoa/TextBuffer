@@ -1,6 +1,31 @@
 import XCTest
-@testable import TextRope
+import Testing
+import TextBuffer
 import Foundation
+
+// DEF-004: bounds validation precedes the zero-length early return.
+@Suite struct TextRopeComposedSequencesPreconditions {
+    @Test func `composed sequences trap for a zero-length range past the end`() async {
+        await #expect(processExitsWith: .failure) {
+            let rope = TextRope("hello")
+            _ = rope.composedCharacterSequences(in: NSRange(location: 6, length: 0))
+        }
+    }
+
+    @Test func `composed sequences trap for a zero-length range at a negative location`() async {
+        await #expect(processExitsWith: .failure) {
+            let rope = TextRope("hello")
+            _ = rope.composedCharacterSequences(in: NSRange(location: -1, length: 0))
+        }
+    }
+
+    @Test func `composed sequences trap for a zero-length range at NSNotFound`() async {
+        await #expect(processExitsWith: .failure) {
+            let rope = TextRope("hello")
+            _ = rope.composedCharacterSequences(in: NSRange(location: NSNotFound, length: 0))
+        }
+    }
+}
 
 final class TextRopeComposedSequencesTests: XCTestCase {
 

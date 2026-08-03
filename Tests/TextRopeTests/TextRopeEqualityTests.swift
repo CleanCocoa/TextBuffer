@@ -106,7 +106,7 @@ final class TextRopeEqualityTests: XCTestCase {
         copy.insert("intruder", at: 2000)
         XCTAssertNotEqual(original, copy)
 
-        copy.delete(in: NSRange(location: 2000, length: 8))
+        copy.delete(in: 2000..<2008)
         XCTAssertTrue(original.root !== copy.root, "mutation must have unshared the roots, or equality degrades into the identity fast path")
         XCTAssertEqual(original.content, copy.content, "the mutation sequence must restore the original text exactly")
         XCTAssertEqual(original, copy)

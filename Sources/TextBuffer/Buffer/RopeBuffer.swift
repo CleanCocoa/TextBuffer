@@ -87,7 +87,7 @@ public final class RopeBuffer: Buffer, TextAnalysisCapable {
             )
         }
 
-        rope.delete(in: deletedRange)
+        rope.delete(in: deletedRange.location ..< deletedRange.endLocation)
         self.selectedRange.subtract(deletedRange)
     }
 
@@ -100,7 +100,7 @@ public final class RopeBuffer: Buffer, TextAnalysisCapable {
             )
         }
 
-        rope.replace(range: replacementRange, with: content)
+        rope.replace(range: replacementRange.location ..< replacementRange.endLocation, with: content)
 
         self.selectedRange = self.selectedRange
             .subtracting(replacementRange)

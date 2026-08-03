@@ -1,5 +1,4 @@
 import XCTest
-import Foundation
 @testable import TextRope
 
 final class TextRopeConstructionTests: XCTestCase {

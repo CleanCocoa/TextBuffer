@@ -1,6 +1,5 @@
 import XCTest
 @testable import TextRope
-import Foundation
 
 final class TextRopeNavigationTests: XCTestCase {
     func testFindLeafInSingleLeafRope() {
@@ -95,93 +94,28 @@ final class TextRopeNavigationTests: XCTestCase {
         XCTAssertEqual(character(at: 6, in: rope), "c")
     }
 
-    func testContentInRangeSpanningHeadMiddleAndTailLeaves() {
-        let blocks = ["a", "b", "c", "d"].map { String(repeating: $0, count: 2048) }
-        let input = blocks.joined()
-        let rope = TextRope(input)
-        XCTAssertEqual(rope.root.children.count, 4)
-
-        let range = NSRange(location: 1000, length: 6000)
-        let expected = (input as NSString).substring(with: range)
-        XCTAssertEqual(rope.content(in: range), expected)
-    }
-
-    func testContentInRangeOnEmptyRope() {
-        let rope = TextRope("")
-        XCTAssertEqual(rope.content(in: NSRange(location: 0, length: 0)), "")
-    }
-
     func testContentInDoesNotTriggerCopyOnWrite() {
         let blocks = ["a", "b", "c", "d"].map { String(repeating: $0, count: 2048) }
         let rope = TextRope(blocks.joined())
         let copy = rope
 
-        _ = rope.content(in: NSRange(location: 1000, length: 3000))
-        _ = copy.content(in: NSRange(location: 0, length: 8192))
+        _ = rope.content(in: 1000..<4000)
+        _ = copy.content(in: 0..<8192)
 
         XCTAssertTrue(rope.root === copy.root)
     }
 
-    func testContentInRangeSingleLeaf() {
-        let rope = TextRope("Hello, world!")
-        let result = rope.content(in: NSRange(location: 7, length: 5))
-        XCTAssertEqual(result, "world")
-    }
-
-    func testContentInRangeMultiLeaf() {
-        let chunk = String(repeating: "A", count: 2048)
-        let input = chunk + "BCDE"
-        let rope = TextRope(input)
-
-        let result = rope.content(in: NSRange(location: 2046, length: 6))
-        XCTAssertEqual(result, "AABCDE")
-    }
-
-    func testContentInRangeAtBoundary() {
-        let chunkA = String(repeating: "A", count: 2048)
-        let chunkB = String(repeating: "B", count: 2048)
-        let rope = TextRope(chunkA + chunkB)
-
-        let resultEnd = rope.content(in: NSRange(location: 2044, length: 4))
-        XCTAssertEqual(resultEnd, "AAAA")
-
-        let resultStart = rope.content(in: NSRange(location: 2048, length: 4))
-        XCTAssertEqual(resultStart, "BBBB")
-    }
-
     func testContentInRangeMultiByteCharacters() {
-        let input = "Hello 🌍🌎🌏 World"
-        let rope = TextRope(input)
-        let nsString = input as NSString
-        let searchRange = nsString.range(of: "🌎")
-        let result = rope.content(in: searchRange)
-        XCTAssertEqual(result, "🌎")
-    }
-
-    func testContentInRangeSurrogatePair() {
-        let input = "Music: 𝄞 end"
-        let rope = TextRope(input)
-        let nsString = input as NSString
-        let searchRange = nsString.range(of: "𝄞")
-        XCTAssertEqual(searchRange.length, 2)
-        let result = rope.content(in: searchRange)
-        XCTAssertEqual(result, "𝄞")
+        let rope = TextRope("Hello 🌍🌎🌏 World")
+        // "Hello " spans units 0..<6, 🌍 6..<8, 🌎 8..<10.
+        XCTAssertEqual(rope.content(in: 8..<10), "🌎")
     }
 
     func testContentInRangeEmptyRange() {
         let rope = TextRope("Hello, world!")
-        let result = rope.content(in: NSRange(location: 5, length: 0))
+        let result = rope.content(in: 5..<5)
         XCTAssertEqual(result, "")
     }
-
-    func testContentInRangeFullRange() {
-        let input = "Hello, world!"
-        let rope = TextRope(input)
-        let result = rope.content(in: NSRange(location: 0, length: input.utf16.count))
-        XCTAssertEqual(result, input)
-    }
-
-    // MARK: Range<Int> primitive mirrors
 
     func testContentInIntRangeSingleLeaf() {
         let rope = TextRope("Hello, world!")
@@ -194,7 +128,8 @@ final class TextRopeNavigationTests: XCTestCase {
         let rope = TextRope(input)
         XCTAssertEqual(rope.root.children.count, 4)
 
-        let expected = (input as NSString).substring(with: NSRange(location: 1000, length: 6000))
+        let allUnits = Array(input.utf16)
+        let expected = String(decoding: allUnits[1000..<7000], as: UTF16.self)
         XCTAssertEqual(rope.content(in: 1000..<7000), expected)
     }
 
@@ -232,13 +167,6 @@ final class TextRopeNavigationTests: XCTestCase {
     func testContentInIntRangeOnEmptyRope() {
         let rope = TextRope("")
         XCTAssertEqual(rope.content(in: 0..<0), "")
-    }
-
-    func testContentInIntRangeEqualsNSRangeForm() {
-        let blocks = ["a", "é", "🎉", "你"].map { String(repeating: $0, count: 700) }
-        let rope = TextRope(blocks.joined())
-
-        XCTAssertEqual(rope.content(in: 500..<3000), rope.content(in: NSRange(location: 500, length: 2500)))
     }
 
     // MARK: utf16CodeUnits(in:) primitive

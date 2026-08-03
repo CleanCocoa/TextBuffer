@@ -1,5 +1,4 @@
 import XCTest
-import Foundation
 @testable import TextRope
 
 func verifyTreeInvariants(_ rope: TextRope, context: String = "", file: StaticString = #filePath, line: UInt = #line) {
@@ -187,7 +186,7 @@ final class TreeInvariantValidatorTests: XCTestCase {
         let part2 = String(repeating: "c", count: 1022) + "\u{1F600}" + String(repeating: "d", count: 1022)
         var rope = TextRope(String(repeating: "a", count: 2048) + String(repeating: "b", count: 2048) + part2)
 
-        rope.delete(in: NSRange(location: 1000, length: 4095))
+        rope.delete(in: 1000..<5095)
 
         let leafSizes = collectLeaves(rope.root).map { $0.chunk.utf8.count }
         XCTAssertEqual(leafSizes, [1023, 1026], "repro precondition changed; the starved shape no longer reproduces")
