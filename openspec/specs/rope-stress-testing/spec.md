@@ -2,7 +2,6 @@
 
 ## Purpose
 Backs the rope's correctness claims with randomized verification against a `String` oracle: at least 10,000 seeded random insert, delete, and replace operations with content and counts compared after every operation, drawing from a mixed ASCII, multi-byte Latin, emoji, CJK, and `\r\n` character pool, with full tree-invariant validation — per-operation on a dedicated seed, judging out-of-bounds leaves against the exact grapheme-first starvation predicates — plus construction round-trip and copy-on-write independence coverage across encodings. Failures report seed and operation index so any sequence can be replayed exactly.
-
 ## Requirements
 ### Requirement: Stress test with String oracle
 The test suite SHALL apply at least 10,000 random operations (insert, delete, replace) to both a `TextRope` and an equivalent `String` oracle. After each operation, the test MUST assert that `rope.content == oracle`, `rope.utf16Count == oracle.utf16.count`, and `rope.utf8Count == oracle.utf8.count`. Any mismatch MUST cause an immediate test failure with the operation index and seed reported.
@@ -120,6 +119,7 @@ The test suite MUST verify content fidelity for: pure ASCII text, multi-byte Lat
 - **THEN** `content` equals the original string with all encoding categories preserved
 
 ### Requirement: COW independence under mutation
+
 The test suite MUST verify that when a `TextRope` is copied and one copy is mutated, the other copy is unaffected. This MUST be tested with insert, delete, and replace operations on the mutated copy.
 
 #### Scenario: Insert on copy does not affect original
@@ -127,7 +127,7 @@ The test suite MUST verify that when a `TextRope` is copied and one copy is muta
 - **THEN** `a.content` equals `largeString` and `b.content` equals `"x" + largeString`
 
 #### Scenario: Delete on copy does not affect original
-- **WHEN** `var a = TextRope(largeString)`, `var b = a`, then `b.delete(in: NSRange(location: 0, length: 1))`
+- **WHEN** `var a = TextRope(largeString)`, `var b = a`, then `b.delete(in: 0..<1)`
 - **THEN** `a.content` equals `largeString` and `b.content` equals `largeString` with the first character removed
 
 #### Scenario: Multiple mutations on copy preserve original
