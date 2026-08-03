@@ -1,4 +1,9 @@
-## ADDED Requirements
+# undo-equivalence-testing Specification
+
+## Purpose
+Specifies the equivalence harness proving the two undo implementations (ADR-001) cannot drift: `BufferStep` gives tests a complete edit vocabulary — insert, delete, replace, select, undo, redo, and recursive groups — and `assertUndoEquivalence` replays a step sequence against both the OperationLog-backed and the system-NSUndoManager-backed implementation, asserting identical content and selection after every step. The scenario requirements enumerate the coverage floor: simple round-trips, deletes, replaces, groups, interleaved edit/undo sequences, and redo-tail truncation.
+
+## Requirements
 
 ### Requirement: BufferStep models all edit operations
 `BufferStep` SHALL be a public enum in the `TextBufferTesting` module with cases for `insert(content:at:)`, `delete(range:)`, `replace(range:with:)`, `select(_:)`, `undo`, `redo`, and `group(actionName:steps:)`. The `.group` case SHALL contain nested `BufferStep` arrays for recursive application.
