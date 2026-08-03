@@ -128,14 +128,16 @@ Fixed 2026-08-03 (`03ebba7`, change `fix-composed-sequence-reads`): the structur
 
 ## Low
 
-### DEF-010: `TextRope.==` materializes full content on mismatch — `open`
+### DEF-010: `TextRope.==` materializes full content on mismatch — `fixed`
 
 `TextRope.swift:39-43` reached from `SendableRopeBuffer.==`. TheArchive2's echo suppression compares content per edit event, making this a per-keystroke O(n) path. Consider summary-based early-out (utf8/utf16/lines mismatch ⇒ not equal) before materializing.
 
-### DEF-011: Read/insert performance regressions — `open`
+Fixed 2026-08-03 (`3f4b8e4`, change `perf-rope-equality-and-bulk-insert`): three-tier `==` with an O(1) root-summary early-out; soundness guarded by equal-summary/different-content tests. The equal-summary tier-3 path still materializes — allocation-free streaming comparison stays deferred pending a TheArchive2 profile.
 
-- `unsafeCharacter(at:)` ~5× slower post-`9570025` (window materialization + NSString bridge + two descents per call); no fast path for the common non-surrogate/non-mark case.
-- Huge inserts into a non-root leaf are quadratic: repeated `splitLeaf` copies the whole tail each round (`TextRope+Insert.swift:37-44`); the root-leaf path already re-chunks in one pass — mirror it.
+### DEF-011: Read/insert performance regressions — `open` (read half only)
+
+- `unsafeCharacter(at:)` ~5× slower post-`9570025` (window materialization + NSString bridge + two descents per call); no fast path for the common non-surrogate/non-mark case. Deferred — benchmark-driven.
+- ~~Huge inserts into a non-root leaf are quadratic: repeated `splitLeaf` copies the whole tail each round (`TextRope+Insert.swift:37-44`); the root-leaf path already re-chunks in one pass — mirror it.~~ Resolved 2026-08-03: dissolved by `fix-rope-split-point`'s single-pass re-chunk; pinned linear by `3f4b8e4`'s perf-ratio test (1 MiB → 4 MiB ratio 4.01).
 
 ### DEF-012: `lineRange`/`wordRange` O(n) vs public large-document claim — `open`
 
