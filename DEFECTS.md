@@ -1,6 +1,6 @@
 # Defect Tracker
 
-Open defects against 0.9.1 (`5cf2638`; found at 0.9.0 by the 2026-07-29 four-agent review of the M2 gap-closure fold `0.8.2..0.9.0` — the 0.9.1 delta touches only the NSTextView bridge, so all line references remain valid). All repros verified against a green suite — none of these are covered by existing tests. Target: upcoming patch release.
+Defects filed against 0.9.1 (`5cf2638`; found at 0.9.0 by the 2026-07-29 four-agent review of the M2 gap-closure fold `0.8.2..0.9.0`). **Resolved in 0.10.0** (2026-08-04) except the two explicitly deferred halves: DEF-011's read fast path (benchmark-driven) and DEF-012's O(log n) queries (M3 Rope Queries). Line references in the defect bodies describe the 0.9.1 code they were filed against.
 
 Status values: `open`, `in-progress`, `fixed`, `wontfix`.
 
