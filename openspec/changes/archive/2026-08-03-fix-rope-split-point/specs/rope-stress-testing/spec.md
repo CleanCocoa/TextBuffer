@@ -25,6 +25,6 @@ At least one seeded run â€” a dedicated run of at least 2,000 mixed operations â
 - **WHEN** 10,000 random operations complete
 - **THEN** a full tree traversal confirms summary consistency at every node, uniform leaf depth, chunk sizes within the grapheme-first bounds, and no `\r\n` splits across chunk boundaries
 
-#### Scenario: Periodic validation during sampled stress runs
+#### Scenario: Periodic validation during stress test
 - **WHEN** a stress run uses sampled validation
-- **THEN** tree structure validation occurs at regular intervals (e.g. every 100 operations) in addition to the final validation
+- **THEN** tree structure validation occurs at regular intervals (e.g. every 100 operations) in addition to the final validation, with the sampling rationale documented at the call site

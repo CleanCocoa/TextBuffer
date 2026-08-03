@@ -42,6 +42,10 @@ When an insertion causes a leaf's chunk to exceed `Node.maxChunkUTF8` bytes, the
 - **WHEN** an insertion causes a leaf's chunk to exceed `maxChunkUTF8` bytes
 - **THEN** the leaf is split into two leaves, each containing a portion of the chunk, and the parent inner node gains an additional child
 
+#### Scenario: Split respects UTF-8 character boundaries
+- **WHEN** a leaf overflows and the naive midpoint falls inside a multi-byte UTF-8 sequence
+- **THEN** the split point is adjusted to the nearest `Character` boundary so both chunks contain valid UTF-8 (subsumed by the grapheme-cluster rule below)
+
 #### Scenario: Split respects grapheme cluster boundaries
 - **WHEN** a leaf overflows and the naive midpoint falls inside a multi-byte UTF-8 sequence or a multi-scalar grapheme cluster
 - **THEN** the split point is adjusted to the nearest `Character` boundary so no cluster spans the chunk seam
