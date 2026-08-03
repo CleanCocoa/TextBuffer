@@ -37,7 +37,16 @@ public struct TextRope: Sendable {
 }
 
 extension TextRope: Equatable {
+    /// Equality is decided in three tiers: root identity, then an O(1) summary
+    /// early-out (differing `utf8`/`utf16`/`lines` counts prove differing content,
+    /// since every summary field is a pure additive function of the text), then
+    /// content comparison. Equal summaries do NOT imply equal content — permutations
+    /// of the same bytes share a summary — so the content tier is mandatory. No term
+    /// of the comparison may be shape-derived: ropes holding the same text over
+    /// different leaf partitions compare equal.
     public static func == (lhs: TextRope, rhs: TextRope) -> Bool {
-        lhs.root === rhs.root || lhs.content == rhs.content
+        if lhs.root === rhs.root { return true }
+        guard lhs.root.summary == rhs.root.summary else { return false }
+        return lhs.content == rhs.content
     }
 }

@@ -292,4 +292,133 @@ final class TextRopeInsertTests: XCTestCase {
         rope.insert("X", at: 2)
         XCTAssertEqual(rope.content, "0aXbcd")
     }
+
+    // MARK: - Bulk insert into a non-root leaf (DEF-011, insert half)
+
+    /// 8 full leaves under one inner root, all ASCII, so UTF-16 offsets equal byte
+    /// offsets. Offset 5000 sits inside the third leaf (bytes 4096..<6144) — a middle,
+    /// non-root leaf.
+    private let bulkBase = String(repeating: "a", count: 8 * 2048)
+    private let bulkOffset = 5000
+
+    private func expectedSplice(of insert: String, into base: String, at offset: Int) -> String {
+        var expected = base
+        expected.insert(contentsOf: insert, at: expected.index(expected.startIndex, offsetBy: offset))
+        return expected
+    }
+
+    /// Asserts invariants and content, never exact chunk boundaries: `chunkLeaves` and
+    /// the historical repeated-`splitLeaf` loop pick different split points, and ADR-012
+    /// pins bounds, not offsets.
+    func testBulkInsertIntoNonRootMiddleLeafPreservesContentAndInvariants() {
+        var rope = TextRope(bulkBase)
+        XCTAssertFalse(rope.root.isLeaf, "the base must have inner nodes, or this degrades into the root-leaf branch")
+        let insert = String((0..<300 * 1024).map { Character(UnicodeScalar(97 + UInt8($0 % 26))) })
+
+        rope.insert(insert, at: bulkOffset)
+
+        XCTAssertEqual(rope.content, expectedSplice(of: insert, into: bulkBase, at: bulkOffset))
+        verifyTreeInvariants(rope, context: "300 KiB into a non-root middle leaf")
+    }
+
+    func testBulkInsertWithCRLFPairsNearChunkBoundariesKeepsPairsIntact() {
+        // A 2049-byte period (2047 fillers + CRLF) drifts the pairs across every
+        // position relative to the 2048-byte chunk target, so some land at seams.
+        var rope = TextRope(bulkBase)
+        let insert = String(repeating: String(repeating: "x", count: 2047) + "\r\n", count: 100)
+
+        rope.insert(insert, at: bulkOffset)
+
+        XCTAssertEqual(rope.content, expectedSplice(of: insert, into: bulkBase, at: bulkOffset))
+        XCTAssertEqual(rope.root.summary.lines, 100, "the leaf summaries must sum to the line count of the combined text")
+        verifyTreeInvariants(rope, context: "CRLF pairs drifting across chunk boundaries")
+    }
+
+    func testBulkInsertOfEmojiDivergesUTF8AndUTF16AcrossEveryLeaf() {
+        // U+1F600 is 4 UTF-8 bytes but 2 UTF-16 units, so utf8 and utf16 diverge in
+        // every leaf the re-chunk produces.
+        var rope = TextRope(bulkBase)
+        let insert = String(repeating: "\u{1F600}", count: 50_000)
+
+        rope.insert(insert, at: bulkOffset)
+
+        XCTAssertEqual(rope.content, expectedSplice(of: insert, into: bulkBase, at: bulkOffset))
+        XCTAssertEqual(rope.utf8Count, bulkBase.utf8.count + 200_000)
+        XCTAssertEqual(rope.utf16Count, bulkBase.utf16.count + 100_000)
+        verifyTreeInvariants(rope, context: "200 KiB of 4-byte clusters")
+    }
+
+    func testSplicedChunkJustOverMaxSplitsIntoExactlyOneExtraLeaf() {
+        // 2048 + 1 = 2049 bytes: the single-extra-leaf case. Exactly two conforming
+        // chunks exist for 2049 bytes (three would drop below minChunkUTF8), so the
+        // leaf-count assertion follows from the bounds, not from a pinned shape.
+        var rope = TextRope(bulkBase)
+
+        rope.insert("X", at: bulkOffset)
+
+        XCTAssertEqual(rope.content, expectedSplice(of: "X", into: bulkBase, at: bulkOffset))
+        XCTAssertEqual(leafCount(rope), 9)
+        verifyTreeInvariants(rope, context: "spliced chunk of 2049 bytes")
+    }
+
+    func testSplicedChunkJustOverMaxPlusMinTakesTheMaxTargetingBranch() {
+        // 2048 + 1025 = 3073 bytes: one over maxChunkUTF8 + minChunkUTF8, the point
+        // where leadingChunkEnd switches from the balanced-window search to targeting
+        // maxChunkUTF8 outright.
+        var rope = TextRope(bulkBase)
+        let insert = String(repeating: "y", count: 1025)
+
+        rope.insert(insert, at: bulkOffset)
+
+        XCTAssertEqual(rope.content, expectedSplice(of: insert, into: bulkBase, at: bulkOffset))
+        verifyTreeInvariants(rope, context: "spliced chunk of 3073 bytes")
+    }
+
+    func testMultiMegabyteInsertHandsParentAWideSiblingBatch() {
+        // 4 MiB re-chunks into ~2048 leaves delivered to the parent in one batch —
+        // far wider than maxChildren (8) — and must cascade through splitInner up to
+        // buildTree at the root.
+        var rope = TextRope(bulkBase)
+        let insert = String(repeating: "z", count: 4 << 20)
+
+        rope.insert(insert, at: bulkOffset)
+
+        XCTAssertEqual(rope.content, expectedSplice(of: insert, into: bulkBase, at: bulkOffset))
+        XCTAssertEqual(
+            rope.root.summary, TextRope.Summary.of(rope.content),
+            "the root summary must equal the summary of the full content after the cascading splits"
+        )
+        verifyTreeInvariants(rope, context: "4 MiB wide-batch insert")
+    }
+
+    /// Optional perf guard (droppable if unstable on CI): a 4× larger insert must cost
+    /// less than 8× the time — linear scaling predicts ≈4×, the historical repeated-
+    /// `splitLeaf` quadratic ≈16×. Skips below the noise floor per the design's risk note.
+    func testBulkInsertCostGrowsLinearlyWithInsertedLength() throws {
+        let clock = ContinuousClock()
+        func measuredInsert(bytes: Int) -> Duration {
+            let insert = String(repeating: "z", count: bytes)
+            var best = Duration.seconds(1000)
+            for _ in 0..<3 {
+                var rope = TextRope(bulkBase)
+                let elapsed = clock.measure { rope.insert(insert, at: bulkOffset) }
+                best = min(best, elapsed)
+            }
+            return best
+        }
+        _ = measuredInsert(bytes: 1 << 20) // warm-up
+
+        let small = measuredInsert(bytes: 1 << 20)
+        let large = measuredInsert(bytes: 4 << 20)
+
+        try XCTSkipIf(small < .milliseconds(2), "1 MiB baseline (\(small)) is below the noise floor; the ratio would be meaningless")
+        XCTAssertLessThan(large / small, 8.0, "4 MiB took \(large) vs \(small) for 1 MiB — quadratic scaling would be ≈16×, linear ≈4×")
+    }
+
+    private func leafCount(_ rope: TextRope) -> Int {
+        func count(_ node: TextRope.Node) -> Int {
+            node.isLeaf ? 1 : node.children.reduce(0) { $0 + count($1) }
+        }
+        return count(rope.root)
+    }
 }
