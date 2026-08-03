@@ -134,7 +134,13 @@ extension TextRope {
                     current = combinedLeaf(current.chunk, node.children[i].chunk, redistributingInto: &merged)
                     i += 1
                 } else if let previous = merged.popLast() {
+                    let chunkBefore = current.chunk
                     current = combinedLeaf(previous.chunk, current.chunk, redistributingInto: &merged)
+                    if current.chunk == chunkBefore && merged.last?.chunk == previous.chunk {
+                        // Boundary starvation (ADR-012): redistribution is a fixed point, so
+                        // the out-of-bounds leaf is accepted without retrying.
+                        break
+                    }
                 } else {
                     break
                 }
@@ -152,10 +158,11 @@ extension TextRope {
             return Node.leaf(combined)
         }
 
-        let slice = combined[...]
-        let splitEnd = Node.balancedSplitPoint(in: slice)
-        merged.append(Node.leaf(String(slice[slice.startIndex..<splitEnd])))
-        return Node.leaf(String(slice[splitEnd...]))
+        let chunks = Node.rebalancedChunks(in: combined[...])
+        for chunk in chunks.dropLast() {
+            merged.append(Node.leaf(String(chunk)))
+        }
+        return Node.leaf(String(chunks[chunks.count - 1]))
     }
 
     private static func mergeUndersizedInnerNodes(_ node: Node) {

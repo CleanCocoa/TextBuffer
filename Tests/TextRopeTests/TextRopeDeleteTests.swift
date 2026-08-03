@@ -203,8 +203,12 @@ final class TextRopeDeleteTests: XCTestCase {
         rope.delete(in: NSRange(location: 900, length: 300))
 
         XCTAssertEqual(rope.content, String(a.prefix(900)) + b)
-        XCTAssertEqual(leafChunkSizes(rope), [1051, 1049])
-        XCTAssertTrue(rope.root.children[0].chunk.hasSuffix("\r\n"))
+        // The redistribution target 1050 is the CR/LF interior; the boundaries 1049 and 1051
+        // are equidistant and ties resolve to the lower offset (design D1/ADR-012), so the
+        // CRLF pair stays intact at the head of the right leaf. (Before the DEF-001 fix the
+        // alternating search happened to check the upper candidate first: [1051, 1049].)
+        XCTAssertEqual(leafChunkSizes(rope), [1049, 1051])
+        XCTAssertTrue(rope.root.children[1].chunk.hasPrefix("\r\n"))
         verifyTreeInvariants(rope)
     }
 

@@ -14,30 +14,12 @@ extension TextRope {
         var remaining = slice
 
         while !remaining.isEmpty {
-            let chunkEnd = Self.chunkEnd(in: remaining)
+            let chunkEnd = Node.leadingChunkEnd(in: remaining)
             leaves.append(Node.leaf(String(remaining[remaining.startIndex..<chunkEnd])))
             remaining = remaining[chunkEnd...]
         }
 
         return leaves
-    }
-
-    private static func chunkEnd(in slice: Substring) -> String.Index {
-        let utf8 = slice.utf8
-        let count = utf8.count
-
-        if count <= Node.maxChunkUTF8 {
-            return slice.endIndex
-        }
-
-        let target: Int
-        if count < Node.maxChunkUTF8 + Node.minChunkUTF8 {
-            target = (count + 1) / 2
-        } else {
-            target = Node.maxChunkUTF8
-        }
-
-        return Node.splitPoint(in: slice, targetUTF8: target)
     }
 
     static func buildTree(from nodes: [Node]) -> Node {

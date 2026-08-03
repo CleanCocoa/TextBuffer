@@ -1,6 +1,13 @@
+// Split-point regime (ADR-012, grapheme-first chunk bounds): every split point falls on a
+// `Character` boundary — never inside a grapheme cluster, not even at a Unicode scalar
+// boundary. The chunk byte bounds `[minChunkUTF8, maxChunkUTF8]` hold whenever a conforming
+// boundary exists; under boundary starvation the nearest-boundary minimal-deviation split is
+// taken, and a single cluster larger than `maxChunkUTF8` occupies one whole-cluster leaf of
+// whatever size it needs. Starvation is not exotic: a width-1 window is starved by any 2-byte
+// cluster, so a plain `\r\n` at a 4096-byte combination triggers it deterministically.
 extension TextRope.Node {
     func splitLeaf() -> TextRope.Node {
-        let mid = Self.leafSplitPoint(in: chunk[...])
+        let mid = Self.leadingChunkEnd(in: chunk[...])
         let left = String(chunk[chunk.startIndex..<mid])
         let right = String(chunk[mid..<chunk.endIndex])
         chunk = left
@@ -33,33 +40,108 @@ extension TextRope.Node {
     }
 
     static func leafSplitPoint(in slice: Substring) -> String.Index {
+        leadingChunkEnd(in: slice)
+    }
+
+    /// End of the first chunk to carve off `slice` (design D2). Shared by construction
+    /// chunking and insert-overflow leaf splits; the caller re-chunks the remainder.
+    static func leadingChunkEnd(in slice: Substring) -> String.Index {
         let count = slice.utf8.count
 
         if count <= maxChunkUTF8 {
             return slice.endIndex
         }
 
-        return splitPoint(in: slice, targetUTF8: min((count + 1) / 2, maxChunkUTF8))
+        if count >= maxChunkUTF8 + minChunkUTF8 {
+            if let greedy = boundary(in: slice, nearest: maxChunkUTF8, within: 1...maxChunkUTF8) {
+                return greedy
+            }
+            // A single cluster covers [1, maxChunkUTF8]: emit it whole as an oversized
+            // whole-cluster leaf.
+            return slice.index(after: slice.startIndex)
+        }
+
+        // Residual band (maxChunkUTF8 < count < maxChunkUTF8 + minChunkUTF8): balanced split.
+        if let balanced = boundary(in: slice, nearest: (count + 1) / 2, within: minChunkUTF8...(count - minChunkUTF8)) {
+            return balanced
+        }
+        if let starved = minimalShortfallSplitPoint(in: slice) {
+            return starved
+        }
+        // A single cluster spans the whole hard window: split before it when possible, so the
+        // caller re-chunks the remainder into a whole-cluster leaf.
+        let windowStart = count - maxChunkUTF8
+        if windowStart >= 2, let beforeCluster = boundary(in: slice, nearest: windowStart - 1, within: 1...(windowStart - 1)) {
+            return beforeCluster
+        }
+        return slice.index(after: slice.startIndex)
     }
 
-    static func balancedSplitPoint(in slice: Substring) -> String.Index {
+    /// Redistributes an oversized merge/seam combination into 1-3 chunks (design D1):
+    /// one chunk when the slice fits, a balanced two-way split when the legal window
+    /// `[low, high]` holds a boundary, a balanced three-way split when it does not and three
+    /// conforming chunks are feasible, and otherwise the ADR-012 minimal-deviation split.
+    static func rebalancedChunks(in slice: Substring) -> [Substring] {
         let count = slice.utf8.count
+
+        if count <= maxChunkUTF8 {
+            return [slice]
+        }
+
         let low = max(minChunkUTF8, count - maxChunkUTF8)
         let high = min(maxChunkUTF8, count - minChunkUTF8)
-        let target = (count + 1) / 2
-        let utf8 = slice.utf8
+        if let mid = boundary(in: slice, nearest: (count + 1) / 2, within: low...high) {
+            return [slice[slice.startIndex..<mid], slice[mid...]]
+        }
 
-        var backward = min(target, high)
+        if count >= 3 * minChunkUTF8,
+           let first = boundary(in: slice, nearest: count / 3, within: 1...(count - 2)) {
+            let firstOffset = slice.utf8.distance(from: slice.utf8.startIndex, to: first)
+            if let second = boundary(in: slice, nearest: 2 * count / 3, within: (firstOffset + 1)...(count - 1)) {
+                return [slice[slice.startIndex..<first], slice[first..<second], slice[second...]]
+            }
+        }
+
+        if let mid = minimalShortfallSplitPoint(in: slice) {
+            return [slice[slice.startIndex..<mid], slice[mid...]]
+        }
+
+        // A single cluster spans the whole hard window: emit it whole (ADR-012), with any
+        // prefix and suffix as starvation-justified chunks.
+        let windowStart = count - maxChunkUTF8
+        var clusterStart = slice.startIndex
+        if windowStart >= 2, let beforeCluster = boundary(in: slice, nearest: windowStart - 1, within: 1...(windowStart - 1)) {
+            clusterStart = beforeCluster
+        }
+        let clusterEnd = slice.index(after: clusterStart)
+        var chunks: [Substring] = []
+        if clusterStart > slice.startIndex {
+            chunks.append(slice[slice.startIndex..<clusterStart])
+        }
+        chunks.append(slice[clusterStart..<clusterEnd])
+        if clusterEnd < slice.endIndex {
+            chunks.append(slice[clusterEnd...])
+        }
+        return chunks
+    }
+
+    /// Bidirectional `Character`-boundary search over the closed UTF-8 offset range `window`,
+    /// nearest to `target`, ties resolving to the lower offset. Never yields a bare Unicode
+    /// scalar boundary.
+    static func boundary(in slice: Substring, nearest target: Int, within window: ClosedRange<Int>) -> String.Index? {
+        let utf8 = slice.utf8
+        var backward = min(max(target, window.lowerBound), window.upperBound)
         var forward = backward + 1
-        while backward >= low || forward <= high {
-            if backward >= low {
+        while backward >= window.lowerBound || forward <= window.upperBound {
+            let backwardDistance = backward >= window.lowerBound ? abs(target - backward) : Int.max
+            let forwardDistance = forward <= window.upperBound ? abs(forward - target) : Int.max
+            if backwardDistance <= forwardDistance {
                 let candidate = utf8.index(utf8.startIndex, offsetBy: backward)
                 if String.Index(candidate, within: slice) != nil {
                     return candidate
                 }
                 backward -= 1
-            }
-            if forward <= high {
+            } else {
                 let candidate = utf8.index(utf8.startIndex, offsetBy: forward)
                 if String.Index(candidate, within: slice) != nil {
                     return candidate
@@ -67,24 +149,44 @@ extension TextRope.Node {
                 forward += 1
             }
         }
-
-        // Constraint: reached only when no Character boundary exists in [low, high], i.e. a single grapheme cluster straddles the whole redistribution window (e.g. a degenerate ZWJ chain); the backward-only splitPoint walk can then undershoot `low` and produce an undersized left chunk.
-        return splitPoint(in: slice, targetUTF8: target)
+        return nil
     }
 
-    static func splitPoint(in slice: Substring, targetUTF8 target: Int) -> String.Index {
+    /// ADR-012 minimal-deviation split for a starved balanced window: among the `Character`
+    /// boundaries in the hard window `[count - maxChunkUTF8, min(maxChunkUTF8, count - 1)]`,
+    /// picks the one minimizing `shortfall(p) = max(0, min - p) + max(0, min - (count - p))`,
+    /// ties resolving to the lower offset. Returns nil when a single cluster spans the whole
+    /// hard window.
+    static func minimalShortfallSplitPoint(in slice: Substring) -> String.Index? {
+        let count = slice.utf8.count
+        let low = max(1, count - maxChunkUTF8)
+        let high = min(maxChunkUTF8, count - 1)
+        guard low <= high else { return nil }
         let utf8 = slice.utf8
 
-        var offset = target
-        while offset > 0 {
-            let candidate = utf8.index(utf8.startIndex, offsetBy: offset)
-            if String.Index(candidate, within: slice) != nil {
-                return candidate
+        var below = min(minChunkUTF8 - 1, high)
+        var above = max(count - minChunkUTF8 + 1, low)
+        while below >= low || above <= high {
+            let belowShortfall = below >= low ? shortfall(of: below, count: count) : Int.max
+            let aboveShortfall = above <= high ? shortfall(of: above, count: count) : Int.max
+            if belowShortfall <= aboveShortfall {
+                let candidate = utf8.index(utf8.startIndex, offsetBy: below)
+                if String.Index(candidate, within: slice) != nil {
+                    return candidate
+                }
+                below -= 1
+            } else {
+                let candidate = utf8.index(utf8.startIndex, offsetBy: above)
+                if String.Index(candidate, within: slice) != nil {
+                    return candidate
+                }
+                above += 1
             }
-            offset -= 1
         }
+        return nil
+    }
 
-        // Constraint: reached only when no Character boundary exists in (0, target], i.e. the slice starts with a single grapheme cluster wider than `target` bytes (> maxChunkUTF8 in practice, e.g. a degenerate ZWJ chain); the returned index then falls mid-character, splitting that cluster across chunks.
-        return utf8.index(utf8.startIndex, offsetBy: target)
+    private static func shortfall(of splitOffset: Int, count: Int) -> Int {
+        max(0, minChunkUTF8 - splitOffset) + max(0, minChunkUTF8 - (count - splitOffset))
     }
 }
