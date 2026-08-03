@@ -410,13 +410,59 @@ final class TextRopeDeleteTests: XCTestCase {
     func testDeleteOnSingleOwnerRopeMutatesInPlace() {
         let blocks = (0..<4).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
         var rope = TextRope(blocks.joined())
+        // Identity is captured as ObjectIdentifier, never as a node binding: a `let` of the
+        // node itself would be a second strong reference and would defeat the in-place
+        // mutation this test asserts (design D2 of fix-rope-cow-and-equality-coverage).
         let rootBefore = ObjectIdentifier(rope.root)
+        let onPathLeafBefore = ObjectIdentifier(rope.root.children[0])
         let untouchedLeafBefore = ObjectIdentifier(rope.root.children[2])
 
         rope.delete(in: NSRange(location: 100, length: 10))
 
         XCTAssertEqual(ObjectIdentifier(rope.root), rootBefore)
+        XCTAssertEqual(
+            ObjectIdentifier(rope.root.children[0]), onPathLeafBefore,
+            "leaf on the delete path must be mutated in place when the rope has a single owner"
+        )
         XCTAssertEqual(ObjectIdentifier(rope.root.children[2]), untouchedLeafBefore)
+
+        var expected = blocks.joined()
+        let start = expected.utf16.index(expected.utf16.startIndex, offsetBy: 100)
+        let end = expected.utf16.index(start, offsetBy: 10)
+        expected.removeSubrange(start..<end)
+        XCTAssertEqual(rope.content, expected)
+    }
+
+    func testDeleteOnSingleOwnerMultiLevelRopeKeepsOnPathNodeIdentity() {
+        let blocks = (0..<20).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
+        var rope = TextRope(blocks.joined())
+        XCTAssertEqual(
+            rope.root.children.map(\.children.count), [8, 8, 4],
+            "test assumes a height-2 tree of 20 full leaves grouped [8, 8, 4]; a chunking or branching change invalidates the on-path indices below"
+        )
+        // ObjectIdentifier holds no ownership; a node binding would make this test fail
+        // even after the fix (design D2 of fix-rope-cow-and-equality-coverage).
+        let rootBefore = ObjectIdentifier(rope.root)
+        let onPathInnerBefore = ObjectIdentifier(rope.root.children[0])
+        let onPathLeafBefore = ObjectIdentifier(rope.root.children[0].children[0])
+
+        rope.delete(in: NSRange(location: 100, length: 10))
+
+        XCTAssertEqual(ObjectIdentifier(rope.root), rootBefore)
+        XCTAssertEqual(
+            ObjectIdentifier(rope.root.children[0]), onPathInnerBefore,
+            "inner node on the delete path must be mutated in place when the rope has a single owner"
+        )
+        XCTAssertEqual(
+            ObjectIdentifier(rope.root.children[0].children[0]), onPathLeafBefore,
+            "leaf on the delete path must be mutated in place when the rope has a single owner"
+        )
+
+        var expected = blocks.joined()
+        let start = expected.utf16.index(expected.utf16.startIndex, offsetBy: 100)
+        let end = expected.utf16.index(start, offsetBy: 10)
+        expected.removeSubrange(start..<end)
+        XCTAssertEqual(rope.content, expected)
     }
 
     func testDeleteOnSharedRopeSharesUnaffectedSubtrees() {

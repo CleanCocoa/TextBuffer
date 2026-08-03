@@ -249,6 +249,38 @@ final class TextRopeInsertTests: XCTestCase {
         verifyTreeInvariants(rope, context: "final")
     }
 
+    func testInsertOnSingleOwnerMultiLevelRopeKeepsOnPathNodeIdentity() {
+        let blocks = (0..<20).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
+        var rope = TextRope(blocks.joined())
+        XCTAssertEqual(
+            rope.root.children.map(\.children.count), [8, 8, 4],
+            "test assumes a height-2 tree of 20 full leaves grouped [8, 8, 4]; a chunking or branching change invalidates the on-path indices below"
+        )
+        // ObjectIdentifier holds no ownership; a node binding would be a second strong
+        // reference and defeat the in-place mutation this test asserts (design D2 of
+        // fix-rope-cow-and-equality-coverage). Pins rope-insert's single-owner scenario,
+        // which was correct on HEAD but untested (design D4).
+        let rootBefore = ObjectIdentifier(rope.root)
+        let onPathInnerBefore = ObjectIdentifier(rope.root.children[0])
+        let onPathLeafBefore = ObjectIdentifier(rope.root.children[0].children[0])
+
+        rope.insert("x", at: 100)
+
+        XCTAssertEqual(ObjectIdentifier(rope.root), rootBefore)
+        XCTAssertEqual(
+            ObjectIdentifier(rope.root.children[0]), onPathInnerBefore,
+            "inner node on the insert path must be mutated in place when the rope has a single owner"
+        )
+        XCTAssertEqual(
+            ObjectIdentifier(rope.root.children[0].children[0]), onPathLeafBefore,
+            "leaf on the insert path must be mutated in place when the rope has a single owner"
+        )
+
+        var expected = blocks.joined()
+        expected.insert("x", at: expected.utf16.index(expected.utf16.startIndex, offsetBy: 100))
+        XCTAssertEqual(rope.content, expected)
+    }
+
     func testMultipleInserts() {
         var rope = TextRope("ac")
         rope.insert("b", at: 1)

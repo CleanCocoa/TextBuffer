@@ -129,17 +129,32 @@ final class RopeTransferIntegrationTests: XCTestCase {
         buffer.select(NSRange(location: 0, length: 6))
         buffer.undo()
 
+        let baseline = (buffer.content, buffer.selectedRange, buffer.canUndo, buffer.canRedo)
+
+        // Each pass feeds the previous pass's receiver into the next round-trip, so state
+        // must survive repeated snapshot/represent chaining — not just one hop from the
+        // same unmutated source (rope-transfer-convergence: "Multiple round-trips are
+        // idempotent").
+        var current = buffer
         for iteration in 1...3 {
-            let before = (buffer.content, buffer.selectedRange, buffer.canUndo, buffer.canRedo)
-
             let receiver = TransferableUndoable(RopeBuffer(""))
-            receiver.represent(buffer.snapshot())
+            receiver.represent(current.snapshot())
 
-            XCTAssertEqual(receiver.content, before.0, "content changed on round-trip \(iteration)")
-            XCTAssertEqual(receiver.selectedRange, before.1, "selection changed on round-trip \(iteration)")
-            XCTAssertEqual(receiver.canUndo, before.2, "canUndo changed on round-trip \(iteration)")
-            XCTAssertEqual(receiver.canRedo, before.3, "canRedo changed on round-trip \(iteration)")
+            XCTAssertEqual(receiver.content, baseline.0, "content changed on round-trip \(iteration)")
+            XCTAssertEqual(receiver.selectedRange, baseline.1, "selection changed on round-trip \(iteration)")
+            XCTAssertEqual(receiver.canUndo, baseline.2, "canUndo changed on round-trip \(iteration)")
+            XCTAssertEqual(receiver.canRedo, baseline.3, "canRedo changed on round-trip \(iteration)")
+
+            current = receiver
         }
+
+        // The undo history must survive the chaining as usable state, not just as flags.
+        // The baseline sits after an undo (canUndo == false, canRedo == true), so redo
+        // first, then undo back to the baseline content.
+        current.redo()
+        XCTAssertEqual(current.content, "stable état!", "redo history must survive chained round-trips")
+        current.undo()
+        XCTAssertEqual(current.content, "stable état", "undo history must survive chained round-trips")
     }
 
     func testInterleavedEditsAndUndoRedoMatchAcrossBufferTypes() {

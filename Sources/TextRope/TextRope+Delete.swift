@@ -53,8 +53,11 @@ extension TextRope {
         var childBecameUndersized = false
 
         for i in 0..<node.children.count {
-            let child = node.children[i]
-            let childEnd = utf16Pos + child.summary.utf16
+            // Read only the scalar, never the node: a `Node` binding here would be a second
+            // strong reference still live when `ensureUniqueChild(at:)` runs below, making
+            // `isKnownUniquelyReferenced` fail and forcing a path copy on every delete (DEF-003).
+            let childUTF16 = node.children[i].summary.utf16
+            let childEnd = utf16Pos + childUTF16
 
             if utf16Pos >= utf16End { break }
 
@@ -66,7 +69,7 @@ extension TextRope {
             let localStart = utf16Start - utf16Pos
             let localEnd = utf16End - utf16Pos
 
-            if localStart <= 0 && localEnd >= child.summary.utf16 {
+            if localStart <= 0 && localEnd >= childUTF16 {
                 indicesToRemove.append(i)
             } else {
                 node.ensureUniqueChild(at: i)

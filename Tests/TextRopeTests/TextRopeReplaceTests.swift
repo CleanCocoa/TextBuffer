@@ -150,4 +150,39 @@ final class TextRopeReplaceTests: XCTestCase {
         XCTAssertEqual(ObjectIdentifier(rope.root.children[2]), untouchedBefore)
         XCTAssertEqual(rope.root.summary, TextRope.Summary.of(rope.content))
     }
+
+    /// Pins rope-replace's single-owner scenario. `replace` composes `delete` then `insert`,
+    /// so before DEF-003's alias fix in the delete descent this test would have been red on
+    /// HEAD: the delete leg path-copied every node below the root despite the single owner.
+    func testReplaceOnSingleOwnerMultiLevelRopeKeepsOnPathNodeIdentity() {
+        let blocks = (0..<20).map { String(repeating: Character(UnicodeScalar(97 + $0)!), count: 2048) }
+        var rope = TextRope(blocks.joined())
+        XCTAssertEqual(
+            rope.root.children.map(\.children.count), [8, 8, 4],
+            "test assumes a height-2 tree of 20 full leaves grouped [8, 8, 4]; a chunking or branching change invalidates the on-path indices below"
+        )
+        // ObjectIdentifier holds no ownership; a node binding would be a second strong
+        // reference and defeat the in-place mutation this test asserts (design D2).
+        let rootBefore = ObjectIdentifier(rope.root)
+        let onPathInnerBefore = ObjectIdentifier(rope.root.children[0])
+        let onPathLeafBefore = ObjectIdentifier(rope.root.children[0].children[0])
+
+        rope.replace(range: NSRange(location: 100, length: 10), with: "xyz")
+
+        XCTAssertEqual(ObjectIdentifier(rope.root), rootBefore)
+        XCTAssertEqual(
+            ObjectIdentifier(rope.root.children[0]), onPathInnerBefore,
+            "inner node on the replace path must be mutated in place when the rope has a single owner"
+        )
+        XCTAssertEqual(
+            ObjectIdentifier(rope.root.children[0].children[0]), onPathLeafBefore,
+            "leaf on the replace path must be mutated in place when the rope has a single owner"
+        )
+
+        var expected = blocks.joined()
+        let start = expected.utf16.index(expected.utf16.startIndex, offsetBy: 100)
+        let end = expected.utf16.index(start, offsetBy: 10)
+        expected.replaceSubrange(start..<end, with: "xyz")
+        XCTAssertEqual(rope.content, expected)
+    }
 }
