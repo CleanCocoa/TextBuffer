@@ -16,4 +16,48 @@ import Foundation
             _ = rope.content(in: NSRange(location: 3, length: 5))
         }
     }
+
+    // DEF-004: bounds validation precedes the zero-length early return.
+
+    @Test func `extracting content traps for a zero-length range past the end`() async {
+        await #expect(processExitsWith: .failure) {
+            let rope = TextRope("hello")
+            _ = rope.content(in: NSRange(location: 6, length: 0))
+        }
+    }
+
+    @Test func `extracting content traps for a zero-length range at a negative location`() async {
+        await #expect(processExitsWith: .failure) {
+            let rope = TextRope("hello")
+            _ = rope.content(in: NSRange(location: -1, length: 0))
+        }
+    }
+
+    @Test func `extracting content traps for a zero-length range at NSNotFound`() async {
+        await #expect(processExitsWith: .failure) {
+            let rope = TextRope("hello")
+            _ = rope.content(in: NSRange(location: NSNotFound, length: 0))
+        }
+    }
+
+    @Test func `composed sequences trap for a zero-length range past the end`() async {
+        await #expect(processExitsWith: .failure) {
+            let rope = TextRope("hello")
+            _ = rope.composedCharacterSequences(in: NSRange(location: 6, length: 0))
+        }
+    }
+
+    @Test func `composed sequences trap for a zero-length range at a negative location`() async {
+        await #expect(processExitsWith: .failure) {
+            let rope = TextRope("hello")
+            _ = rope.composedCharacterSequences(in: NSRange(location: -1, length: 0))
+        }
+    }
+
+    @Test func `composed sequences trap for a zero-length range at NSNotFound`() async {
+        await #expect(processExitsWith: .failure) {
+            let rope = TextRope("hello")
+            _ = rope.composedCharacterSequences(in: NSRange(location: NSNotFound, length: 0))
+        }
+    }
 }

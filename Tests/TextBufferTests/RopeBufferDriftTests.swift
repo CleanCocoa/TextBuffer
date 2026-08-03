@@ -213,6 +213,62 @@ final class RopeBufferDriftTests: XCTestCase {
         }
     }
 
+    private func assertUnsafeCharacterMatches(_ string: String, locations: some Sequence<Int>, file: StaticString = #filePath, line: UInt = #line) {
+        let msb = MutableStringBuffer(string)
+        let rb = RopeBuffer(string)
+        let srb = SendableRopeBuffer(string)
+        for location in locations {
+            let expected = msb.unsafeCharacter(at: location)
+            XCTAssertEqual(rb.unsafeCharacter(at: location), expected, "RopeBuffer diverges at \(location)", file: file, line: line)
+            XCTAssertEqual(srb.unsafeCharacter(at: location), expected, "SendableRopeBuffer diverges at \(location)", file: file, line: line)
+        }
+    }
+
+    func testUnsafeCharacterAtRegionalIndicatorRunMatchesMutableStringBuffer() {
+        let string = String(repeating: "\u{1F1E9}\u{1F1EA}", count: 100)
+        assertUnsafeCharacterMatches(string, locations: 0..<400)
+    }
+
+    func testContentInRegionalIndicatorRunMatchesMutableStringBuffer() throws {
+        let flags = String(repeating: "\u{1F1E9}\u{1F1EA}", count: 100)
+        for range in [
+            NSRange(location: 130, length: 1),   // inside the run, past the window radius
+            NSRange(location: 131, length: 2),   // starts mid-flag on a trail surrogate
+            NSRange(location: 200, length: 40),  // deep inside the run
+            NSRange(location: 0, length: 400),   // spans the whole run
+            NSRange(location: 396, length: 4),   // ends at the run end
+        ] {
+            try assertContentInMatches(flags, range)
+        }
+
+        let prefixed = String(repeating: "a", count: 100) + flags
+        for range in [
+            NSRange(location: 90, length: 60),   // spans from prose into the run
+            NSRange(location: 231, length: 2),   // starts mid-flag on a trail surrogate, deep in the run
+            NSRange(location: 300, length: 100), // inside the run, ending in it
+        ] {
+            try assertContentInMatches(prefixed, range)
+        }
+    }
+
+    func testRegionalIndicatorRunAfterProseMatchesMutableStringBuffer() throws {
+        // A non-regional-indicator scalar sits immediately left of the run, so the rope's
+        // window anchoring is exercised against a run that does not start at offset 0.
+        let string = String(repeating: "The quick brown fox. ", count: 10)  // 210 UTF-16 units of prose
+            + String(repeating: "\u{1F1E9}\u{1F1EA}", count: 60)           // 240-unit flag run
+            + "e\u{301}nd"
+        assertUnsafeCharacterMatches(string, locations: 200..<454)
+        try assertContentInMatches(string, NSRange(location: 205, length: 140))
+        try assertContentInMatches(string, NSRange(location: 340, length: 20))
+    }
+
+    func testFlagRunExceedingBackwardWalkCapMatchesMutableStringBuffer() {
+        // 5,000 consecutive regional indicators — longer than the rope's fixed 4,096-unit
+        // backward-walk cap, so deep reads take the silent full-document fallback.
+        let string = String(repeating: "\u{1F1E9}\u{1F1EA}", count: 2500)
+        assertUnsafeCharacterMatches(string, locations: [4300, 4302, 5000, 5002, 7001, 9000, 9002, 9998, 9999])
+    }
+
     // MARK: - Sequential Operations
 
     func testSequentialInsertsThenDelete() throws {
