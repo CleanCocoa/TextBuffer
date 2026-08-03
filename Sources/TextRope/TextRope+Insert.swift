@@ -22,10 +22,7 @@ extension TextRope {
 
     private func insertIntoNode(_ node: Node, at utf16Offset: Int, content: String) -> [Node] {
         if node.isLeaf {
-            if let sibling = insertIntoLeaf(node, at: utf16Offset, content: content) {
-                return [sibling]
-            }
-            return []
+            return insertIntoLeaf(node, at: utf16Offset, content: content)
         }
 
         var remaining = utf16Offset
@@ -37,13 +34,14 @@ extension TextRope {
                 updateSummary(node)
                 if !siblings.isEmpty {
                     node.children.insert(contentsOf: siblings, at: i + 1)
-                    var j = i + 1
-                    while j < node.children.count
-                            && node.children[j].isLeaf
-                            && node.children[j].chunk.utf8.count > Node.maxChunkUTF8 {
-                        let extra = node.children[j].splitLeaf()
-                        node.children.insert(extra, at: j + 1)
-                        j += 1
+                    if node.children[i].isLeaf {
+                        // The freshly carved run spans i...(i + siblings.count); its interior
+                        // is already repaired (chunkLeaves), but a starved edge chunk must be
+                        // redistributed with a pre-existing neighbor leaf when a conforming
+                        // redistribution exists (ADR-012 per-sibling starvation, design D3/D6).
+                        // Right edge first so the left-edge splice does not shift its indices.
+                        redistributeStarvedEdge(of: node, at: i + siblings.count, withNeighborAt: i + siblings.count + 1)
+                        redistributeStarvedEdge(of: node, at: i, withNeighborAt: i - 1)
                     }
                     updateSummary(node)
                 }
@@ -67,13 +65,37 @@ extension TextRope {
         return []
     }
 
-    private func insertIntoLeaf(_ node: Node, at utf16Offset: Int, content: String) -> Node? {
+    private func insertIntoLeaf(_ node: Node, at utf16Offset: Int, content: String) -> [Node] {
         spliceIntoLeaf(node, at: utf16Offset, content: content)
 
-        if node.chunk.utf8.count > Node.maxChunkUTF8 {
-            return node.splitLeaf()
-        }
-        return nil
+        guard node.chunk.utf8.count > Node.maxChunkUTF8 else { return [] }
+        // Re-chunk the whole overflowing leaf so a starved residual-band split is repaired
+        // against the chunk carved before it (chunkLeaves), not taken in isolation.
+        let leaves = Self.chunkLeaves(from: node.chunk[...])
+        node.chunk = leaves[0].chunk
+        node.summary = leaves[0].summary
+        return Array(leaves.dropFirst())
+    }
+
+    /// Redistributes an undersized carved edge chunk with a pre-existing neighbor leaf when
+    /// a conforming redistribution exists — the ADR-012 per-sibling starvation predicate the
+    /// tree validator asserts (design D3/D6). A starved combination (no `Character` boundary
+    /// in its legal window, or a whole-cluster neighbor) is left alone: the undersized leaf
+    /// is legal there. Precedent: the delete path's `combinedLeaf` redistribution.
+    private func redistributeStarvedEdge(of node: Node, at index: Int, withNeighborAt neighborIndex: Int) {
+        guard node.children.indices.contains(index),
+              node.children.indices.contains(neighborIndex) else { return }
+        let leaf = node.children[index]
+        let neighbor = node.children[neighborIndex]
+        guard leaf.isLeaf, neighbor.isLeaf,
+              leaf.chunk.utf8.count < Node.minChunkUTF8 else { return }
+
+        let lower = min(index, neighborIndex)
+        let combined = node.children[lower].chunk + node.children[lower + 1].chunk
+        guard !Node.isBoundaryStarved(combined[...]) else { return }
+
+        let replacements = Node.rebalancedChunks(in: combined[...]).map { Node.leaf(String($0)) }
+        node.children.replaceSubrange(lower...(lower + 1), with: replacements)
     }
 
     /// Rebalances the leaves on either side of a CRLF seam (design D5). Returns overflow

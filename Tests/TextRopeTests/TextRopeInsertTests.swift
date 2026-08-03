@@ -235,6 +235,8 @@ final class TextRopeInsertTests: XCTestCase {
             oracle.insert(contentsOf: fragment, at: idx)
             step += 1
 
+            // Sampled validation (decided 2026-08-01): per-operation coverage is provided by
+            // TextRopeStressTests.testPerOperationInvariantValidation (DEF-007).
             if step % 100 == 0 {
                 XCTAssertEqual(rope.content, oracle, "diverged at step \(step)")
                 verifyTreeInvariants(rope, context: "step \(step)")

@@ -125,6 +125,22 @@ extension TextRope.Node {
         return chunks
     }
 
+    /// ADR-012 boundary starvation for a two-leaf combination: true when no conforming
+    /// redistribution of `combined` exists — the combination is too large for one chunk and
+    /// its legal window `[max(min, count - max), min(max, count - min)]` holds no `Character`
+    /// boundary. An empty window (`count > 2 * maxChunkUTF8`, reachable only next to an
+    /// oversized whole-cluster leaf) is trivially boundary-free. This is the exact predicate
+    /// the tree-invariant validator applies per adjacent leaf (design D3/D6), so an
+    /// undersized chunk may be emitted only where this returns true.
+    static func isBoundaryStarved(_ combined: Substring) -> Bool {
+        let count = combined.utf8.count
+        guard count > maxChunkUTF8 else { return false }
+        let low = max(minChunkUTF8, count - maxChunkUTF8)
+        let high = min(maxChunkUTF8, count - minChunkUTF8)
+        guard low <= high else { return true }
+        return boundary(in: combined, nearest: (count + 1) / 2, within: low...high) == nil
+    }
+
     /// Bidirectional `Character`-boundary search over the closed UTF-8 offset range `window`,
     /// nearest to `target`, ties resolving to the lower offset. Never yields a bare Unicode
     /// scalar boundary.

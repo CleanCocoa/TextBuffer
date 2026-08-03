@@ -529,6 +529,8 @@ final class TextRopeStressTests: XCTestCase {
             }
 
             XCTAssertEqual(rope.content, oracle, "diverged from oracle at operation \(i)")
+            // Sampled validation (decided 2026-08-01): per-operation coverage is provided by
+            // the dedicated testPerOperationInvariantValidation seed (DEF-007).
             if i % 100 == 0 {
                 verifyTreeInvariants(rope, context: "operation \(i)")
             }
@@ -609,7 +611,14 @@ final class TextRopeStressTests: XCTestCase {
         }
     }
 
-    private func runStressTest(seed: UInt64, operations: Int) {
+    /// DEF-007: one dedicated seed validates the tree invariants after **every** operation,
+    /// so a violation is caught at the operation that introduced it. The four 10,000-operation
+    /// seeds above keep 1-in-100 sampling for throughput.
+    func testPerOperationInvariantValidation() {
+        runStressTest(seed: 0xDEF007, operations: 2_000, validateEveryOperation: true)
+    }
+
+    private func runStressTest(seed: UInt64, operations: Int, validateEveryOperation: Bool = false) {
         print("TextRope stress test: seed \(seed), \(operations) operations")
         var rng = SeededRNG(state: seed)
 
@@ -678,7 +687,9 @@ final class TextRopeStressTests: XCTestCase {
                 "Line count mismatch at \(context), op=\(op)"
             )
 
-            if i % 100 == 0 {
+            // Sampled validation (decided 2026-08-01): per-operation coverage is provided by
+            // the dedicated testPerOperationInvariantValidation seed (DEF-007).
+            if validateEveryOperation || i % 100 == 0 {
                 verifyTreeInvariants(rope, context: context)
             }
 

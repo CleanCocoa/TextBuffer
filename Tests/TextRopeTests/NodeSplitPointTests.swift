@@ -145,6 +145,49 @@ final class NodeSplitPointTests: XCTestCase {
         assertNoCRLFSplitAcrossLeaves(rope)
     }
 
+    // MARK: - Insert-overflow starved split must consult adjacent leaves (DEF-007 catch)
+
+    func testInsertOverflowStarvedSplitRedistributesWithAdjacentLeaf() {
+        // Leaves [2048, 2045]; the 4-byte cluster inserted at UTF-16 offset 3071 overflows
+        // leaf 1 to 2049 bytes with the cluster spanning its bytes [1023, 1027) — a starved
+        // residual-band split in isolation ([1023, 1026]). But the 1023-byte chunk combined
+        // with its 2048-byte left neighbor (3071 bytes) has a Character boundary everywhere
+        // in the legal window [1024, 2047], so ADR-012's per-sibling starvation predicate
+        // (design D3/D6) demands redistribution — e.g. [1536, 1535, 1026] or a three-way.
+        let base = String(repeating: "a", count: 2048) + String(repeating: "b", count: 2045)
+        var rope = TextRope(base)
+        XCTAssertEqual(leafChunkSizes(rope), [2048, 2045], "construction precondition changed; the repro no longer reproduces")
+
+        rope.insert("\u{1D11E}", at: 3071)
+
+        let expected = String(repeating: "a", count: 2048) + String(repeating: "b", count: 1023)
+            + "\u{1D11E}" + String(repeating: "b", count: 1022)
+        XCTAssertEqual(rope.content, expected)
+        XCTAssertEqual(
+            chunkSizeViolations(in: rope.root), [],
+            "every leaf must satisfy the ADR-012 chunk-size predicate; a conforming redistribution with the left neighbor exists"
+        )
+        assertLeafSeamsFallOnCharacterBoundaries(rope)
+    }
+
+    func testConstructionStarvedResidualSplitRedistributesWithPrecedingChunk() {
+        // Chain twin of the insert repro: 4097 bytes chunk as greedy 2048 + starved residual
+        // 2049 ([1023, 1026] in isolation). The 1023-byte chunk plus the preceding 2048-byte
+        // chunk admits a conforming redistribution, so the run must be repaired.
+        let input = String(repeating: "a", count: 2048) + String(repeating: "b", count: 1023)
+            + "\u{1D11E}" + String(repeating: "b", count: 1022)
+        XCTAssertEqual(input.utf8.count, 4097)
+
+        let rope = TextRope(input)
+
+        XCTAssertEqual(rope.content, input)
+        XCTAssertEqual(
+            chunkSizeViolations(in: rope.root), [],
+            "every leaf must satisfy the ADR-012 chunk-size predicate; a conforming redistribution with the preceding chunk exists"
+        )
+        assertLeafSeamsFallOnCharacterBoundaries(rope)
+    }
+
     // MARK: - Construction-path twin of manifestation 4
 
     func testConstructionBalancedSplitFindsForwardBoundaryWhenBackwardWalkUndershootsMinimum() {
