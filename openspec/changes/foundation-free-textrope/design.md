@@ -40,7 +40,7 @@ This change lands last in the 0.10.0 train (DEFECTS.md decision, 2026-08-01), af
 | `delete(in: NSRange)` | `delete(in: Range<Int>)` | `delete(in: NSRange)` — forwarder |
 | `replace(range: NSRange, with: String)` | `replace(range: Range<Int>, with: String)` | `replace(range: NSRange, with:)` — forwarder |
 | `insert(_: String, at: Int)` | unchanged (already conforming) | — (no NSRange form exists today; none is added) |
-| — | `utf16CodeUnits(in: Range<Int>) -> [UTF16.CodeUnit]` (new, supports D5) | — |
+| — | `utf16CodeUnits(in: Range<Int>) -> [UTF16.CodeUnit]` (new, `package`-scoped, supports D5) | — |
 | `composedCharacterSequences(in: NSRange) -> String` | — (no rope-level primitive; see D4) | full implementation relocates here, signature unchanged |
 | `composedCharacterSequence(at: Int) -> String` | — (see D4) | full implementation relocates here, signature unchanged |
 | internal `findLeaf(utf16Offset:)`, `LeafPosition` | unchanged, stays internal | not exposed; the relocated window machinery uses public primitives only (D5) |
@@ -79,10 +79,10 @@ The relocated `expandingWindow` needs three things from the rope that used to co
 2. **Trail-surrogate detection at window edges** — today a private helper walking a leaf chunk via internal `findLeaf`.
 3. **Regional-indicator run-start walk** (added by `fix-composed-sequence-reads`) — today walks leaf chunks directly, avoiding per-code-unit descents (that change's design D2 risk note).
 
-(2) and (3) need raw code-unit access at arbitrary offsets — including offsets that split a surrogate pair, which `content(in:)` must not be asked to do (it produces `String`s and assumes scalar-aligned edges). TextRope therefore gains one new stdlib-only primitive:
+(2) and (3) need raw code-unit access at arbitrary offsets — including offsets that split a surrogate pair, which `content(in:)` must not be asked to do (it produces `String`s and assumes scalar-aligned edges). TextRope therefore gains one new stdlib-only primitive, `package`-scoped rather than public — its only consumer is the same-package TextBuffer target, so it stays off the library's semver surface entirely:
 
 ```swift
-public func utf16CodeUnits(in utf16Range: Range<Int>) -> [UTF16.CodeUnit]
+package func utf16CodeUnits(in utf16Range: Range<Int>) -> [UTF16.CodeUnit]
 ```
 
 O(log n + k), valid for **any** in-bounds range regardless of scalar or character boundaries, defined as the corresponding slice of `content`'s UTF-16 encoding. The relocated machinery derives trail-surrogate checks (read 1 unit) and the RI-run walk (read backward in fixed-size blocks, e.g. 128 units, so the walk costs O(runLength + blocks·log n) instead of one descent per code unit) from it. This keeps `findLeaf` and `LeafPosition` internal — no `@_spi`, no widening of the structural surface. The drift suites and the composed-sequence test file (which moves along with the API) are the oracle that the re-plumbed leaf access is faithful.
@@ -108,5 +108,5 @@ O(log n + k), valid for **any** in-bounds range regardless of scalar or characte
 - **[Risk] Re-plumbed leaf access in the RI-run walk regresses performance or fidelity** — the walk loses direct chunk access and goes through `utf16CodeUnits(in:)` block reads. Fidelity is guarded by the moved composed tests and RI drift sweeps; cost is bounded by the existing 4096-unit cap and block-amortized descents, on a path that only runs when a window edge lands inside an RI run. Not benchmarked here (DEF-011 owns read performance).
 - **[Risk] An unknown external TextRope-product consumer uses the NSRange API** — the break is deliberate and un-gated (ADR-013). Mitigation is disclosure: a CHANGELOG breaking-change entry with the one-line fix (import TextBuffer, or translate `NSRange` ⇢ `Range<Int>` at the call site).
 - **[Trade-off] ADR-013's "composed-sequence APIs likewise" clause is not honored literally** (D4) — accepted to preserve NSString parity and the Foundation-free clause simultaneously; flagged for sign-off as proposal Open Question 1 rather than silently reinterpreted.
-- **[Trade-off] `utf16CodeUnits(in:)` widens TextRope's public API** to support one internal consumer — accepted: it is a coherent, stdlib-only navigation primitive with spec coverage, and the alternative (`@_spi` or public `findLeaf`) exposes tree structure instead of content.
+- **[Trade-off] `utf16CodeUnits(in:)` adds a cross-target seam** to support one consumer — contained by `package` visibility (tools-version 6.2): invisible outside the package, zero semver surface, freely changeable when the window machinery evolves. The rejected alternatives (`public`, `@_spi`, or exposing `findLeaf`) each commit to more: public API for one caller, or tree structure instead of content.
 - **[Risk] Rebase drift** — five changes archive before this one; requirement wording this change modifies may shift. Mitigation: task 1.1 is a hard gate that re-diffs every delta against canonical before implementation starts.

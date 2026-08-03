@@ -13,7 +13,7 @@
 - [ ] 2.5 Add `Range<Int>`-form replace tests to `TextRopeReplaceTests.swift`, including the degenerate observable-equivalence cases as specced by the DEF-006b amendment: empty-string replace result equals `delete(in:)` alone; empty-range replace result equals `insert(_:at:)` alone; both-empty is a no-op. Red.
 - [ ] 2.6 Implement `replace(range: Range<Int>, with: String)` in `TextRope+Replace.swift` as the primary (delete + insert composition unchanged); NSRange method forwards. Green.
 - [ ] 2.7 Add tests for the new `utf16CodeUnits(in: Range<Int>) -> [UTF16.CodeUnit]` primitive: equality with `Array(content.utf16)[range]` on mixed-encoding content, a range splitting a surrogate pair returns the raw halves (this is the property `content(in:)` cannot provide), empty range, full range, multi-leaf spanning range, bounds traps. Red.
-- [ ] 2.8 Implement `utf16CodeUnits(in:)` in `TextRope+Navigation.swift` via the same tree walk as `content(in:)` (O(log n + k), no `Character`-boundary assumptions). Green.
+- [ ] 2.8 Implement `utf16CodeUnits(in:)` in `TextRope+Navigation.swift` as `package func` (not `public` — resolved 2026-08-03), via the same tree walk as `content(in:)` (O(log n + k), no `Character`-boundary assumptions). Green.
 
 ## 3. Move TextBuffer Call Sites to the Primitives
 
