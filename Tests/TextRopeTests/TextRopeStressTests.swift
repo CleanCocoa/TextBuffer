@@ -716,7 +716,15 @@ final class TextRopeStressTests: XCTestCase {
         func leafCount(_ node: TextRope.Node) -> Int {
             node.isLeaf ? 1 : node.children.reduce(0) { $0 + leafCount($1) }
         }
-        print("TextRope stress test: seed \(seed) final tree height \(rope.root.height), \(leafCount(rope.root)) leaves, \(rope.utf8Count) UTF-8 bytes, \(rope.utf16Count) UTF-16 units")
+        func leafSizes(_ node: TextRope.Node) -> [Int] {
+            node.isLeaf ? [node.chunk.utf8.count] : node.children.flatMap(leafSizes)
+        }
+        let sizes = leafSizes(rope.root)
+        let histogram = Dictionary(grouping: sizes) { ($0 / 256) * 256 }
+            .sorted { $0.key < $1.key }
+            .map { "\($0.key)-\($0.key + 255): \($0.value.count)" }
+            .joined(separator: ", ")
+        print("TextRope stress test: seed \(seed) final tree height \(rope.root.height), \(leafCount(rope.root)) leaves, \(rope.utf8Count) UTF-8 bytes, \(rope.utf16Count) UTF-16 units, leaf-size histogram [\(histogram)]")
 
         let total = insertCount + deleteCount + replaceCount
         XCTAssertEqual(total, operations, "seed \(seed): operation count mismatch")

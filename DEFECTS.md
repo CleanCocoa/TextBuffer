@@ -32,7 +32,9 @@ Recorded here for traceability; architectural detail in ADR-012 (grapheme-first 
 
 ## Critical
 
-### DEF-001: `balancedSplitPoint` fallback ignores its legal window — `open`
+### DEF-001: `balancedSplitPoint` fallback ignores its legal window — `fixed`
+
+Fixed 2026-08-03 (`16ce570`, `1e6a6aa`): grapheme-first bidirectional boundary search with balanced 1-3-way redistribution (`rebalancedChunks`), minimal-shortfall starved splits, whole-cluster oversized leaves per ADR-012; `repairCRLFSeam` returns siblings. The exact validator additionally caught and `1e6a6aa` fixed a fifth manifestation not in the original report: insert-overflow and construction splits starved in isolation without consulting adjacent leaves. All four original repros re-verified via `NodeSplitPointTests` (manifestations 1/2 now yield `[1365, 1365, 1366]`).
 
 `Sources/TextRope/Node+Split.swift:72`. When `[low, high]` contains no `Character` boundary, the fallback walks backward from the midpoint unbounded, violating chunk-size invariants. One root cause, four manifestations:
 
@@ -95,12 +97,14 @@ Affects any document > 129 UTF-16 units containing an RI run (136/400 offsets wr
 - `openspec/specs/rope-target-setup/spec.md:7` says TextRope "MUST NOT depend on ... Foundation's NSRange"; three sibling canonical specs mandate NSRange and four source files use it publicly. Decide and amend one side.
 - `openspec/specs/rope-replace/spec.md:34,45` ("No insert/delete operation SHALL occur" in degenerate cases) is false as written — replace composes unconditionally; correctness rests on the primitives' undocumented pre-precondition early returns.
 - `openspec/specs/rope-insert/spec.md:87,95` says an overflowing inner node splits "into two"; implementation is n-way.
-- `m2-rope-delete` tasks 1.3/2.4 had the mandated `Node+Merge.swift` path rewritten to `TextRope+Delete.swift` inside fix commits `8e7ec0c`/`2abfd52` without disclosure (contrast the split seam, which got the spec-named `Node+Split.swift`).
+- ~~`m2-rope-delete` tasks 1.3/2.4 had the mandated `Node+Merge.swift` path rewritten to `TextRope+Delete.swift` inside fix commits `8e7ec0c`/`2abfd52` without disclosure (contrast the split seam, which got the spec-named `Node+Split.swift`).~~ Done 2026-08-03 (`6386e45`): merge machinery extracted to `Node+Merge.swift` as pure movement (DEF-006c).
 - All 11 promoted canonical specs still carry `## Purpose / TBD`.
 
-### DEF-007: Stress suite validates invariants at 1% sampling — `open`
+### DEF-007: Stress suite validates invariants at 1% sampling — `fixed`
 
 `TextRopeStressTests.swift:532,681`; `TextRopeInsertTests.swift:238`. `verifyTreeInvariants` runs every 100th op; DEF-001's manifestations are transient and slipped through 40,000 ops. Add at least one seed run validating every operation.
+
+Fixed 2026-08-03 (`1e6a6aa`): `testPerOperationInvariantValidation` (seed `0xDEF007`, 2,000 ops, validated after every operation) alongside the four sampled 10k seeds, judged by the exact ADR-012 predicates (per-adjacent-leaf starvation, whole-cluster exception, unconditional seam check) — it caught a real producer gap on its first run. Sampled runs keep sampling with an explanatory comment.
 
 ### DEF-008: No concurrent-COW test on multi-level ropes — `open`
 
@@ -129,11 +133,11 @@ Tagged `[M3 Rope Queries]` at `RopeBuffer.swift:44` and `TextAnalysisCapable.swi
 
 No `Added` section: `RopeBuffer: CustomStringConvertible` (`98b5a35`) and the public composed-sequence API are undisclosed; the seven behavior-changing structural fixes are summarized as test work. Amend under the upcoming patch release notes.
 
-### DEF-014: Test hygiene — `open`
+### DEF-014: Test hygiene — `open` (rope bullets fixed; round-trip chaining pending)
 
-- `NodeTests.swift:42-48` pins DEF-001(4)'s buggy split point (fix together).
-- `testDeleteLeafMergeDoesNotSplitCRLF` (`TextRopeDeleteTests.swift:306`) still executes no merge; `testDeleteSpanningLeaves` (`:108`) spans but never merges — rename or reshape.
-- `testDeleteCausingLeafMerge` (`:130-131`) assertions don't discriminate merged from un-merged shapes; assert `[1050, 1050]`.
-- `testConsecutiveRoundTripsAreIdempotent` (`RopeTransferIntegrationTests.swift:126-143`) round-trips the same unmutated buffer thrice instead of chaining receiver into the next pass (spec `rope-transfer-convergence/spec.md:74-76`).
+- ~~`NodeTests.swift:42-48` pins DEF-001(4)'s buggy split point (fix together).~~ Fixed 2026-08-03 (`135457d`): reframed as the reasoned minimal-shortfall case, value asserted from ADR-012's reasoning.
+- ~~`testDeleteLeafMergeDoesNotSplitCRLF` (`TextRopeDeleteTests.swift:306`) still executes no merge; `testDeleteSpanningLeaves` (`:108`) spans but never merges — rename or reshape.~~ Fixed 2026-08-03 (`135457d`): both reshaped so the merge genuinely fires; exact shapes asserted.
+- ~~`testDeleteCausingLeafMerge` (`:130-131`) assertions don't discriminate merged from un-merged shapes; assert `[1050, 1050]`.~~ Fixed 2026-08-03 (`135457d`).
+- `testConsecutiveRoundTripsAreIdempotent` (`RopeTransferIntegrationTests.swift:126-143`) round-trips the same unmutated buffer thrice instead of chaining receiver into the next pass (spec `rope-transfer-convergence/spec.md:74-76`). Assigned to `fix-rope-cow-and-equality-coverage` per the 2026-08-01 decisions.
 - `Node+Split.swift:71` doc comment misstates the fallback's trigger (fires on plain `\r\n` at width-1 windows, not just degenerate ZWJ chains) and omits the oversized-right-chunk residue.
 - `RopeBufferDriftTests.swift:49` `MARK: - Delete` sits above the insert-with-selection tests.

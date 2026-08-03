@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- `TextRope`: chunk size bounds hold again after CRLF-adjacent edits. The balanced split point's fallback ignored its legal window, so specific edits — inserting between a `\r` and `\n` at full leaves, deletes rejoining a split `\r\n`, deletes redistributing near an emoji at the window edge — produced oversized leaves or a stable undersized leaf that survived hundreds of subsequent operations. Splits now search bidirectionally for the nearest `Character` boundary and redistribute merge combinations into up to three balanced chunks; when no conforming boundary exists, the split deviates minimally, and a single grapheme cluster wider than a chunk occupies one whole leaf (ADR-012). Splits also no longer starve a chunk in isolation when redistributing with an adjacent leaf would conform. No API or content behavior change — document text, offsets, and reads are identical; only internal leaf shapes differ.
+
 ## 0.9.1
 
 ### Fixed
