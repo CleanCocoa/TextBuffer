@@ -1,4 +1,9 @@
-## ADDED Requirements
+# transfer-integration Specification
+
+## Purpose
+Pins the end-to-end guarantees when buffer transfer interacts with live undo state: `snapshot()` leaves the original's undo/redo fully functional, `represent(_:)` gives the receiver the source's complete undo history (replacing any prior state entirely), transfer chains are transitive, and snapshotting works even while a puppet undo manager actively bridges the buffer to AppKit. These are the cross-capability scenarios that `buffer-transfer-api`'s per-method requirements alone do not cover.
+
+## Requirements
 
 ### Requirement: Transfer-out preserves undo on original
 After calling `snapshot()`, the original buffer's undo/redo capability SHALL remain fully functional. The snapshot operation MUST NOT interfere with the original's undo history.
