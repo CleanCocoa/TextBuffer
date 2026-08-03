@@ -1,4 +1,9 @@
-## ADDED Requirements
+# puppet-undo-manager Specification
+
+## Purpose
+Specifies the `NSUndoManager` subclass that puppets AppKit's undo UI to the `OperationLog` (ADR-003): Cmd+Z, menu validation, and action names all reflect log state, while `undo()`/`redo()` delegate to the owning `TransferableUndoable` instead of replaying registered inversions. External undo registration is blocked, `groupsByEvent` is disabled, and the puppet degrades safely when its owner deallocates — so AppKit sees a fully conventional undo manager whose single source of truth is the log.
+
+## Requirements
 
 ### Requirement: Undo delegation
 PuppetUndoManager SHALL delegate `undo()` to the owning TransferableUndoable's undo operation. When `undo()` is called on the puppet, the OperationLog's most recent group MUST be undone on the underlying buffer, restoring content and selection to their pre-edit state.
