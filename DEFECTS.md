@@ -139,11 +139,15 @@ Fixed 2026-08-03 (`3f4b8e4`, change `perf-rope-equality-and-bulk-insert`): three
 - `unsafeCharacter(at:)` ~5× slower post-`9570025` (window materialization + NSString bridge + two descents per call); no fast path for the common non-surrogate/non-mark case. Deferred — benchmark-driven.
 - ~~Huge inserts into a non-root leaf are quadratic: repeated `splitLeaf` copies the whole tail each round (`TextRope+Insert.swift:37-44`); the root-leaf path already re-chunks in one pass — mirror it.~~ Resolved 2026-08-03: dissolved by `fix-rope-split-point`'s single-pass re-chunk; pinned linear by `3f4b8e4`'s perf-ratio test (1 MiB → 4 MiB ratio 4.01).
 
-### DEF-012: `lineRange`/`wordRange` O(n) vs public large-document claim — `open`
+### DEF-012: `lineRange`/`wordRange` O(n) vs public large-document claim — `open` (docs half fixed; O(log n) queries deferred to M3)
 
 Tagged `[M3 Rope Queries]` at `RopeBuffer.swift:44` and `TextAnalysisCapable.swift:46`, but the default `lineRange` at `TextAnalysisCapable.swift:51-55` (the one `SendableRopeBuffer` inherits) is untagged, and `RopeBuffer.swift:6-7` DocC still claims superiority for "very large documents" without caveat.
 
-### DEF-013: CHANGELOG 0.9.0 gaps — `open`
+Docs half fixed 2026-08-03 (`8158875`, change `docs-rope-disclosure`): third marker on the inherited default; DocC recommendation scoped to editing with the materialization exception named on both rope buffers. The O(log n) implementations remain M3 Rope Queries.
+
+### DEF-013: CHANGELOG 0.9.0 gaps — `fixed`
+
+Fixed 2026-08-03 (`f657657`, change `docs-rope-disclosure`): the released 0.9.0 section amended in place with the Added section and seven Fixed disclosures; findLeaf fixes deliberately undisclosed.
 
 No `Added` section: `RopeBuffer: CustomStringConvertible` (`98b5a35`) and the public composed-sequence API are undisclosed; the seven behavior-changing structural fixes are summarized as test work. Amend under the upcoming patch release notes.
 
