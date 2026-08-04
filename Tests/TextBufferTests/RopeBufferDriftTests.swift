@@ -301,6 +301,224 @@ final class RopeBufferDriftTests: XCTestCase {
         assertUnsafeCharacterMatches(allASCII, locations: [0, allASCII.utf16.count - 1])
     }
 
+    // MARK: - Text Analysis Queries
+
+    /// Oracle comparison for `lineRange(for:)`: both rope-backed buffer types must return
+    /// exactly what `MutableStringBuffer` (Foundation's `NSString.lineRange(for:)`) returns.
+    private func assertLineRangeMatches(_ string: String, ranges: [NSRange], file: StaticString = #filePath, line: UInt = #line) throws {
+        let msb = MutableStringBuffer(string)
+        let rb = RopeBuffer(string)
+        let srb = SendableRopeBuffer(string)
+        for searchRange in ranges {
+            let expected = try msb.lineRange(for: searchRange)
+            XCTAssertEqual(try rb.lineRange(for: searchRange), expected, "RopeBuffer lineRange diverges for \(searchRange) in \(string.debugDescription)", file: file, line: line)
+            XCTAssertEqual(try srb.lineRange(for: searchRange), expected, "SendableRopeBuffer lineRange diverges for \(searchRange) in \(string.debugDescription)", file: file, line: line)
+        }
+    }
+
+    /// Oracle comparison for `wordRange(for:)`: both rope-backed buffer types must return
+    /// exactly what `MutableStringBuffer` (the full-document `computeWordRange`) returns.
+    private func assertWordRangeMatches(_ string: String, ranges: [NSRange], file: StaticString = #filePath, line: UInt = #line) throws {
+        let msb = MutableStringBuffer(string)
+        let rb = RopeBuffer(string)
+        let srb = SendableRopeBuffer(string)
+        for searchRange in ranges {
+            let expected = try msb.wordRange(for: searchRange)
+            XCTAssertEqual(try rb.wordRange(for: searchRange), expected, "RopeBuffer wordRange diverges for \(searchRange) in \(string.debugDescription)", file: file, line: line)
+            XCTAssertEqual(try srb.wordRange(for: searchRange), expected, "SendableRopeBuffer wordRange diverges for \(searchRange) in \(string.debugDescription)", file: file, line: line)
+        }
+    }
+
+    /// Every zero-length range in the document, `0...count`.
+    private func allZeroLengthRanges(in string: String) -> [NSRange] {
+        return (0...string.utf16.count).map { NSRange(location: $0, length: 0) }
+    }
+
+    func testLineRangeDelimiterZooMatchesMutableStringBuffer() throws {
+        for delimiter in ["\n", "\r", "\r\n", "\u{0085}", "\u{2028}", "\u{2029}"] {
+            // Two content lines, an empty line, and a trailing line without a terminator.
+            let string = "aa" + delimiter + "bbb" + delimiter + delimiter + "cc"
+            let count = string.utf16.count
+            var ranges = allZeroLengthRanges(in: string)
+            ranges.append(NSRange(location: 3, length: 1))                          // inside a line
+            ranges.append(NSRange(location: 0, length: count))                      // whole document
+            ranges.append(NSRange(location: 1, length: count - 2))                  // spanning multiple lines
+            ranges.append(NSRange(location: 0, length: 2 + delimiter.utf16.count))  // ends exactly on a line start
+            try assertLineRangeMatches(string, ranges: ranges)
+        }
+    }
+
+    func testLineRangeMixedDelimitersMatchMutableStringBuffer() throws {
+        let string = "a\nb\rc\r\nd\u{0085}e\u{2028}f\u{2029}g"
+        let count = string.utf16.count
+        var ranges = allZeroLengthRanges(in: string)
+        for length in [1, 2, 3, 5] {
+            for location in 0...(count - length) {
+                ranges.append(NSRange(location: location, length: length))
+            }
+        }
+        try assertLineRangeMatches(string, ranges: ranges)
+    }
+
+    func testLineRangeInsideCRLFMatchesMutableStringBuffer() throws {
+        // NSString treats a location between the `\r` and `\n` of a CRLF pair as part of
+        // the line the CRLF terminates; the pair is one delimiter, longest match preferred.
+        try assertLineRangeMatches("ab\r\ncd\r\n", ranges: [
+            NSRange(location: 3, length: 0),  // between \r and \n
+            NSRange(location: 7, length: 0),  // between the second \r and \n
+            NSRange(location: 2, length: 1),  // covers only the \r
+            NSRange(location: 3, length: 1),  // covers only the \n
+            NSRange(location: 0, length: 3),  // ends between \r and \n
+            NSRange(location: 2, length: 2),  // covers exactly the CRLF
+        ])
+    }
+
+    func testLineRangeDocumentEdgesMatchMutableStringBuffer() throws {
+        // Trailing line without a terminator, ranges at document start and end.
+        let string = "ab\ncd"
+        try assertLineRangeMatches(string, ranges: allZeroLengthRanges(in: string) + [
+            NSRange(location: 0, length: 0),
+            NSRange(location: 5, length: 0),
+            NSRange(location: 0, length: 5),
+            NSRange(location: 3, length: 2),
+            NSRange(location: 0, length: 3),  // ends exactly on the "cd" line start
+        ])
+
+        // Trailing delimiter: the zero-length range at the document end is its own empty line.
+        try assertLineRangeMatches("ab\n", ranges: allZeroLengthRanges(in: "ab\n"))
+
+        // Delimiter-free document: the whole document is one line.
+        let plain = "delimiter free document"
+        try assertLineRangeMatches(plain, ranges: allZeroLengthRanges(in: plain) + [
+            NSRange(location: 0, length: plain.utf16.count),
+            NSRange(location: 4, length: 9),
+        ])
+
+        try assertLineRangeMatches("", ranges: [NSRange(location: 0, length: 0)])
+    }
+
+    func testLineRangeAcrossChunkSeamsMatchesMutableStringBuffer() throws {
+        // >4KiB of 32-unit CRLF-terminated lines: the rope holds multiple leaves, and the
+        // CRLF pairs land near the 2048-byte chunk region. Sweeping every offset forces
+        // scans across every leaf seam.
+        let line = String(repeating: "x", count: 30) + "\r\n"
+        let manyShortLines = String(repeating: line, count: 160)  // 5,120 UTF-16 units
+        var ranges = allZeroLengthRanges(in: manyShortLines)
+        for location in stride(from: 0, through: 5000, by: 97) {
+            ranges.append(NSRange(location: location, length: 100))  // spans multiple lines and seams
+        }
+        try assertLineRangeMatches(manyShortLines, ranges: ranges)
+
+        // Lines longer than the 128-unit scan block, one longer than a 2048-unit leaf:
+        // the block-walks must cross block boundaries (offsets 127/128/129 relative to a
+        // delimiter) and leaf seams mid-line. Sweeping every offset covers them all.
+        let longLines = "aa\r\n"
+            + String(repeating: "y", count: 300) + "\r\n"
+            + String(repeating: "z", count: 4000) + "\r\n"
+            + "tail"
+        try assertLineRangeMatches(longLines, ranges: allZeroLengthRanges(in: longLines))
+    }
+
+    func testWordRangeZooMatchesMutableStringBuffer() throws {
+        for string in [
+            "don't stop believing",       // apostrophes
+            "a well-known example",       // hyphens
+            "😀😀😀 abc😀def",             // emoji words, emoji adjacent to letters
+            "word",                       // document edges without surrounding whitespace
+        ] {
+            var ranges = allZeroLengthRanges(in: string)
+            ranges.append(NSRange(location: 0, length: string.utf16.count))
+            ranges.append(NSRange(location: 2, length: min(3, string.utf16.count - 2)))
+            try assertWordRangeMatches(string, ranges: ranges)
+        }
+    }
+
+    func testWordRangeCrossingWindowRadiusMatchesMutableStringBuffer() throws {
+        // A word longer than 256 UTF-16 units: the initial 128-unit window radius cannot
+        // contain it, so the result must come from a doubled window.
+        let longWord = String(repeating: "a", count: 300)
+        let string = "start " + longWord + " end"
+        try assertWordRangeMatches(string, ranges: [
+            NSRange(location: 6, length: 0),        // word start
+            NSRange(location: 156, length: 0),      // word middle
+            NSRange(location: 306, length: 0),      // word end
+            NSRange(location: 146, length: 20),     // span inside the word
+            NSRange(location: 0, length: 0),        // document start
+            NSRange(location: string.utf16.count, length: 0),  // document end
+        ])
+    }
+
+    func testWordRangeWhitespaceRunsMatchMutableStringBuffer() throws {
+        let run = String(repeating: "  \n ", count: 75)  // 300 units of spaces and newlines
+
+        // Words on both sides, nearest word beyond the initial window radius.
+        let interior = "word" + run + "tail"
+        try assertWordRangeMatches(interior, ranges: [
+            NSRange(location: 154, length: 0),  // mid-run, both words beyond the radius
+            NSRange(location: 20, length: 0),   // word only upstream within the radius
+            NSRange(location: 290, length: 0),  // word only downstream within the radius
+            NSRange(location: 100, length: 50), // non-empty range inside the run
+            NSRange(location: 4, length: 0),
+            NSRange(location: 304, length: 0),
+        ])
+
+        // One-sided runs: whitespace reaches the document edge on one side.
+        let leading = run + "word"
+        try assertWordRangeMatches(leading, ranges: [
+            NSRange(location: 0, length: 0),
+            NSRange(location: 150, length: 0),
+            NSRange(location: 299, length: 0),
+        ])
+        let trailing = "word" + run
+        try assertWordRangeMatches(trailing, ranges: [
+            NSRange(location: 150, length: 0),
+            NSRange(location: 5, length: 0),
+            NSRange(location: trailing.utf16.count, length: 0),
+        ])
+
+        // All-whitespace document: no word anywhere, however far the window grows.
+        try assertWordRangeMatches(run, ranges: [
+            NSRange(location: 0, length: 0),
+            NSRange(location: 150, length: 0),
+            NSRange(location: 150, length: 20),
+            NSRange(location: run.utf16.count, length: 0),
+        ])
+    }
+
+    func testTextAnalysisQueriesThrowOutOfRangeIdenticallyToMutableStringBuffer() throws {
+        let string = "0123456789"
+        let msb = MutableStringBuffer(string)
+        let rb = RopeBuffer(string)
+        let srb = SendableRopeBuffer(string)
+
+        func caught(_ body: () throws -> NSRange) -> BufferAccessFailure? {
+            do { _ = try body(); return nil } catch { return error as? BufferAccessFailure }
+        }
+
+        for invalid in [
+            NSRange(location: 20, length: 0),         // past the end
+            NSRange(location: 5, length: 10),         // length overruns the end
+            NSRange(location: -1, length: 0),         // negative location
+            NSRange(location: NSNotFound, length: 0), // NSNotFound
+        ] {
+            guard let expectedLine = caught({ try msb.lineRange(for: invalid) }),
+                  let expectedWord = caught({ try msb.wordRange(for: invalid) })
+            else {
+                XCTFail("MutableStringBuffer did not throw for \(invalid); the zoo expects an out-of-range oracle")
+                continue
+            }
+            for (label, lineFailure, wordFailure) in [
+                ("RopeBuffer", caught({ try rb.lineRange(for: invalid) }), caught({ try rb.wordRange(for: invalid) })),
+                ("SendableRopeBuffer", caught({ try srb.lineRange(for: invalid) }), caught({ try srb.wordRange(for: invalid) })),
+            ] {
+                XCTAssertEqual(lineFailure?.label, expectedLine.label, "\(label) lineRange failure diverges for \(invalid)")
+                XCTAssertEqual(lineFailure?.context, expectedLine.context, "\(label) lineRange failure diverges for \(invalid)")
+                XCTAssertEqual(wordFailure?.label, expectedWord.label, "\(label) wordRange failure diverges for \(invalid)")
+                XCTAssertEqual(wordFailure?.context, expectedWord.context, "\(label) wordRange failure diverges for \(invalid)")
+            }
+        }
+    }
+
     // MARK: - Sequential Operations
 
     func testSequentialInsertsThenDelete() throws {

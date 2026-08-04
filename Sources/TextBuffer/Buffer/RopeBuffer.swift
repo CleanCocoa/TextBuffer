@@ -4,9 +4,10 @@ import TextRope
 /// A ``Buffer`` implementation backed by a `TextRope` for efficient manipulation of large texts.
 ///
 /// `RopeBuffer` provides O(log n) insert, delete, and replace operations, making it a better choice
-/// than ``MutableStringBuffer`` for editing very large documents. The text-analysis queries are the
-/// exception: ``lineRange(for:)`` and `wordRange(for:)` currently materialize the full document on
-/// every call, so they are O(n) in document length.
+/// than ``MutableStringBuffer`` for very large documents. The text-analysis queries
+/// ``lineRange(for:)`` and ``wordRange(for:)`` are O(log n + result length) via windowed rope
+/// reads — they never materialize the full document, though a delimiter-free document degenerately
+/// makes the line (and thus the result) the whole document.
 ///
 /// `RopeBuffer` is a reference type and is **not** `Sendable`. For a thread-safe value-type alternative,
 /// use ``SendableRopeBuffer``.
@@ -35,7 +36,6 @@ public final class RopeBuffer: Buffer, TextAnalysisCapable {
     @inlinable
     public var content: String { rope.content }
 
-    @inlinable
     public func lineRange(for searchRange: NSRange) throws(BufferAccessFailure) -> NSRange {
         guard contains(range: searchRange) else {
             throw BufferAccessFailure.outOfRange(
@@ -43,8 +43,17 @@ public final class RopeBuffer: Buffer, TextAnalysisCapable {
                 available: self.range
             )
         }
-        // TODO: [M3 Rope Queries] lineRange materializes the full document per call via `self.content as NSString`; replace with summary-guided rope traversal before making large-document claims.
-        return (self.content as NSString).lineRange(for: searchRange)
+        return rope.lineRange(for: searchRange)
+    }
+
+    public func wordRange(for searchRange: NSRange) throws(BufferAccessFailure) -> NSRange {
+        guard contains(range: searchRange) else {
+            throw BufferAccessFailure.outOfRange(
+                requested: searchRange,
+                available: self.range
+            )
+        }
+        return rope.wordRange(for: searchRange)
     }
 
     @inlinable

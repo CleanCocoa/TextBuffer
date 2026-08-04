@@ -9,9 +9,10 @@ public typealias EditingBuffer = TransferableUndoable<RopeBuffer>
 /// `SendableRopeBuffer` combines efficient rope-based text storage with a self-contained operation log,
 /// making it safe to pass across actor boundaries while preserving full undo history.
 ///
-/// The rope makes insert, delete, and replace O(log n) in document length. The text-analysis queries
-/// are the exception: the inherited `lineRange(for:)` and `wordRange(for:)` defaults currently
-/// materialize the full document on every call, so they are O(n) in document length.
+/// The rope makes insert, delete, and replace O(log n) in document length. The text-analysis
+/// queries ``lineRange(for:)`` and ``wordRange(for:)`` are O(log n + result length) via windowed
+/// rope reads — they never materialize the full document, though a delimiter-free document
+/// degenerately makes the line (and thus the result) the whole document.
 ///
 /// ## Undo and Redo
 ///
@@ -65,6 +66,26 @@ public struct SendableRopeBuffer: TextBuffer, TextAnalysisCapable, Sendable {
 
     public func unsafeCharacter(at location: Int) -> String {
         return rope.composedCharacterSequence(at: location)
+    }
+
+    public func lineRange(for searchRange: NSRange) throws(BufferAccessFailure) -> NSRange {
+        guard contains(range: searchRange) else {
+            throw BufferAccessFailure.outOfRange(
+                requested: searchRange,
+                available: self.range
+            )
+        }
+        return rope.lineRange(for: searchRange)
+    }
+
+    public func wordRange(for searchRange: NSRange) throws(BufferAccessFailure) -> NSRange {
+        guard contains(range: searchRange) else {
+            throw BufferAccessFailure.outOfRange(
+                requested: searchRange,
+                available: self.range
+            )
+        }
+        return rope.wordRange(for: searchRange)
     }
 
     public mutating func insert(_ content: String, at location: Int) throws(BufferAccessFailure) {
