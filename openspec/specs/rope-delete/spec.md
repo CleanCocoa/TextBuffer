@@ -7,6 +7,8 @@ Guarantees correct deletion of any UTF-16 range from a `TextRope`: content is re
 
 The `TextRope` type SHALL provide a `mutating func delete(in utf16Range: Range<Int>)` method that removes the content within the specified half-open UTF-16 code unit range. The range MUST be valid: `utf16Range.lowerBound >= 0`, `utf16Range.upperBound <= utf16Count`. After deletion, the rope's `utf16Count` SHALL equal the previous `utf16Count` minus the deleted range's `count`. The rope's `content` SHALL equal the original content with the specified range removed.
 
+Bounds validation MUST precede the empty-range early return: an empty range at an out-of-bounds location MUST cause a precondition failure even though nothing would be deleted. An empty range at an in-bounds location (`0 <= k <= utf16Count` for `k..<k`) SHALL be a no-op.
+
 #### Scenario: Delete from a single-leaf rope
 - **WHEN** a rope contains `"hello world"` and `delete(in: 5..<11)` is called
 - **THEN** `content` is `"hello"` and `utf16Count` is `5`
@@ -24,7 +26,7 @@ The `TextRope` type SHALL provide a `mutating func delete(in utf16Range: Range<I
 - **THEN** `content` is `"herld"`
 
 #### Scenario: Delete empty range is a no-op
-- **WHEN** `delete(in: 3..<3)` is called on a rope containing `"hello"`
+- **WHEN** `delete(in: k..<k)` is called with an in-bounds `k` (`0 <= k <= utf16Count`) — e.g. `delete(in: 3..<3)` on a rope containing `"hello"`
 - **THEN** `content` remains `"hello"` and the tree structure is unchanged
 
 #### Scenario: Delete with multi-byte characters
@@ -37,7 +39,12 @@ The `TextRope` type SHALL provide a `mutating func delete(in utf16Range: Range<I
 
 #### Scenario: Out-of-bounds range traps
 - **WHEN** `delete(in:)` is called with `lowerBound < 0` or `upperBound > utf16Count`
+- **THEN** a precondition failure MUST occur, whether the range is empty or not
+
+#### Scenario: Empty out-of-bounds range traps
+- **WHEN** `delete(in: k..<k)` is called with `k > utf16Count` or `k < 0` — e.g. `delete(in: 500..<500)` on a rope containing `"hello"`
 - **THEN** a precondition failure MUST occur
+- **AND** the call SHALL NOT silently succeed as a no-op
 
 ### Requirement: Delete spanning multiple leaves
 When the UTF-16 range spans multiple leaves in the rope tree, the delete operation SHALL correctly remove content across all affected leaves. The start leaf SHALL lose its suffix from the start offset onward. Intermediate leaves SHALL be removed entirely. The end leaf SHALL lose its prefix up to the end offset. The resulting tree MUST remain structurally valid with correct summaries.

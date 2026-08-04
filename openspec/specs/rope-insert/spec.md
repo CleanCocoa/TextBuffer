@@ -2,10 +2,11 @@
 
 ## Purpose
 Guarantees correct insertion at any UTF-16 offset of a `TextRope`: content is spliced exactly where requested (never between surrogate halves), an overflowing leaf is re-chunked in a single linear pass through the same grapheme-first split helper construction and redistribution use, splits propagate upward with uniform leaf depth and exact summaries at every node, a `\r\n` seam left at a leaf boundary is repaired without violating the chunk-size bounds, and copy-on-write path-copying keeps shared copies independent while a single-owner insert mutates in place.
-
 ## Requirements
 ### Requirement: Insert at UTF-16 offset
 The `TextRope` type SHALL provide a `mutating func insert(_ string: String, at utf16Offset: Int)` method that inserts the given string at the specified UTF-16 code unit offset. The offset MUST be in the range `0...utf16Count`. After insertion, the rope's `utf16Count` SHALL equal the previous `utf16Count` plus the inserted string's UTF-16 length. The rope's `content` SHALL equal the original content with the string spliced at the corresponding position.
+
+Offset validation MUST precede the empty-string early return: an offset outside `0...utf16Count` MUST cause a precondition failure even when the string is empty. Inserting an empty string at an in-bounds offset SHALL be a no-op.
 
 #### Scenario: Insert into empty rope
 - **WHEN** `insert("hello", at: 0)` is called on an empty rope
@@ -24,7 +25,7 @@ The `TextRope` type SHALL provide a `mutating func insert(_ string: String, at u
 - **THEN** `content` is `"hello"`
 
 #### Scenario: Insert empty string is a no-op
-- **WHEN** `insert("", at: 0)` is called on a rope containing `"hello"`
+- **WHEN** `insert("", at: k)` is called with an in-bounds `k` (`0 <= k <= utf16Count`) — e.g. `insert("", at: 0)` on a rope containing `"hello"`
 - **THEN** `content` remains `"hello"` and the tree structure is unchanged
 
 #### Scenario: Insert with multi-byte characters
@@ -34,6 +35,11 @@ The `TextRope` type SHALL provide a `mutating func insert(_ string: String, at u
 #### Scenario: Insert between surrogate pair boundary
 - **WHEN** a rope contains `"a🎉b"` (UTF-16: `a`, high surrogate, low surrogate, `b`) and `insert("x", at: 1)` is called
 - **THEN** `content` is `"ax🎉b"` — the insertion goes before the emoji, not between surrogate halves
+
+#### Scenario: Out-of-bounds offset traps
+- **WHEN** `insert(_:at:)` is called with an offset outside `0...utf16Count` — negative or past the end — whether the string is non-empty or empty, e.g. `insert("x", at: 500)` or `insert("", at: 500)` on a rope containing `"hello"`
+- **THEN** a precondition failure MUST occur
+- **AND** the empty-string call SHALL NOT silently succeed as a no-op
 
 ### Requirement: COW path-copying on insert
 When a `TextRope` value is copied (via Swift's value semantics) and one copy is mutated via `insert`, the mutation SHALL NOT affect the other copy. The implementation MUST use copy-on-write path-copying: only nodes along the mutation path from root to the affected leaf are copied. Shared subtrees not on the mutation path MUST remain shared (reference-identical).
