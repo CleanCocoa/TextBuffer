@@ -2,6 +2,8 @@
 
 Defects filed against 0.9.1 (`5cf2638`; found at 0.9.0 by the 2026-07-29 four-agent review of the M2 gap-closure fold `0.8.2..0.9.0`). **Resolved in 0.10.0** (2026-08-04) except the two explicitly deferred halves: DEF-011's read fast path (benchmark-driven) and DEF-012's O(log n) queries (M3 Rope Queries). Line references in the defect bodies describe the 0.9.1 code they were filed against.
 
+DEF-015 and DEF-016 were filed against the not-yet-pushed 0.10.0 (`438c041`) by the 2026-08-04 post-release review; both repros verified against that tag. Their line references describe 0.10.0 code.
+
 Status values: `open`, `in-progress`, `fixed`, `wontfix`.
 
 ## Triage (2026-07-31)
@@ -93,6 +95,24 @@ Fixed 2026-08-03 (`46ee53f`, change `fix-rope-cow-and-equality-coverage`): the d
 Fixed 2026-08-03 (`03ebba7`, change `fix-composed-sequence-reads`): preconditions moved ahead of the empty-range early returns in `content(in:)` and both composed-sequence APIs; six process-exit tests pin past-end, negative, and `NSNotFound` locations. 0.10.0 behavior tightening.
 
 `TextRope+Navigation.swift:30` and `TextRope+ComposedSequences.swift:9`: `length == 0` early-returns before the preconditions, so `content(in: NSRange(location: 500, length: 0))` (also negative / `NSNotFound` locations) silently returns `""` on a 5-char rope. Violates `openspec/specs/rope-utf16-navigation/spec.md:75-77`. Flagged in the 2026-07-28 audit; not fixed by the fold and copied into the new API. Contained at the buffer layer (RopeBuffer guards with `contains(range:)`).
+
+### DEF-015: Empty-operand mutations bypass out-of-bounds preconditions — `open`
+
+The delete/insert sibling of DEF-004, which fixed only the read APIs. Both mutation primitives early-return on an empty operand *before* their bounds preconditions:
+
+- `TextRope+Delete.swift:6`: `if utf16Range.isEmpty { return }` precedes both preconditions, so `TextRope("hello").delete(in: 500..<500)` silently succeeds. Violates the canonical trap requirement (`openspec/specs/rope-delete/spec.md` "Out-of-bounds range traps": `upperBound > utf16Count` MUST trap — an empty range at 500 has `upperBound == 500`). Verified 2026-08-04.
+- `TextRope+Insert.swift:4`: `if string.isEmpty { return }` precedes the offset precondition, so `TextRope("hello").insert("", at: 500)` silently succeeds. The insert spec states the offset "MUST be in the range `0...utf16Count`" but has no trap scenario; its empty-string no-op scenario uses an in-bounds offset only.
+
+The `NSRange` wrapper (`Sources/TextBuffer/TextRope+NSRange.swift:28-33`) validates only `NSNotFound`/negative encodings and forwards `location ..< location + length`, its doc stating the primitive "owns the bounds checks against `utf16Count`" — so `delete(in: NSRange(location: 500, length: 0))` silently succeeds too. `replace(range:with:)` is unaffected (its own preconditions run before composing). Buffer layer contained as with DEF-004 (`contains(range:)` guards throw first).
+
+### DEF-016: Insert and delete create leaf seams inside grapheme clusters — `open`
+
+ADR-012 enforces `Character` boundaries at *split points*, but a seam-spanning cluster can also form by *adjacency change*, and seam repair handles only the CRLF case. Two verified repros (2026-08-04, both flagged by the test-side `leafSeamViolations` validator, suite otherwise green):
+
+- **Insert** (`TextRope+Insert.swift:90-91`): inserting a grapheme extender at an existing leaf boundary — `"\u{301}"` at offset 2048 in 4,096 ASCII `a`s — splices at leaf-local offset 0 of the right leaf. The overflow re-chunk yields leaves `[2048, 1025, 1025]`; no edge chunk is undersized, so `redistributeStarvedEdge` skips, and the seam check covers only `crlfSeam`. The cluster `a\u{301}` spans the seam after leaf 0.
+- **Delete**: deleting a base character whose extender starts the next leaf exposes a new adjacency — `TextRope("a"×2048 + "b\u{301}" + "c"×2045)`, `delete(in: 2048..<2049)` removes the `b`, leaving the right leaf starting with `\u{301}` next to leaf 0's trailing `a`. The delete path's seam handling is likewise `crlfSeam`-only, and the right leaf is not undersized, so no merge fires.
+
+Violates `openspec/specs/rope-core-types/spec.md:222-224` ("no grapheme cluster SHALL span a chunk seam"). Reads remain code-unit-faithful — `content(in:)` slices by UTF-16 offsets and concatenation preserves counts, so no wrong content is observable and DEF-009's window-length precondition never fires — but the structural invariant that precondition's justification (and ADR-012's reasoning generally) rests on is broken. Coverage gap: the stress alphabet never inserts lone extenders, so the per-operation validator (DEF-007) never sees the shape. Root-cause note: `\r\n` is just one grapheme cluster — the CRLF-only seam machinery is the special case of the repair this defect requires.
 
 ### DEF-005: `TextRope: Equatable` has zero tests — `fixed`
 
