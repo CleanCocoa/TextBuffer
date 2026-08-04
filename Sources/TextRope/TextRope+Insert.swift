@@ -45,9 +45,9 @@ extension TextRope {
                     }
                     updateSummary(node)
                 }
-                if i > 0 && Self.crlfSeam(between: node.children[i - 1], and: node.children[i]) {
+                if i > 0 && Self.graphemeSeam(between: node.children[i - 1], and: node.children[i]) {
                     node.ensureUniqueChild(at: i - 1)
-                    let repair = repairCRLFSeam(between: node.children[i - 1], and: node.children[i])
+                    let repair = repairGraphemeSeam(between: node.children[i - 1], and: node.children[i])
                     if repair.removeRight {
                         node.children.remove(at: i)
                     } else if !repair.siblings.isEmpty {
@@ -98,10 +98,18 @@ extension TextRope {
         node.children.replaceSubrange(lower...(lower + 1), with: replacements)
     }
 
-    /// Rebalances the leaves on either side of a CRLF seam (design D5). Returns overflow
-    /// siblings the caller must splice after the right child, and whether the right child
-    /// must be removed because the combination fits into the left leaf alone.
-    private func repairCRLFSeam(between left: Node, and right: Node) -> (siblings: [Node], removeRight: Bool) {
+    /// Repairs a grapheme seam (DEF-016): recombines the two seam leaves through
+    /// `Node.rebalancedChunks` — which splits at `Character` boundaries only, so the
+    /// repaired seam is legal by construction — and splices overflow siblings up the
+    /// right spine. CRLF (`\r\n` is one Swift `Character`) is the named special case.
+    /// Returns overflow siblings the caller must splice after the right child, and
+    /// whether the right child must be removed because the combination fits into the
+    /// left leaf alone.
+    ///
+    /// The output MAY be an ADR-012 starved shape — a minimal-shortfall undersized leaf,
+    /// or a whole-cluster oversized leaf: the seam invariant is absolute, the byte
+    /// bounds are not.
+    private func repairGraphemeSeam(between left: Node, and right: Node) -> (siblings: [Node], removeRight: Bool) {
         let leftSpine = rightmostSpine(of: left)
         let rightSpine = leftmostSpine(of: right)
         let leftLeaf = leftSpine[leftSpine.count - 1]

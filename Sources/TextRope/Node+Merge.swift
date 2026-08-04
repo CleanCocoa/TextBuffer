@@ -1,14 +1,25 @@
 extension TextRope {
-    static func crlfSeam(between left: Node, and right: Node) -> Bool {
+    /// Detects a grapheme seam between two adjacent subtrees (DEF-016): the left
+    /// subtree's last `Character` and the right subtree's first `Character` join into a
+    /// single grapheme cluster under Swift stdlib segmentation — their concatenation
+    /// forms fewer than two `Character`s. `\r\n` is the named special case (one Swift
+    /// `Character`), matched by the general rule instead of by byte comparison.
+    ///
+    /// Producer/validator pairing: this predicate must stay in agreement with the
+    /// test-side `leafSeamViolations` validator (`TreeInvariantValidation.swift`) — the
+    /// same pairing `Node.isBoundaryStarved` has for starvation. Swift stdlib
+    /// segmentation only; the TextRope target is Foundation-free (ADR-013).
+    static func graphemeSeam(between left: Node, and right: Node) -> Bool {
         var last = left
         while !last.isLeaf { last = last.children[last.children.count - 1] }
-        guard last.chunk.utf8.last == UInt8(ascii: "\r") else { return false }
+        guard let leftEdge = last.chunk.last else { return false }
 
         var first = right
         while !first.isLeaf { first = first.children[0] }
-        return first.chunk.utf8.first == UInt8(ascii: "\n")
-    }
+        guard let rightEdge = first.chunk.first else { return false }
 
+        return (String(leftEdge) + String(rightEdge)).count < 2
+    }
     static func mergeUndersizedChildren(_ node: Node) {
         guard !node.children.isEmpty else { return }
 
@@ -28,7 +39,7 @@ extension TextRope {
             i += 1
 
             while current.chunk.utf8.count < Node.minChunkUTF8
-                    || (i < node.children.count && crlfSeam(between: current, and: node.children[i])) {
+                    || (i < node.children.count && graphemeSeam(between: current, and: node.children[i])) {
                 if i < node.children.count {
                     current = combinedLeaf(current.chunk, node.children[i].chunk, redistributingInto: &merged)
                     i += 1
@@ -73,7 +84,7 @@ extension TextRope {
             i += 1
 
             while current.children.count < Node.minChildren
-                    || (i < node.children.count && crlfSeam(between: current, and: node.children[i])) {
+                    || (i < node.children.count && graphemeSeam(between: current, and: node.children[i])) {
                 if i < node.children.count {
                     current = combinedInner(current, node.children[i], redistributingInto: &merged)
                     i += 1

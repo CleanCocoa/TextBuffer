@@ -84,7 +84,10 @@ extension TextRope {
             node.children.remove(at: i)
         }
 
-        if childBecameUndersized || !indicesToRemove.isEmpty || hasCRLFSeam(node) {
+        // The seam scan is an unconditional or-term (DEF-016): a deletion can expose a
+        // joining adjacency (e.g. removing a base character whose combining mark starts
+        // the next leaf) while no child became undersized and none was removed.
+        if childBecameUndersized || !indicesToRemove.isEmpty || hasGraphemeSeam(node) {
             mergeUndersizedChildren(node)
         }
         recalculateSummary(node)
@@ -92,10 +95,10 @@ extension TextRope {
         return node.children.count < Node.minChildren
     }
 
-    private static func hasCRLFSeam(_ node: Node) -> Bool {
+    private static func hasGraphemeSeam(_ node: Node) -> Bool {
         guard node.children.count > 1 else { return false }
         for i in 0..<(node.children.count - 1) {
-            if crlfSeam(between: node.children[i], and: node.children[i + 1]) {
+            if graphemeSeam(between: node.children[i], and: node.children[i + 1]) {
                 return true
             }
         }
