@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `TextRope`: inserting or deleting near an internal chunk boundary could leave a grapheme cluster — for example a combining mark and its base character, a zero-width-joiner sequence, or a variation selector with its base — spanning two internal chunks, violating the rope's structural invariant that no cluster crosses a chunk seam. Seam repair previously recognized only the CRLF pair; it now covers all grapheme clusters, with CRLF as one case of the general rule. No API or content behavior change — document text, counts, and all read results are identical; only internal leaf-boundary placement differs.
+
 ### Changed
 
 - `TextRope.delete(in:)` with an empty out-of-bounds range, `TextRope.insert("", at:)` with an out-of-bounds offset, and the TextBuffer `NSRange` delete wrapper with a zero-length out-of-bounds location now trap instead of silently succeeding — the bounds preconditions run before the empty-operand early returns, matching the 0.10.0 tightening of the read APIs. In-bounds empty operands remain no-ops. `RopeBuffer` and `SendableRopeBuffer` are unaffected — they validate ranges before delegating.
