@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- `TextRope.delete(in:)` with an empty out-of-bounds range, `TextRope.insert("", at:)` with an out-of-bounds offset, and the TextBuffer `NSRange` delete wrapper with a zero-length out-of-bounds location now trap instead of silently succeeding — the bounds preconditions run before the empty-operand early returns, matching the 0.10.0 tightening of the read APIs. In-bounds empty operands remain no-ops. `RopeBuffer` and `SendableRopeBuffer` are unaffected — they validate ranges before delegating.
+
 ## 0.10.0
 
 ### Changed

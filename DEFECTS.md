@@ -96,7 +96,9 @@ Fixed 2026-08-03 (`03ebba7`, change `fix-composed-sequence-reads`): precondition
 
 `TextRope+Navigation.swift:30` and `TextRope+ComposedSequences.swift:9`: `length == 0` early-returns before the preconditions, so `content(in: NSRange(location: 500, length: 0))` (also negative / `NSNotFound` locations) silently returns `""` on a 5-char rope. Violates `openspec/specs/rope-utf16-navigation/spec.md:75-77`. Flagged in the 2026-07-28 audit; not fixed by the fold and copied into the new API. Contained at the buffer layer (RopeBuffer guards with `contains(range:)`).
 
-### DEF-015: Empty-operand mutations bypass out-of-bounds preconditions — `open`
+### DEF-015: Empty-operand mutations bypass out-of-bounds preconditions — `fixed`
+
+Fixed 2026-08-04 (`3f67a1c`, change `fix-empty-operand-oob-mutations`): the DEF-004 decision applied identically to the mutation side — preconditions moved ahead of the empty-operand early returns in `delete(in:)` and `insert(_:at:)`, so empty out-of-bounds operands trap; in-bounds empty operations remain no-ops (the early returns still precede `ensureUnique()`, so no path copy). The `NSRange` delete wrapper inherits the fix through forwarding, untouched. Five process-exit tests pin the traps (`Range<Int>` delete pair, empty-string insert pair, `NSRange` wrapper forward); no-op pins cover the in-bounds boundary offsets. 0.10.1 behavior tightening.
 
 The delete/insert sibling of DEF-004, which fixed only the read APIs. Both mutation primitives early-return on an empty operand *before* their bounds preconditions:
 
