@@ -269,6 +269,38 @@ final class RopeBufferDriftTests: XCTestCase {
         assertUnsafeCharacterMatches(string, locations: [4300, 4302, 5000, 5002, 7001, 9000, 9002, 9998, 9999])
     }
 
+    func testMixedContentEveryOffsetMatchesMutableStringBuffer() {
+        // Every non-ASCII feature bracketed by printable ASCII on both sides, so every
+        // boundary between a simple ASCII context and a complex cluster context occurs
+        // (spec `rope-buffer-drift`: mixed-content every-offset point-read equivalence).
+        let string = "The quick 😀 brown e\u{301} fox 👨\u{200D}👩\u{200D}👧\u{200D}👦 jumps\r\nover \u{1F1E9}\u{1F1EA}\u{1F1EB}\u{1F1F7}\u{1F1EE}\u{1F1F9} lazy \u{1F1E9} dogs."
+        assertUnsafeCharacterMatches(string, locations: 0..<string.utf16.count)
+    }
+
+    func testMixedContentAdjacencyCasesMatchMutableStringBuffer() {
+        // Safe current unit with unsafe neighbors on both sides: the single ASCII
+        // characters wedged between two non-ASCII features.
+        let wedged = "a😀x😀e\u{301}y\u{1F1E9}\u{1F1EA}b"
+        // Offsets: a=0, 😀=1..2, x=3, 😀=4..5, e=6, ́=7, y=8, 🇩🇪=9..12, b=13.
+        assertUnsafeCharacterMatches(wedged, locations: 0..<wedged.utf16.count)
+
+        // Printable ASCII immediately before and after the CRLF pair, plus the CR and LF
+        // offsets themselves — the pinned NSString-vs-grapheme divergence point.
+        let crlf = "ab\r\ncd"
+        assertUnsafeCharacterMatches(crlf, locations: [1, 2, 3, 4])
+        assertUnsafeCharacterMatches(crlf, locations: 0..<crlf.utf16.count)
+
+        // A document that starts and ends with non-ASCII: the document-edge-is-safe rule
+        // must never claim an edge offset whose unit is itself outside the safe set.
+        let nonASCIIEdges = "😀 middle e\u{301}"
+        assertUnsafeCharacterMatches(nonASCIIEdges, locations: 0..<nonASCIIEdges.utf16.count)
+
+        // All-ASCII document edges: offset 0 and the final offset, where the absent
+        // neighbor counts as safe.
+        let allASCII = "plain ascii document"
+        assertUnsafeCharacterMatches(allASCII, locations: [0, allASCII.utf16.count - 1])
+    }
+
     // MARK: - Sequential Operations
 
     func testSequentialInsertsThenDelete() throws {

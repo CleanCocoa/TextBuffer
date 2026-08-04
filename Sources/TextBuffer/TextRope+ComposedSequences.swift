@@ -34,12 +34,39 @@ extension TextRope {
         }
     }
 
+    /// The fast path's safe set: printable ASCII (spec `rope-utf16-navigation`,
+    /// "Simple-cluster point reads take a bounded fast path"; `perf-read-fast-path`
+    /// design D1). Deliberately excludes every control character — CR, LF, TAB, all of
+    /// `0x00..<0x20`, and DEL at `0x7F` — see the parity argument below and design D2.
+    private static let printableASCII: ClosedRange<UTF16.CodeUnit> = 0x20...0x7E
+
     /// The full composed character sequence containing `utf16Offset`,
     /// matching `NSString.rangeOfComposedCharacterSequence(at:)`.
     ///
     /// - Invariant: `utf16Offset` must be in `0..<utf16Count`.
     public func composedCharacterSequence(at utf16Offset: Int) -> String {
         precondition(utf16Offset >= 0 && utf16Offset < utf16Count, "composed sequence offset \(utf16Offset) out of range 0..<\(utf16Count)")
+
+        // Simple-cluster fast path (spec `rope-utf16-navigation`; design D1/D2): when the
+        // units at `utf16Offset - 1`, `utf16Offset`, and `utf16Offset + 1` — those that
+        // exist — are all printable ASCII, the composed sequence is provably `{offset, 1}`
+        // and full-document `NSString` expansion would return exactly the one-unit string:
+        // the current unit is a complete scalar (no surrogate halves in the safe set), the
+        // sequence cannot extend rightward (combining marks, ZWJ, variation selectors,
+        // emoji modifiers, and the LF of a CRLF pair are all outside `0x20...0x7E`), and
+        // it cannot extend leftward (no printable-ASCII pair forms one composed sequence —
+        // among ASCII only CR×LF binds, and both are excluded controls; every other
+        // cross-boundary binder is non-ASCII). A missing neighbor at a document edge is an
+        // unconditional boundary (GB1/GB2), so it counts as safe. The *neighbor* checks
+        // carry the parity proof — "current is ASCII" alone would miss a combining mark
+        // after the offset or a cluster continuing across it. CR and LF themselves always
+        // fall through: whether `\r\n` splits under `rangeOfComposedCharacterSequence` is
+        // the pinned platform divergence, and the fast path never adjudicates it (D2).
+        let probe = utf16CodeUnits(in: max(0, utf16Offset - 1) ..< min(utf16Count, utf16Offset + 2))
+        if probe.allSatisfy({ Self.printableASCII.contains($0) }) {
+            return String(UnicodeScalar(UInt8(probe[utf16Offset == 0 ? 0 : 1])))
+        }
+
         return expandingWindow(around: NSRange(location: utf16Offset, length: 1)) { window, local in
             window.rangeOfComposedCharacterSequence(at: local.location)
         }
