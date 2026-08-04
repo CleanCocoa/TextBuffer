@@ -564,16 +564,11 @@ final class TextRopeStressTests: XCTestCase {
         "😀", "🎉", "🚀",
         "𝄞", "𝕳",
         "\r\n",
-        // DEF-016 wants lone grapheme extenders here ("\u{301}", "\u{200D}", "\u{FE0F}"):
-        // they join *leftward* with whatever character precedes their insertion point, so
-        // random placement can form a grapheme cluster across a pre-existing leaf
-        // adjacency — the class a pool of self-contained characters can never produce.
-        // Blocked (2026-08-04, fix-grapheme-seam-repair task 5.1): adding them reshuffles
-        // every RNG draw, and all five pinned seeds then walk into a distinct pre-existing
-        // defect — the delete-path merge takes a starved minimal-shortfall split without
-        // consulting the other-side neighbor, leaving a 1023-byte leaf the validator
-        // rightly rejects (reproduced byte-identically on pre-change sources; see the
-        // change's tasks.md 5.3 notes). Extend the alphabet once that defect is fixed.
+        // Lone grapheme extenders (DEF-016): they join *leftward* with whatever character
+        // precedes their insertion point, so random placement can form a grapheme cluster
+        // across a pre-existing leaf adjacency — the class a pool of self-contained
+        // characters can never produce.
+        "\u{301}", "\u{200D}", "\u{FE0F}",
     ]
 
     static func randomString(using rng: inout SeededRNG, maxLength: Int = 12) -> String {

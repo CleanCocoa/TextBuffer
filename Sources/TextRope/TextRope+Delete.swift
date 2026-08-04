@@ -86,8 +86,13 @@ extension TextRope {
 
         // The seam scan is an unconditional or-term (DEF-016): a deletion can expose a
         // joining adjacency (e.g. removing a base character whose combining mark starts
-        // the next leaf) while no child became undersized and none was removed.
-        if childBecameUndersized || !indicesToRemove.isEmpty || hasGraphemeSeam(node) {
+        // the next leaf) while no child became undersized and none was removed. The
+        // absorbable-starved-edge scan is another (DEF-017): a within-parent merge below
+        // can emit an undersized leaf at its parent's edge whose document-order neighbor
+        // sits under the adjacent sibling subtree, with nothing removed and no *child of
+        // this node* reporting undersize — only this or-term opens the gate for that shape.
+        if childBecameUndersized || !indicesToRemove.isEmpty || hasGraphemeSeam(node)
+            || hasAbsorbableStarvedEdge(node) {
             mergeUndersizedChildren(node)
         }
         recalculateSummary(node)
@@ -99,6 +104,16 @@ extension TextRope {
         guard node.children.count > 1 else { return false }
         for i in 0..<(node.children.count - 1) {
             if graphemeSeam(between: node.children[i], and: node.children[i + 1]) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func hasAbsorbableStarvedEdge(_ node: Node) -> Bool {
+        guard node.children.count > 1 else { return false }
+        for i in 0..<(node.children.count - 1) {
+            if absorbableStarvedEdge(between: node.children[i], and: node.children[i + 1]) {
                 return true
             }
         }

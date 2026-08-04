@@ -20,6 +20,29 @@ extension TextRope {
 
         return (String(leftEdge) + String(rightEdge)).count < 2
     }
+    /// Detects an adjacent-subtree pair whose facing edge leaves include an undersized
+    /// one that the cross-seam combination could conformingly absorb (DEF-017, design
+    /// D1/D3). Adjacency in ADR-012's starvation predicate is **document order** over
+    /// the flattened leaf sequence — which inner node groups two adjacent leaves is a
+    /// batching artifact — so an undersized leaf at its parent's edge must be judged
+    /// against the facing edge leaf of the adjacent subtree, exactly as the test-side
+    /// `chunkSizeViolations` validator does. `Node.isBoundaryStarved` is the shared
+    /// predicate (producer/validator agreement, as at `graphemeSeam` and
+    /// `redistributeStarvedEdge`); the spine walks mirror `graphemeSeam(between:)`.
+    static func absorbableStarvedEdge(between left: Node, and right: Node) -> Bool {
+        var last = left
+        while !last.isLeaf { last = last.children[last.children.count - 1] }
+
+        var first = right
+        while !first.isLeaf { first = first.children[0] }
+
+        guard last.chunk.utf8.count < Node.minChunkUTF8
+                || first.chunk.utf8.count < Node.minChunkUTF8 else { return false }
+
+        let combined = last.chunk + first.chunk
+        return !Node.isBoundaryStarved(combined[...])
+    }
+
     static func mergeUndersizedChildren(_ node: Node) {
         guard !node.children.isEmpty else { return }
 
@@ -68,9 +91,34 @@ extension TextRope {
             return Node.leaf(combined)
         }
 
-        let chunks = Node.rebalancedChunks(in: combined[...])
+        var chunks = Node.rebalancedChunks(in: combined[...]).map { String($0) }
+        // Other-side consultation (DEF-017, design D2): an undersized chunk emitted into
+        // `merged` exits the merge loop's field of view immediately, so a starved
+        // combination's left output would otherwise be accepted against *that pair* only.
+        // ADR-012 legalizes an undersized leaf only when starved against **each**
+        // adjacent leaf, so make a single redistribution attempt with `merged.last`
+        // before emitting. `Node.isBoundaryStarved` is the shared predicate — the
+        // producer-side twin of the validator's `isStarvationJustified`, the same
+        // pairing `redistributeStarvedEdge` and `graphemeSeam` maintain. Exactly one
+        // attempt per emission, no rescan of `merged`, no loop: a successful attempt
+        // emits only conforming chunks (`!isBoundaryStarved` guarantees the balanced
+        // split exists), so it cannot cascade; a failed attempt *is* the starvation
+        // proof for that side. The right-edge output (the returned chunk) needs no
+        // counterpart: if undersized it stays `current`, and the existing loop consults
+        // it rightward — or, at end of list, the `popLast` branch consults it leftward.
+        if chunks.count > 1, chunks[0].utf8.count < Node.minChunkUTF8, let previous = merged.last {
+            let pairCombined = previous.chunk + chunks[0]
+            if !Node.isBoundaryStarved(pairCombined[...]) {
+                merged.removeLast()
+                var replacements = Node.rebalancedChunks(in: pairCombined[...]).map { String($0) }
+                chunks[0] = replacements.removeLast()
+                for replacement in replacements {
+                    merged.append(Node.leaf(replacement))
+                }
+            }
+        }
         for chunk in chunks.dropLast() {
-            merged.append(Node.leaf(String(chunk)))
+            merged.append(Node.leaf(chunk))
         }
         return Node.leaf(String(chunks[chunks.count - 1]))
     }
@@ -83,8 +131,21 @@ extension TextRope {
             var current = node.children[i]
             i += 1
 
+            // The `absorbableStarvedEdge` disjunct (DEF-017, design D3) funnels a
+            // cross-parent absorbable pair through `combinedInner`, whose recursive
+            // `mergeUndersizedChildren` makes the pair same-parent so `combinedLeaf`'s
+            // other-side consultation repairs it. Termination: after the combine the
+            // predicate is false for the repaired pair (conforming or two-sided
+            // starved), and `combinedInner`'s mid-split regroups children without
+            // changing leaf adjacency, so it cannot recreate the shape; `i` advances
+            // monotonically as before. `mergeUndersizedLeaves`' combine condition
+            // needs no such disjunct: an undersized leaf in a leaf-children array is
+            // already combined by its undersize term, and the consultation at
+            // `combinedLeaf` covers the leftward blind spot.
             while current.children.count < Node.minChildren
-                    || (i < node.children.count && graphemeSeam(between: current, and: node.children[i])) {
+                    || (i < node.children.count
+                            && (graphemeSeam(between: current, and: node.children[i])
+                                    || absorbableStarvedEdge(between: current, and: node.children[i]))) {
                 if i < node.children.count {
                     current = combinedInner(current, node.children[i], redistributingInto: &merged)
                     i += 1
