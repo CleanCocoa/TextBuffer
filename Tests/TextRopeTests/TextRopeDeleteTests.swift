@@ -574,6 +574,13 @@ final class TextRopeDeleteTests: XCTestCase {
         XCTAssertEqual(rope.utf16Count, 5)
     }
 
+    func testDeleteIntRangeEmptyRangeAtEndIsNoOp() {
+        var rope = TextRope("hello")
+        rope.delete(in: 5..<5)
+        XCTAssertEqual(rope.content, "hello")
+        XCTAssertEqual(rope.utf16Count, 5)
+    }
+
     func testDeleteIntRangeSpanningSurrogatePair() {
         var rope = TextRope("a🎉b")
         rope.delete(in: 1..<3)
@@ -604,6 +611,20 @@ final class TextRopeDeleteTests: XCTestCase {
         await #expect(processExitsWith: .failure) {
             var rope = TextRope("hello")
             rope.delete(in: (-1)..<2)
+        }
+    }
+
+    @Test func `deleting traps for an empty range past the end`() async {
+        await #expect(processExitsWith: .failure) {
+            var rope = TextRope("hello")
+            rope.delete(in: 500..<500)
+        }
+    }
+
+    @Test func `deleting traps for an empty range at a negative location`() async {
+        await #expect(processExitsWith: .failure) {
+            var rope = TextRope("hello")
+            rope.delete(in: (-1) ..< (-1))
         }
     }
 }

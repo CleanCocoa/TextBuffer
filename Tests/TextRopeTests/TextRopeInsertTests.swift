@@ -1,4 +1,5 @@
 import XCTest
+import Testing
 @testable import TextRope
 
 final class TextRopeInsertTests: XCTestCase {
@@ -24,6 +25,15 @@ final class TextRopeInsertTests: XCTestCase {
         var rope = TextRope("hello")
         rope.insert("", at: 2)
         XCTAssertEqual(rope.content, "hello")
+    }
+
+    func testInsertEmptyStringAtInBoundsOffsetsIsNoOp() {
+        for offset in [0, 3, 5] {
+            var rope = TextRope("hello")
+            rope.insert("", at: offset)
+            XCTAssertEqual(rope.content, "hello", "insert(\"\", at: \(offset)) must be a no-op")
+            XCTAssertEqual(rope.utf16Count, 5, "insert(\"\", at: \(offset)) must be a no-op")
+        }
     }
 
     func testInsertCausingLeafSplit() {
@@ -420,5 +430,28 @@ final class TextRopeInsertTests: XCTestCase {
             node.isLeaf ? 1 : node.children.reduce(0) { $0 + count($1) }
         }
         return count(rope.root)
+    }
+}
+
+@Suite struct TextRopeInsertPreconditions {
+    @Test func `inserting traps for an offset past the end`() async {
+        await #expect(processExitsWith: .failure) {
+            var rope = TextRope("hello")
+            rope.insert("x", at: 500)
+        }
+    }
+
+    @Test func `inserting an empty string traps for an offset past the end`() async {
+        await #expect(processExitsWith: .failure) {
+            var rope = TextRope("hello")
+            rope.insert("", at: 500)
+        }
+    }
+
+    @Test func `inserting an empty string traps for a negative offset`() async {
+        await #expect(processExitsWith: .failure) {
+            var rope = TextRope("hello")
+            rope.insert("", at: -1)
+        }
     }
 }

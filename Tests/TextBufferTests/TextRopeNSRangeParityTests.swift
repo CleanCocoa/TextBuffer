@@ -83,8 +83,11 @@ final class TextRopeNSRangeParityTests: XCTestCase {
 }
 
 /// The wrappers own the `NSRange`-specific validation: `NSNotFound`, negative location,
-/// and negative length trap before any forwarding (zero lengths included, so the traps
-/// provably come from the wrapper, not from the primitive's bounds checks).
+/// and negative length trap before any forwarding. (Zero lengths made these traps
+/// provably wrapper-originated until DEF-015: the primitive now traps zero-length
+/// out-of-bounds forwards too, so the wrapper's preconditions merely run first. The
+/// inherited primitive trap is pinned separately in
+/// `TextRopeNSRangeForwardedPreconditions`.)
 @Suite struct TextRopeNSRangeWrapperPreconditions {
     @Test func `content traps for an NSNotFound location`() async {
         await #expect(processExitsWith: .failure) {
@@ -143,6 +146,19 @@ final class TextRopeNSRangeParityTests: XCTestCase {
         await #expect(processExitsWith: .failure) {
             var rope = TextRope("hello")
             rope.replace(range: NSRange(location: 0, length: -1), with: "x")
+        }
+    }
+}
+
+/// Unlike `TextRopeNSRangeWrapperPreconditions`, this trap intentionally comes from the
+/// forwarded primitive, not the wrapper's own `NSRange` validation: a zero-length range
+/// at an out-of-bounds location is a well-formed `NSRange`, and the primitive's bounds
+/// checks must reject it (DEF-015).
+@Suite struct TextRopeNSRangeForwardedPreconditions {
+    @Test func `delete traps for a zero-length range at an out-of-bounds location`() async {
+        await #expect(processExitsWith: .failure) {
+            var rope = TextRope("hello")
+            rope.delete(in: NSRange(location: 500, length: 0))
         }
     }
 }
