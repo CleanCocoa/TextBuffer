@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- `TextRope`: deleting near an internal chunk boundary could leave an internal chunk undersized when its other neighbor could have absorbed it, violating the rope's balance invariant — the merge accepted a starved redistribution against the pair that produced it without asking whether the neighbor on the other side could take the shortfall. The delete-path merge now consults both adjacent chunks — including across subtree boundaries — before accepting an undersized result; a chunk that genuinely cannot be balanced against either neighbor is kept as before. No API or content behavior change — document text, counts, and all read results are identical; only internal leaf-boundary placement differs.
+
 ## 0.10.1
 
 ### Fixed
