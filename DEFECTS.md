@@ -2,7 +2,7 @@
 
 Defects filed against 0.9.1 (`5cf2638`; found at 0.9.0 by the 2026-07-29 four-agent review of the M2 gap-closure fold `0.8.2..0.9.0`). **Resolved in 0.10.0** (2026-08-04) except the two explicitly deferred halves: DEF-011's read fast path (benchmark-driven) and DEF-012's O(log n) queries (M3 Rope Queries). Line references in the defect bodies describe the 0.9.1 code they were filed against.
 
-DEF-015 and DEF-016 were filed against the not-yet-pushed 0.10.0 (`438c041`) by the 2026-08-04 post-release review; both repros verified against that tag. Their line references describe 0.10.0 code.
+DEF-015 and DEF-016 were filed against the not-yet-pushed 0.10.0 (`438c041`) by the 2026-08-04 post-release review; both repros verified against that tag; both **resolved in 0.10.1** (2026-08-04). Their line references describe 0.10.0 code. DEF-017, discovered during the DEF-016 fix, remains `open` and rides the 0.11.0 train together with DEF-011's read fast path and DEF-012's O(log n) queries.
 
 Status values: `open`, `in-progress`, `fixed`, `wontfix`.
 
