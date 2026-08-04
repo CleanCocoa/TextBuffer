@@ -1,8 +1,8 @@
 # Defect Tracker
 
-Defects filed against 0.9.1 (`5cf2638`; found at 0.9.0 by the 2026-07-29 four-agent review of the M2 gap-closure fold `0.8.2..0.9.0`). **Resolved in 0.10.0** (2026-08-04) except the two explicitly deferred halves: DEF-011's read fast path (benchmark-driven) and DEF-012's O(log n) queries (M3 Rope Queries). Line references in the defect bodies describe the 0.9.1 code they were filed against.
+Defects filed against 0.9.1 (`5cf2638`; found at 0.9.0 by the 2026-07-29 four-agent review of the M2 gap-closure fold `0.8.2..0.9.0`). **Resolved in 0.10.0** (2026-08-04) except the two explicitly deferred halves — DEF-011's read fast path and DEF-012's O(log n) queries — both since resolved on the 0.11.0 train (see below); nothing remains deferred. Line references in the defect bodies describe the 0.9.1 code they were filed against.
 
-DEF-015 and DEF-016 were filed against the not-yet-pushed 0.10.0 (`438c041`) by the 2026-08-04 post-release review; both repros verified against that tag; both **resolved in 0.10.1** (2026-08-04). Their line references describe 0.10.0 code. DEF-017, discovered during the DEF-016 fix, was **fixed on the 0.11.0 train** (2026-08-04, change `fix-delete-merge-starvation`); DEF-011's read fast path followed on the same train (2026-08-04, change `perf-read-fast-path`), leaving only DEF-012's O(log n) queries (M3 Rope Queries) deferred.
+DEF-015 and DEF-016 were filed against the not-yet-pushed 0.10.0 (`438c041`) by the 2026-08-04 post-release review; both repros verified against that tag; both **resolved in 0.10.1** (2026-08-04). Their line references describe 0.10.0 code. DEF-017, discovered during the DEF-016 fix, was **fixed on the 0.11.0 train** (2026-08-04, change `fix-delete-merge-starvation`); DEF-011's read fast path followed on the same train (2026-08-04, change `perf-read-fast-path`), and DEF-012's O(log n) queries closed last on the same train (2026-08-04, change `rope-log-queries`) — no defect or defect half remains open or deferred.
 
 Status values: `open`, `in-progress`, `fixed`, `wontfix`.
 
@@ -18,7 +18,7 @@ Status values: `open`, `in-progress`, `fixed`, `wontfix`.
 | DEF-004 | Decided 2026-08-01: enforce the trap. Tasks join `fix-composed-sequence-reads` (owns the navigation spec delta). |
 | DEF-006 | Decided 2026-08-01: (a) NSRange → ADR-013, `foundation-free-textrope` change to be authored, lands last; (b) replace spec amended to observable behavior, rides that change; (c) `Node+Merge.swift` extracted in `fix-rope-split-point`, disclosed; Purpose-TBD headers fold into `docs-rope-disclosure`. |
 | DEF-011 (read fast path) | ~~Deferred — benchmark-driven; interacts with `fix-composed-sequence-reads`~~ Resolved 2026-08-04 by `perf-read-fast-path` |
-| DEF-012 (O(log n) queries) | Deferred — M3 Rope Queries |
+| DEF-012 (O(log n) queries) | ~~Deferred — M3 Rope Queries~~ Resolved 2026-08-04 by `rope-log-queries` |
 
 Implementation order constraint: `fix-rope-cow-and-equality-coverage` before `perf-rope-equality-and-bulk-insert` (both touch the Equatable requirement and `TextRopeEqualityTests.swift`; the perf change's spec delta rebases on the former's archive).
 
@@ -171,11 +171,13 @@ Fixed 2026-08-03 (`3f4b8e4`, change `perf-rope-equality-and-bulk-insert`): three
 - ~~`unsafeCharacter(at:)` ~5× slower post-`9570025` (window materialization + NSString bridge + two descents per call); no fast path for the common non-surrogate/non-mark case. Deferred — benchmark-driven.~~ Resolved 2026-08-04 (`fd7f2c0`, change `perf-read-fast-path`): conservative printable-ASCII simple-cluster fast path in `composedCharacterSequence(at:)` — one 3-unit block read; when the offset and both existing neighbors are in `0x20...0x7E`, the single-unit string is returned with no window materialization and no `NSString` bridge; anything else (including CR/LF) falls through to the windowed path unchanged. Measured (release, min-of-3, 20k-call batch): ASCII ~1 MiB per-call 1,492 → 289 ns (5.2× faster; vs `MutableStringBuffer` 10.52× → 2.81×); emoji-heavy and regional-indicator documents unchanged within variance (3,012 → 2,887 and 8,808 → 7,767 ns/call). Pinned by the `RopeReadPerformanceTests` size-independence ratio (1 MiB vs 4 MiB batch, measured 1.11×, bound 2×) and the mixed-content every-offset drift sweep.
 - ~~Huge inserts into a non-root leaf are quadratic: repeated `splitLeaf` copies the whole tail each round (`TextRope+Insert.swift:37-44`); the root-leaf path already re-chunks in one pass — mirror it.~~ Resolved 2026-08-03: dissolved by `fix-rope-split-point`'s single-pass re-chunk; pinned linear by `3f4b8e4`'s perf-ratio test (1 MiB → 4 MiB ratio 4.01).
 
-### DEF-012: `lineRange`/`wordRange` O(n) vs public large-document claim — `open` (docs half fixed; O(log n) queries deferred to M3)
+### DEF-012: `lineRange`/`wordRange` O(n) vs public large-document claim — `fixed`
 
 Tagged `[M3 Rope Queries]` at `RopeBuffer.swift:44` and `TextAnalysisCapable.swift:46`, but the default `lineRange` at `TextAnalysisCapable.swift:51-55` (the one `SendableRopeBuffer` inherits) is untagged, and `RopeBuffer.swift:6-7` DocC still claims superiority for "very large documents" without caveat.
 
-Docs half fixed 2026-08-03 (`8158875`, change `docs-rope-disclosure`): third marker on the inherited default; DocC recommendation scoped to editing with the materialization exception named on both rope buffers. The O(log n) implementations remain M3 Rope Queries.
+Docs half fixed 2026-08-03 (`8158875`, change `docs-rope-disclosure`): third marker on the inherited default; DocC recommendation scoped to editing with the materialization exception named on both rope buffers. ~~The O(log n) implementations remain M3 Rope Queries.~~
+
+Queries half fixed 2026-08-04 (`544d811`, change `rope-log-queries`): both queries now run as windowed `TextRope` extensions in the TextBuffer target — `lineRange` via bidirectional 128-unit block-walks over `utf16CodeUnits(in:)` with exact `NSString.lineRange(for:)` delimiter semantics (LF, CR, CRLF longest-match, NEL, LS, PS), `wordRange` via the unchanged `computeWordRange` over an expanding window that doubles on edge-touch or an inconclusive whitespace scan. Explicit overrides on **both** `RopeBuffer` and `SendableRopeBuffer` (the latter previously inherited the O(n) defaults); per-call cost O(log n + result length); all three `[M3 Rope Queries]` markers and both DocC O(n) caveats removed. Results pinned observation-identical to `MutableStringBuffer` by the text-analysis drift zoo; size independence pinned by the 1 MiB vs 4 MiB ratio tests (`RopeBufferQueryPerformanceTests`, measured before → after: `lineRange` 3.99× → 1.06×, `wordRange` 2.19× → 1.02×, bound 2.0×).
 
 ### DEF-013: CHANGELOG 0.9.0 gaps — `fixed`
 
