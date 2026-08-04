@@ -216,13 +216,15 @@ A seam repair recombines existing content and is subject to the same bounds regi
 The byte bounds `[minChunkUTF8, maxChunkUTF8]` MUST hold for every leaf whenever a conforming `Character` boundary exists. They MAY be violated only under **boundary starvation** — when no `Character` boundary yields a conforming split — and then only minimally:
 
 - A leaf's chunk MAY exceed `maxChunkUTF8` only when the chunk is a **single grapheme cluster** larger than `maxChunkUTF8`. The cluster occupies one whole-cluster leaf of whatever size it needs. There is no fixed byte cap on the excess and no scalar-boundary fallback.
-- A leaf's chunk MAY fall below `minChunkUTF8` only when, for **each** adjacent sibling leaf `S`, both of the following hold:
+- A leaf's chunk MAY fall below `minChunkUTF8` only when, for **each** adjacent leaf `S`, both of the following hold:
   - `leaf.chunk.utf8.count + S.chunk.utf8.count > maxChunkUTF8` — merging outright is impossible, and
   - the combined slice has no `Character` boundary at any UTF-8 offset in `[max(minChunkUTF8, count - maxChunkUTF8), min(maxChunkUTF8, count - minChunkUTF8)]` — redistribution to two conforming chunks is impossible.
 
+**Adjacency in the starvation predicate is defined over the document-order leaf sequence** — the flattened in-order enumeration of every leaf in the tree. A leaf's adjacent leaves are its predecessor and successor in that sequence, **whether or not they share the leaf's parent node**: which inner node groups two adjacent leaves is a batching artifact and has no bearing on whether their bytes could be repartitioned conformingly. Producers MUST satisfy the predicate under this definition — an undersized leaf at its parent's edge whose document-order neighbor under an adjacent subtree could conformingly absorb it violates the bounds exactly as a same-parent shape does.
+
 A rope whose entire content is smaller than `minChunkUTF8` is exempt: a single-leaf root has no size floor.
 
-Starvation is provable per leaf from the tree alone, so tree-invariant validation MUST judge every out-of-bounds leaf against these exact predicates — no fuzzy tolerance constants. A leaf that violates the bounds without satisfying its starvation predicate is a defect and MUST be reported. Seam validation has no starvation carve-out: a seam inside a grapheme cluster is unconditionally a violation.
+Starvation is provable per leaf from the tree alone, so tree-invariant validation MUST judge every out-of-bounds leaf against these exact predicates — no fuzzy tolerance constants, over document-order adjacency as defined above. A leaf that violates the bounds without satisfying its starvation predicate is a defect and MUST be reported. Seam validation has no starvation carve-out: a seam inside a grapheme cluster is unconditionally a violation.
 
 #### Scenario: Split points never fall inside a grapheme cluster
 - **WHEN** any leaf chunk is produced by construction, by a split on insert overflow, or by redistribution during a merge
@@ -250,10 +252,10 @@ Starvation is provable per leaf from the tree alone, so tree-invariant validatio
 
 #### Scenario: Undersized leaf is only permitted when provably starved
 - **WHEN** a leaf's chunk is below `minChunkUTF8` in a rope whose root is an inner node
-- **THEN** for every adjacent sibling leaf, the combined size SHALL exceed `maxChunkUTF8` **and** the combined slice SHALL have no `Character` boundary inside its legal redistribution window
+- **THEN** for every adjacent leaf in the document-order leaf sequence — whether or not it shares the leaf's parent — the combined size SHALL exceed `maxChunkUTF8` **and** the combined slice SHALL have no `Character` boundary inside its legal redistribution window
 
 #### Scenario: Two leaves that could merge are never left undersized
-- **WHEN** a leaf is below `minChunkUTF8` and an adjacent sibling's chunk brings the combined size to at most `maxChunkUTF8`
+- **WHEN** a leaf is below `minChunkUTF8` and an adjacent leaf's chunk brings the combined size to at most `maxChunkUTF8`
 - **THEN** the two SHALL have been merged into one leaf — leaving both is a violation
 
 #### Scenario: A 2049-byte combination straddled by a 4-byte scalar
