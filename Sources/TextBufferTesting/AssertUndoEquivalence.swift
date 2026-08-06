@@ -59,7 +59,15 @@ public func assertUndoEquivalence(
     for (index, step) in steps.enumerated() {
         applyStep(step, to: reference)
         applyStep(step, to: subject)
+        // The `String` assertion prints readable text on failure; the byte assertion decides
+        // fidelity. A failure that trips only the byte assertion is specifically a
+        // normalization or canonical-ordering divergence, which `String ==` cannot see.
         XCTAssertEqual(reference.content, subject.content, "Content diverged at step \(index): \(step)", file: file, line: line)
+        XCTAssertEqual(
+            Array(reference.content.utf8), Array(subject.content.utf8),
+            "Content diverged in UTF-8 code units at step \(index): \(step) — String-equal but byte-unequal means a normalization or canonical-ordering divergence",
+            file: file, line: line
+        )
         XCTAssertEqual(reference.selectedRange, subject.selectedRange, "Selection diverged at step \(index): \(step)", file: file, line: line)
     }
 }
@@ -113,7 +121,14 @@ public func assertUndoEquivalence(
     for (index, step) in steps.enumerated() {
         applyStep(step, to: reference)
         applyStep(step, to: &subject)
+        // See the `Undoable`/`TransferableUndoable` overload: the `String` assertion is for
+        // readable output, the byte assertion for fidelity.
         XCTAssertEqual(reference.content, subject.content, "Content diverged at step \(index): \(step)", file: file, line: line)
+        XCTAssertEqual(
+            Array(reference.content.utf8), Array(subject.content.utf8),
+            "Content diverged in UTF-8 code units at step \(index): \(step) — String-equal but byte-unequal means a normalization or canonical-ordering divergence",
+            file: file, line: line
+        )
         XCTAssertEqual(reference.selectedRange, subject.selectedRange, "Selection diverged at step \(index): \(step)", file: file, line: line)
     }
 }

@@ -16,7 +16,16 @@ final class RopeBufferDriftTests: XCTestCase {
     }
 
     func assertDriftMatch(_ pair: BufferPair, message: String = "", file: StaticString = #filePath, line: UInt = #line) {
+        // The `String` assertion stays for its readable failure output; the byte assertion
+        // decides fidelity. Keeping both localizes the diagnosis: `String ==` is canonical
+        // equivalence, so a failure that trips only the byte assertion is specifically a
+        // normalization or canonical-ordering divergence on the rope side.
         XCTAssertEqual(pair.rb.content, pair.msb.content, file: file, line: line)
+        XCTAssertEqual(
+            Array(pair.rb.content.utf8), Array(pair.msb.content.utf8),
+            "content is String-equal but byte-unequal: a normalization or canonical-ordering divergence between RopeBuffer and the MutableStringBuffer oracle",
+            file: file, line: line
+        )
         let msg = message.isEmpty
             ? "RopeBuffer=\(pair.rb.selectedRange) vs MutableStringBuffer=\(pair.msb.selectedRange)"
             : "\(message): RopeBuffer=\(pair.rb.selectedRange) vs MutableStringBuffer=\(pair.msb.selectedRange)"
@@ -539,5 +548,29 @@ final class RopeBufferDriftTests: XCTestCase {
         try pair.msb.delete(in: .init(location: 2, length: 3))
         try pair.rb.delete(in: .init(location: 2, length: 3))
         assertDriftMatch(pair, message: "After delete")
+    }
+
+    // MARK: - Equality dialect (DEF-018)
+
+    /// The two `Buffer` conformers are meant to be interchangeable, but before
+    /// `fix-equality-contract` they answered oppositely on a canonical reorder:
+    /// `MutableStringBuffer.==` goes through `NSString.isEqual` (code-unit) while
+    /// `RopeBuffer.==` fell through `TextRope.==` to Swift `String ==` (canonical).
+    func testEqualityDialectAgreesWithOracleOnCanonicallyReorderedContent() {
+        // Same three scalars, different canonical order (U+0323 ccc 220, U+0301 ccc 230).
+        let first = "e\u{301}\u{323}"
+        let second = "e\u{323}\u{301}"
+
+        XCTAssertTrue(first == second, "premise: Swift String == reports the two contents equal")
+        XCTAssertNotEqual(Array(first.utf8), Array(second.utf8), "premise: the two contents differ in UTF-8 code units")
+
+        XCTAssertNotEqual(
+            MutableStringBuffer(first), MutableStringBuffer(second),
+            "the NSString-backed oracle has always answered unequal here"
+        )
+        XCTAssertNotEqual(
+            RopeBuffer(first), RopeBuffer(second),
+            "RopeBuffer must agree with the oracle — this is the cross-buffer drift named in DEF-018"
+        )
     }
 }

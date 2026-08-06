@@ -143,4 +143,116 @@ final class TextRopeEqualityTests: XCTestCase {
         XCTAssertEqual(a, b)
         XCTAssertEqual(a, a)
     }
+
+    // MARK: - Equality dialect: code units, not canonical equivalence (DEF-018)
+
+    func testCanonicallyReorderedCombiningMarksAreNotEqual() {
+        // U+0323 COMBINING DOT BELOW has ccc 220, U+0301 COMBINING ACUTE ACCENT has ccc 230,
+        // so these are the same three scalars in different canonical order: byte-different,
+        // canonically equivalent, and identical in every summary field.
+        let a = TextRope("e\u{301}\u{323}")
+        let b = TextRope("e\u{323}\u{301}")
+
+        // Premises, asserted so the test cannot silently degrade into a different case.
+        XCTAssertEqual(a.root.summary.utf8, 5)
+        XCTAssertEqual(a.root.summary.utf16, 3)
+        XCTAssertEqual(a.root.summary.lines, 0)
+        XCTAssertEqual(b.root.summary.utf8, 5)
+        XCTAssertEqual(b.root.summary.utf16, 3)
+        XCTAssertEqual(b.root.summary.lines, 0)
+        XCTAssertEqual(
+            a.root.summary, b.root.summary,
+            "the summaries must match, or the tier-2 early-out would decide this pair and tier 3 would never run"
+        )
+        XCTAssertTrue(a.root !== b.root, "independent constructions must not share a root, or tier 1 would decide this pair")
+        XCTAssertTrue(
+            a.content == b.content,
+            "premise: Swift String == reports these contents equal — that is exactly the canonical dialect this test rejects"
+        )
+        XCTAssertNotEqual(
+            Array(a.content.utf8), Array(b.content.utf8),
+            "premise: the two contents differ in their UTF-8 code units"
+        )
+
+        XCTAssertNotEqual(a, b)
+        XCTAssertNotEqual(b, a)
+    }
+
+    /// Pin, not a red-first case: this pair is already unequal before `fix-equality-contract`
+    /// because the tier-2 summary early-out decides it. Its passing is therefore no evidence
+    /// that tier 3 changed — `testCanonicallyReorderedCombiningMarksAreNotEqual` is that evidence.
+    func testNFCAndNFDContentAreNotEqual() {
+        let precomposed = TextRope("é")           // U+00E9
+        let decomposed = TextRope("e\u{301}")     // U+0065 U+0301
+
+        XCTAssertEqual(precomposed.root.summary.utf8, 2)
+        XCTAssertEqual(precomposed.root.summary.utf16, 1)
+        XCTAssertEqual(decomposed.root.summary.utf8, 3)
+        XCTAssertEqual(decomposed.root.summary.utf16, 2)
+        XCTAssertNotEqual(
+            precomposed.root.summary, decomposed.root.summary,
+            "the summaries must differ, or this pin has stopped documenting the early-out path"
+        )
+        XCTAssertTrue(
+            precomposed.content == decomposed.content,
+            "premise: Swift String == reports these contents equal"
+        )
+
+        XCTAssertNotEqual(precomposed, decomposed)
+    }
+
+    // MARK: - The two named predicates
+
+    func testCanonicallyEquivalentPairsAreCanonicallyEquivalent() {
+        let reorderedA = TextRope("e\u{301}\u{323}")
+        let reorderedB = TextRope("e\u{323}\u{301}")
+        XCTAssertTrue(reorderedA.isCanonicallyEquivalent(to: reorderedB))
+        XCTAssertTrue(reorderedB.isCanonicallyEquivalent(to: reorderedA))
+        XCTAssertNotEqual(reorderedA, reorderedB)
+
+        let precomposed = TextRope("é")
+        let decomposed = TextRope("e\u{301}")
+        XCTAssertTrue(precomposed.isCanonicallyEquivalent(to: decomposed))
+        XCTAssertTrue(decomposed.isCanonicallyEquivalent(to: precomposed))
+        XCTAssertNotEqual(precomposed, decomposed)
+
+        // Identical code units: true from both relations.
+        let sameA = TextRope(multiLeafContent)
+        let sameB = TextRope(multiLeafContent)
+        XCTAssertTrue(sameA.root !== sameB.root, "independent constructions must not share a root")
+        XCTAssertTrue(sameA.isCanonicallyEquivalent(to: sameB))
+        XCTAssertEqual(sameA, sameB)
+
+        // Neither code-unit equal nor canonically equivalent: false from both.
+        let ab = TextRope("ab")
+        let ba = TextRope("ba")
+        XCTAssertFalse(ab.isCanonicallyEquivalent(to: ba))
+        XCTAssertNotEqual(ab, ba)
+    }
+
+    func testTriviallyIdenticalHoldsForCopiesSharingARoot() {
+        let a = TextRope(multiLeafContent)
+        let b = a
+
+        XCTAssertTrue(a.root === b.root, "an unmutated copy must share its root, the precondition of the predicate")
+        XCTAssertTrue(a.isTriviallyIdentical(to: b))
+        XCTAssertTrue(b.isTriviallyIdentical(to: a))
+        XCTAssertEqual(a, b)
+    }
+
+    func testTriviallyIdenticalIsFalseAfterCOWDivergenceWithEqualContent() {
+        let a = TextRope(multiLeafContent)
+        var b = a
+
+        b.insert("intruder", at: 2000)
+        b.delete(in: 2000..<2008)
+
+        XCTAssertTrue(a.root !== b.root, "mutation must have unshared the roots, or there is no divergence to pin")
+        XCTAssertEqual(Array(a.content.utf8), Array(b.content.utf8), "the mutation sequence must restore the original code units exactly")
+
+        // Both halves in one test: the contract is one-directional only if `false`
+        // and `==` are asserted together.
+        XCTAssertFalse(a.isTriviallyIdentical(to: b))
+        XCTAssertEqual(a, b)
+    }
 }

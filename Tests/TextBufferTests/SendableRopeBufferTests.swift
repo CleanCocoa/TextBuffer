@@ -464,6 +464,24 @@ final class SendableRopeBufferTests: XCTestCase {
         XCTAssertTrue(byAll(a, b))
     }
 
+    /// One dialect end to end (DEF-018): `.content` goes through `TextRope.==` and
+    /// `.undoHistory` through `OperationLog.==`; before `fix-equality-contract` both
+    /// bottomed out in Swift `String ==` and reported this pair equal.
+    func testContentAndUndoHistoryComparisonsSpeakOneDialect() throws {
+        var a = SendableRopeBuffer("")
+        try a.insert("e\u{301}\u{323}", at: 0)
+        var b = SendableRopeBuffer("")
+        try b.insert("e\u{323}\u{301}", at: 0)
+
+        XCTAssertTrue(a.content == b.content, "premise: Swift String == reports the two contents equal")
+        XCTAssertNotEqual(Array(a.content.utf8), Array(b.content.utf8), "premise: the two contents differ in UTF-8 code units")
+        XCTAssertEqual(a.selectedRange, b.selectedRange, "premise: selection is not what distinguishes this pair")
+
+        XCTAssertFalse(SendableRopeBuffer.comparator(.content)(a, b), "content must be compared in code units")
+        XCTAssertFalse(SendableRopeBuffer.comparator(.undoHistory)(a, b), "recorded operations must be compared in code units")
+        XCTAssertFalse(SendableRopeBuffer.comparator(.content, .undoHistory)(a, b))
+    }
+
     // MARK: - CustomStringConvertible
 
     func testDescriptionWithInsertionPoint() {

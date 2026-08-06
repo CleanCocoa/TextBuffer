@@ -468,4 +468,105 @@ final class OperationLogTests: XCTestCase {
         XCTAssertEqual(redo1?.actionName, "Insert")
         XCTAssertEqual(log.undoableCount, 1)
     }
+
+    // MARK: - Equality dialect (DEF-018)
+
+    func testCanonicallyEquivalentOperationPayloadsAreNotEqual() {
+        XCTAssertTrue("é" == "e\u{301}", "premise: Swift String == reports the NFC and NFD payloads equal")
+        XCTAssertTrue("e\u{301}\u{323}" == "e\u{323}\u{301}", "premise: Swift String == reports the reordered payloads equal")
+
+        XCTAssertNotEqual(
+            BufferOperation(kind: .insert(content: "é", at: 0)),
+            BufferOperation(kind: .insert(content: "e\u{301}", at: 0)),
+            "recorded text is compared in code units, not by canonical equivalence"
+        )
+
+        let range = NSRange(location: 0, length: 3)
+        XCTAssertNotEqual(
+            BufferOperation(kind: .replace(range: range, oldContent: "e\u{301}\u{323}", newContent: "x")),
+            BufferOperation(kind: .replace(range: range, oldContent: "e\u{323}\u{301}", newContent: "x")),
+            "oldContent is compared in code units"
+        )
+        XCTAssertNotEqual(
+            BufferOperation(kind: .replace(range: range, oldContent: "x", newContent: "e\u{301}\u{323}")),
+            BufferOperation(kind: .replace(range: range, oldContent: "x", newContent: "e\u{323}\u{301}")),
+            "newContent is compared in code units"
+        )
+        XCTAssertNotEqual(
+            BufferOperation(kind: .delete(range: range, deletedContent: "e\u{301}\u{323}")),
+            BufferOperation(kind: .delete(range: range, deletedContent: "e\u{323}\u{301}")),
+            "deletedContent is compared in code units"
+        )
+    }
+
+    /// Standing guard for the hand-written `BufferOperation.Kind.==`, which — unlike a
+    /// synthesized conformance — does not automatically cover fields added later. Vary
+    /// exactly one payload at a time, holding the rest fixed.
+    func testEveryPayloadOfEveryKindParticipatesInEquality() {
+        let range = NSRange(location: 2, length: 4)
+        let otherRange = NSRange(location: 3, length: 4)
+
+        // .insert(content:at:)
+        XCTAssertEqual(
+            BufferOperation.Kind.insert(content: "abc", at: 1),
+            BufferOperation.Kind.insert(content: "abc", at: 1),
+            "the fixture must be equal when nothing varies, or the varied cases prove nothing"
+        )
+        XCTAssertNotEqual(
+            BufferOperation.Kind.insert(content: "abc", at: 1),
+            BufferOperation.Kind.insert(content: "abd", at: 1),
+            "insert: content participates"
+        )
+        XCTAssertNotEqual(
+            BufferOperation.Kind.insert(content: "abc", at: 1),
+            BufferOperation.Kind.insert(content: "abc", at: 2),
+            "insert: offset participates"
+        )
+
+        // .delete(range:deletedContent:)
+        XCTAssertEqual(
+            BufferOperation.Kind.delete(range: range, deletedContent: "abcd"),
+            BufferOperation.Kind.delete(range: range, deletedContent: "abcd")
+        )
+        XCTAssertNotEqual(
+            BufferOperation.Kind.delete(range: range, deletedContent: "abcd"),
+            BufferOperation.Kind.delete(range: otherRange, deletedContent: "abcd"),
+            "delete: range participates"
+        )
+        XCTAssertNotEqual(
+            BufferOperation.Kind.delete(range: range, deletedContent: "abcd"),
+            BufferOperation.Kind.delete(range: range, deletedContent: "abce"),
+            "delete: deletedContent participates"
+        )
+
+        // .replace(range:oldContent:newContent:)
+        XCTAssertEqual(
+            BufferOperation.Kind.replace(range: range, oldContent: "abcd", newContent: "wxyz"),
+            BufferOperation.Kind.replace(range: range, oldContent: "abcd", newContent: "wxyz")
+        )
+        XCTAssertNotEqual(
+            BufferOperation.Kind.replace(range: range, oldContent: "abcd", newContent: "wxyz"),
+            BufferOperation.Kind.replace(range: otherRange, oldContent: "abcd", newContent: "wxyz"),
+            "replace: range participates"
+        )
+        XCTAssertNotEqual(
+            BufferOperation.Kind.replace(range: range, oldContent: "abcd", newContent: "wxyz"),
+            BufferOperation.Kind.replace(range: range, oldContent: "abce", newContent: "wxyz"),
+            "replace: oldContent participates"
+        )
+        XCTAssertNotEqual(
+            BufferOperation.Kind.replace(range: range, oldContent: "abcd", newContent: "wxyz"),
+            BufferOperation.Kind.replace(range: range, oldContent: "abcd", newContent: "wxya"),
+            "replace: newContent participates"
+        )
+
+        // Cross-case: no two different cases are equal, in either direction.
+        let insert = BufferOperation.Kind.insert(content: "abcd", at: 2)
+        let delete = BufferOperation.Kind.delete(range: range, deletedContent: "abcd")
+        let replace = BufferOperation.Kind.replace(range: range, oldContent: "abcd", newContent: "wxyz")
+        for (lhs, rhs) in [(insert, delete), (delete, replace), (insert, replace)] {
+            XCTAssertNotEqual(lhs, rhs)
+            XCTAssertNotEqual(rhs, lhs)
+        }
+    }
 }

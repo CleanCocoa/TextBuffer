@@ -8,6 +8,10 @@ public struct UndoGroup: Sendable, Equatable {
     public internal(set) var operations: [BufferOperation]
     public internal(set) var selectionBefore: NSRange
     public internal(set) var selectionAfter: NSRange?
+    /// Deliberately outside the code-unit equality dialect that ``BufferOperation/Kind``
+    /// enforces: this is a user-facing menu label, not recorded document text, so the
+    /// synthesized `Equatable` compares it with Swift `String ==` — a canonically
+    /// equivalent action name names the same command.
     public internal(set) var actionName: String?
 
     public init(
