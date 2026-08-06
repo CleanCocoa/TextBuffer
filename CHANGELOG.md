@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **`TextRope` equality is now UTF-8 code-unit equality** — and with it `RopeBuffer`, `SendableRopeBuffer`, and the operation log, which all delegate to it. Previously `==` was a hybrid: an O(1) summary early-out over UTF-8, UTF-16, and line counts, falling through to Swift `String ==`, which decides by Unicode *canonical equivalence*. The affected input class is narrow and exact: contents that are canonically equivalent, code-unit different, **and** identical in all three counts — in practice combining-mark runs differing only in canonical order, such as `"e\u{301}\u{323}"` versus `"e\u{323}\u{301}"` — now compare **unequal** where they previously compared equal. NFC-versus-NFD pairs (`"é"` versus `"e\u{301}"`) were already unequal via the count-based early-out and are unaffected. This **aligns `RopeBuffer` with `MutableStringBuffer`**, whose `NSString`-backed equality has always answered unequal on those inputs, so it removes a cross-buffer divergence rather than introducing one — the two `Buffer` conformers are meant to be interchangeable. The reason is congruence over an offset-addressed API: canonically equivalent contents can differ in `utf16Count`, so `==` under the old relation did not imply that two values behave identically under the same operation at the same offset. Callers who want the previous semantics have a one-line migration to `isCanonicallyEquivalent(to:)`. The same dialect now applies inside `BufferOperation.Kind`, whose recorded text payloads are compared as UTF-8 code units, so `SendableRopeBuffer.comparator(.content, .undoHistory)` no longer answers one component canonically and the other in code units.
+
+### Added
+
+- `TextRope.isCanonicallyEquivalent(to:)` — the render-equality question ("would these two show the same glyphs?"), with Swift `String ==` semantics. `==` implies it; the converse does not. O(*n*) with no summary early-out and no streaming form available, since no summary field is normalization-invariant and normalization is not chunk-local — the expensive predicate, not one to call per keystroke.
+- `TextRope.isTriviallyIdentical(to:)` — an O(1) check for whether two values share the same underlying storage, which is exactly equality's first tier. The contract is one-directional: `true` implies `==`, `false` implies **nothing** (two ropes holding identical code units report `false` once copy-on-write has given them separate roots). An affirmative fast path for dirty tracking and change detection; never read a `false` result as inequality.
+
 ## 0.11.0
 
 ### Fixed
